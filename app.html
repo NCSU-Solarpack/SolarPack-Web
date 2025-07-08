@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>SolarPack App</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&display=swap" rel="stylesheet" />
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+	<style>
+		:root {
+			--bg: #0e0e0e;
+			--card: #181818;
+			--txt: #ffffff;
+			--subtxt: #cecece;
+			--accent: #e53935;
+			--radius: 8px;
+		}
+		body {
+			margin: 0;
+			font-family: "DM Sans", system-ui, sans-serif;
+			background: var(--bg);
+			color: var(--txt);
+		}
+		.header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 1.5rem 2rem 1rem;
+			background: var(--card);
+		}
+		.logo {
+			height: 48px;
+			width: 48px;
+			background: #222;
+			border-radius: 50%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-family: "Bebas Neue", sans-serif;
+			font-size: 2rem;
+			color: var(--accent);
+			margin-right: 1.2rem;
+		}
+		.nav {
+			display: flex;
+			gap: 1.2rem;
+		}
+		.nav a {
+			color: var(--txt);
+			text-decoration: none;
+			font-weight: 600;
+			padding: 0.4rem 0.9rem;
+			border-radius: var(--radius);
+			transition: background 0.15s;
+		}
+		.nav a.active, .nav a:hover {
+			background: var(--accent);
+			color: #fff;
+		}
+		.section {
+			background: var(--card);
+			border-radius: var(--radius);
+			padding: 2rem 1.5rem;
+			margin: 2.5rem auto 0;
+			max-width: 700px;
+			box-shadow: 0 1px 6px #0003;
+		}
+		.footer {
+			text-align: center;
+			color: #888;
+			font-size: 1rem;
+			margin: 3.5rem 0 1.5rem;
+		}
+	</style>
+</head>
+<body>
+	<header class="header">
+		<div class="logo" style="background:none;padding:0;margin-right:1.2rem;box-shadow:none;">
+			<img src="assets/images/solarpack_logo.png" alt="SolarPack Logo" style="height:44px;width:44px;object-fit:contain;display:block;background:none;border-radius:0;" />
+		</div>
+		<nav class="nav">
+			<a href="index.html">Home</a>
+			<a href="app.html" class="active">App</a>
+			<a href="team.html">Team</a>
+			<a href="alumni.html">Alumni</a>
+			<a href="donate.html">Donate</a>
+			<a href="blog.html">Blog</a>
+			<a href="contact.html">Contact</a>
+		</nav>
+	</header>
+	<main>
+		<section class="section" style="text-align:center;">
+			<img src="assets/images/app_hero.png" alt="SolarPack App Hero" style="width:100%;max-width:420px;border-radius:var(--radius);box-shadow:0 2px 16px #0005;margin:0 auto 2rem;display:block;background:#222;" />
+
+			<!-- Carousel Start -->
+			<div id="carousel" style="position:relative;max-width:340px;margin:0 auto 2rem;">
+				<img id="carousel-img" src="assets/images/iphone-app/Iphone1.png" alt="App Screenshot" style="width:100%;border-radius:var(--radius);box-shadow:0 2px 16px #0005;background:#222;transition:opacity 0.4s;" />
+				<button id="carousel-prev" aria-label="Previous" style="position:absolute;top:50%;left:0;transform:translateY(-50%);background:rgba(0,0,0,0.4);border:none;color:#fff;font-size:2rem;padding:0 0.7rem;border-radius:50%;cursor:pointer;">&#8249;</button>
+				<button id="carousel-next" aria-label="Next" style="position:absolute;top:50%;right:0;transform:translateY(-50%);background:rgba(0,0,0,0.4);border:none;color:#fff;font-size:2rem;padding:0 0.7rem;border-radius:50%;cursor:pointer;">&#8250;</button>
+			</div>
+			<script>
+			const images = [
+				"assets/images/iphone-app/Iphone1.png",
+				"assets/images/iphone-app/Iphone2.png",
+				"assets/images/iphone-app/Iphone3.png",
+				"assets/images/iphone-app/Iphone4.png",
+				"assets/images/iphone-app/Iphone5.png"
+			];
+			let current = 0;
+			const img = document.getElementById('carousel-img');
+			document.getElementById('carousel-prev').onclick = function() {
+				current = (current - 1 + images.length) % images.length;
+				img.style.opacity = 0.3;
+				setTimeout(() => { img.src = images[current]; img.style.opacity = 1; }, 200);
+			};
+			document.getElementById('carousel-next').onclick = function() {
+				current = (current + 1) % images.length;
+				img.style.opacity = 0.3;
+				setTimeout(() => { img.src = images[current]; img.style.opacity = 1; }, 200);
+			};
+			</script>
+			<!-- Carousel End -->
+
+			<a href="https://apps.apple.com/us/app/your-app-id" target="_blank" style="display:inline-block;margin-bottom:2rem;">
+				<img src="assets/images/app_store.png" alt="Download on the App Store" style="height:60px;width:auto;box-shadow:none;background:none;" />
+			</a>
+			<h1 style="font-family:'Bebas Neue',sans-serif;font-size:3rem;color:var(--accent);margin-bottom:1.2rem;">SolarPack App</h1>
+			<p style="color:var(--subtxt);font-size:1.2rem;max-width:600px;margin:0 auto 1.5rem;">Welcome to the SolarPack App page! Here you'll find information about our mobile and web applications, features, and how to get involved as a user or developer.</p>
+			<ul style="color:var(--txt);font-size:1.1rem;max-width:600px;margin:1.5rem auto 0;line-height:1.7;">
+				<li>Track the latest vehicle data and team progress</li>
+				<li>Access exclusive app features for team members</li>
+				<li>Learn how to contribute to our open-source projects</li>
+				<li>Stay up to date with app releases and updates</li>
+			</ul>
+		</section>
+	</main>
+	<footer class="footer">
+		&copy; 2025 SolarPack · NC State Solar Vehicle Team. All rights reserved.
+	</footer>
+</body>
+</html>
