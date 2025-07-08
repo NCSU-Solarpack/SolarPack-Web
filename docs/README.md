@@ -241,13 +241,4 @@ Specify your license here (e.g., MIT, Apache 2.0, etc.).
 
 ---
 
-## Contact
-
-For questions, suggestions, or partnership inquiries:
-- Email: [your-email@example.com]
-- Website: [https://solarpack.org](https://solarpack.org)
-- Social: [Twitter](#), [LinkedIn](#)
-
----
-
 Thank you for supporting SolarPack!
