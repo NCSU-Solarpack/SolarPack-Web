@@ -92,48 +92,29 @@
 	</header>
 	<main>
 		<section class="section" style="text-align:center;">
-			<img src="assets/images/app_hero.png" alt="SolarPack App Hero" style="width:100%;max-width:420px;border-radius:var(--radius);box-shadow:0 2px 16px #0005;margin:0 auto 2rem;display:block;background:#222;" />
-
-			<!-- Carousel Start -->
-			<div id="carousel" style="position:relative;max-width:340px;margin:0 auto 2rem;">
-				<img id="carousel-img" src="assets/images/iphone-app/Iphone1.png" alt="App Screenshot" style="width:100%;border-radius:var(--radius);box-shadow:0 2px 16px #0005;background:#222;transition:opacity 0.4s;" />
-				<button id="carousel-prev" aria-label="Previous" style="position:absolute;top:50%;left:0;transform:translateY(-50%);background:rgba(0,0,0,0.4);border:none;color:#fff;font-size:2rem;padding:0 0.7rem;border-radius:50%;cursor:pointer;">&#8249;</button>
-				<button id="carousel-next" aria-label="Next" style="position:absolute;top:50%;right:0;transform:translateY(-50%);background:rgba(0,0,0,0.4);border:none;color:#fff;font-size:2rem;padding:0 0.7rem;border-radius:50%;cursor:pointer;">&#8250;</button>
-			</div>
-			<script>
-			const images = [
-				"assets/images/iphone-app/Iphone1.png",
-				"assets/images/iphone-app/Iphone2.png",
-				"assets/images/iphone-app/Iphone3.png",
-				"assets/images/iphone-app/Iphone4.png",
-				"assets/images/iphone-app/Iphone5.png"
-			];
-			let current = 0;
-			const img = document.getElementById('carousel-img');
-			document.getElementById('carousel-prev').onclick = function() {
-				current = (current - 1 + images.length) % images.length;
-				img.style.opacity = 0.3;
-				setTimeout(() => { img.src = images[current]; img.style.opacity = 1; }, 200);
-			};
-			document.getElementById('carousel-next').onclick = function() {
-				current = (current + 1) % images.length;
-				img.style.opacity = 0.3;
-				setTimeout(() => { img.src = images[current]; img.style.opacity = 1; }, 200);
-			};
-			</script>
-			<!-- Carousel End -->
-
-			<a href="https://apps.apple.com/us/app/your-app-id" target="_blank" style="display:inline-block;margin-bottom:2rem;">
-				<img src="assets/images/app_store.png" alt="Download on the App Store" style="height:60px;width:auto;box-shadow:none;background:none;" />
-			</a>
 			<h1 style="font-family:'Bebas Neue',sans-serif;font-size:3rem;color:var(--accent);margin-bottom:1.2rem;">SolarPack App</h1>
-			<p style="color:var(--subtxt);font-size:1.2rem;max-width:600px;margin:0 auto 1.5rem;">Welcome to the SolarPack App page! Here you'll find information about our mobile and web applications, features, and how to get involved as a user or developer.</p>
-			<ul style="color:var(--txt);font-size:1.1rem;max-width:600px;margin:1.5rem auto 0;line-height:1.7;">
+			<p style="color:var(--subtxt);font-size:1.2rem;max-width:600px;margin:0 auto 2.2rem;">Welcome to the SolarPack App page! Here you'll find information about our mobile and web applications, features, and how to get involved as a user or developer.</p>
+			<ul style="color:var(--txt);font-size:1.1rem;max-width:600px;margin:1.5rem auto 2.5rem;line-height:1.7;">
 				<li>Track the latest vehicle data and team progress</li>
 				<li>Access exclusive app features for team members</li>
 				<li>Learn how to contribute to our open-source projects</li>
 				<li>Stay up to date with app releases and updates</li>
 			</ul>
+			<a href="https://apps.apple.com/us/app/your-app-id" target="_blank" style="display:inline-block;margin-bottom:2.5rem;">
+				<img src="assets/images/app_store.png" alt="Download on the App Store" style="height:60px;width:auto;box-shadow:none;background:none;" />
+			</a>
+
+			<!-- App Screenshots Grid -->
+			<div style="display:flex;justify-content:center;margin-top:2.5rem;">
+				<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1.5rem;max-width:700px;width:100%;">
+					<img src="assets/images/iphone-app/Iphone1.png" alt="App Screenshot 1" style="width:100%;max-width:180px;border-radius:var(--radius);box-shadow:0 2px 16px #0005;background:#222;" />
+					<img src="assets/images/iphone-app/Iphone2.png" alt="App Screenshot 2" style="width:100%;max-width:180px;border-radius:var(--radius);box-shadow:0 2px 16px #0005;background:#222;" />
+					<img src="assets/images/iphone-app/Iphone3.png" alt="App Screenshot 3" style="width:100%;max-width:180px;border-radius:var(--radius);box-shadow:0 2px 16px #0005;background:#222;" />
+					<img src="assets/images/iphone-app/Iphone4.png" alt="App Screenshot 4" style="width:100%;max-width:180px;border-radius:var(--radius);box-shadow:0 2px 16px #0005;background:#222;" />
+					<img src="assets/images/iphone-app/Iphone5.png" alt="App Screenshot 5" style="width:100%;max-width:180px;border-radius:var(--radius);box-shadow:0 2px 16px #0005;background:#222;" />
+				</div>
+			</div>
+			<!-- End App Screenshots Grid -->
 		</section>
 	</main>
 	<footer class="footer">
