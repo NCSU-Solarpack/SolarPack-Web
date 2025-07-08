@@ -21,12 +21,16 @@
 		.contact-info { color: var(--subtxt); font-size: 1.1rem; margin-bottom: 1.5rem; }
 		.contact-socials a { color: var(--accent); margin: 0 0.5rem; font-size: 1.5rem; }
 		.contact-socials a:hover { color: #fff; }
-		.footer { text-align: center; color: #888; font-size: 1rem; margin: 3.5rem 0 1.5rem; }
+	.footer { text-align: center; color: #888; font-size: 1rem; margin: 3.5rem 0 1.5rem; }
+	.contact-info a[href^="mailto"] { color: var(--accent); text-decoration: underline; }
+	.contact-info a[href^="mailto"]:hover { color: #fff; }
 	</style>
 </head>
 <body>
 	<header class="header">
-		<div class="logo">SC</div>
+		<div class="logo" style="background:none;padding:0;margin-right:1.2rem;box-shadow:none;">
+		  <img src="assets/images/solarpack_logo.png" alt="SolarPack Logo" style="height:44px;width:44px;object-fit:contain;display:block;background:none;border-radius:0;" />
+		</div>
 		<nav class="nav">
 			<a href="index.html">Home</a>
 			<a href="team.html">Team</a>
