@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Solar Car Club · Team</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&display=swap" rel="stylesheet" />
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+	<style>
+		:root { --bg: #0e0e0e; --card: #181818; --txt: #fff; --subtxt: #cecece; --accent: #e53935; --radius: 8px; }
+		body { margin: 0; font-family: "DM Sans", system-ui, sans-serif; background: var(--bg); color: var(--txt); }
+		.header { display: flex; align-items: center; justify-content: space-between; padding: 1.5rem 2rem 1rem; background: var(--card); }
+		.logo { height: 48px; width: 48px; background: #222; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: "Bebas Neue", sans-serif; font-size: 2rem; color: var(--accent); margin-right: 1.2rem; }
+		.nav { display: flex; gap: 1.2rem; }
+		.nav a { color: var(--txt); text-decoration: none; font-weight: 600; padding: 0.4rem 0.9rem; border-radius: var(--radius); transition: background 0.15s; }
+		.nav a.active, .nav a:hover { background: var(--accent); color: #fff; }
+		h1 { font-family: "Bebas Neue", sans-serif; font-size: clamp(2.5rem, 7vw, 4.5rem); letter-spacing: 0.04em; margin: 2.5rem 0 0.5rem; text-align: center; }
+		.team-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2rem; max-width: 900px; margin: 2.5rem auto 0; }
+		.member-card { background: var(--card); border-radius: var(--radius); box-shadow: 0 1px 6px #0003; padding: 2rem 1.2rem 1.2rem; text-align: center; }
+		.member-img { width: 90px; height: 90px; border-radius: 50%; background: #222; object-fit: cover; margin-bottom: 1rem; }
+		.member-name { font-family: "Bebas Neue", sans-serif; font-size: 1.5rem; color: var(--accent); margin-bottom: 0.2rem; }
+		.member-role { color: var(--subtxt); font-size: 1.1rem; margin-bottom: 0.7rem; }
+		.member-socials a { color: var(--accent); margin: 0 0.4rem; font-size: 1.2rem; }
+		.member-socials a:hover { color: #fff; }
+		.footer { text-align: center; color: #888; font-size: 1rem; margin: 3.5rem 0 1.5rem; }
+	</style>
+</head>
+<body>
+	<header class="header">
+		<div class="logo">SC</div>
+		<nav class="nav">
+			<a href="index.html">Home</a>
+			<a href="team.html" class="active">Team</a>
+			<a href="sponsors.html">Sponsors</a>
+			<a href="alumni.html">Alumni</a>
+			<a href="donate.html">Donate</a>
+			<a href="blog.html">Blog</a>
+			<a href="contact.html">Contact</a>
+		</nav>
+	</header>
+	<main>
+		<h1>Meet the Team</h1>
+		<div class="team-grid">
+			<!-- Example member card -->
+			<div class="member-card">
+				<img src="member-placeholder.png" alt="Member Photo" class="member-img" />
+				<div class="member-name">Alex Kim</div>
+				<div class="member-role">Team Captain</div>
+				<div class="member-socials">
+					<a href="#"><i class="fab fa-linkedin"></i></a>
+					<a href="#"><i class="fab fa-github"></i></a>
+				</div>
+			</div>
+			<!-- Add more member cards as needed -->
+		</div>
+	</main>
+	<footer class="footer">&copy; 2025 Solar Car Club. All rights reserved.</footer>
+</body>
+</html>

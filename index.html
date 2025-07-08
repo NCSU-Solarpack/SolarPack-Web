@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Solar Car Club · Home</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&display=swap" rel="stylesheet" />
+	<style>
+		:root {
+			--bg: #0e0e0e;
+			--card: #181818;
+			--txt: #ffffff;
+			--subtxt: #cecece;
+			--accent: #e53935;
+			--radius: 8px;
+		}
+		body {
+			margin: 0;
+			font-family: "DM Sans", system-ui, sans-serif;
+			background: var(--bg);
+			color: var(--txt);
+		}
+		.header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 1.5rem 2rem 1rem;
+			background: var(--card);
+		}
+		.logo {
+			height: 48px;
+			width: 48px;
+			background: #222;
+			border-radius: 50%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-family: "Bebas Neue", sans-serif;
+			font-size: 2rem;
+			color: var(--accent);
+			margin-right: 1.2rem;
+		}
+		.nav {
+			display: flex;
+			gap: 1.2rem;
+		}
+		.nav a {
+			color: var(--txt);
+			text-decoration: none;
+			font-weight: 600;
+			padding: 0.4rem 0.9rem;
+			border-radius: var(--radius);
+			transition: background 0.15s;
+		}
+		.nav a.active, .nav a:hover {
+			background: var(--accent);
+			color: #fff;
+		}
+		.hero {
+			text-align: center;
+			margin: 3.5rem 0 2.5rem;
+		}
+		h1 {
+			font-family: "Bebas Neue", sans-serif;
+			font-size: clamp(2.5rem, 7vw, 4.5rem);
+			letter-spacing: 0.04em;
+			margin: 0 0 0.5rem;
+		}
+		.subtitle {
+			color: var(--subtxt);
+			font-size: 1.3rem;
+			margin-bottom: 2.5rem;
+		}
+		.img-hero {
+			width: 100%;
+			max-width: 420px;
+			border-radius: var(--radius);
+			box-shadow: 0 2px 16px #0005;
+			margin: 2rem auto 1.5rem;
+			display: block;
+			background: #222;
+		}
+		.section {
+			background: var(--card);
+			border-radius: var(--radius);
+			padding: 2rem 1.5rem;
+			margin: 2.5rem auto 0;
+			max-width: 700px;
+			box-shadow: 0 1px 6px #0003;
+		}
+		.socials {
+			display: flex;
+			justify-content: center;
+			gap: 1.2rem;
+			margin: 2.5rem 0 0;
+		}
+		.socials a {
+			color: var(--accent);
+			font-size: 2rem;
+			transition: color 0.15s;
+		}
+		.socials a:hover {
+			color: #fff;
+		}
+		.footer {
+			text-align: center;
+			color: #888;
+			font-size: 1rem;
+			margin: 3.5rem 0 1.5rem;
+		}
+	</style>
+	<!-- Font Awesome for icons -->
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+</head>
+<body>
+	<header class="header">
+		<div class="logo">SC</div>
+		<nav class="nav">
+			<a href="index.html" class="active">Home</a>
+			<a href="team.html">Team</a>
+			<a href="sponsors.html">Sponsors</a>
+			<a href="alumni.html">Alumni</a>
+			<a href="donate.html">Donate</a>
+			<a href="blog.html">Blog</a>
+			<a href="contact.html">Contact</a>
+		</nav>
+	</header>
+	<main>
+		<section class="hero">
+			<h1>Solar Car Club</h1>
+			<div class="subtitle">Building the future of electric vehicles, one sunbeam at a time.</div>
+			<img src="logo-placeholder.png" alt="Club Logo" class="img-hero" />
+		</section>
+		<section class="section">
+			<h2>About Us</h2>
+			<p>
+				We are a passionate team of students and engineers dedicated to designing, building, and racing solar-powered electric vehicles. Our mission is to innovate, inspire, and drive the future of sustainable transportation.
+			</p>
+		</section>
+		<div class="socials">
+			<a href="#" title="Instagram"><i class="fab fa-instagram"></i></a>
+			<a href="#" title="Twitter"><i class="fab fa-x-twitter"></i></a>
+			<a href="#" title="LinkedIn"><i class="fab fa-linkedin"></i></a>
+			<a href="#" title="YouTube"><i class="fab fa-youtube"></i></a>
+			<a href="#" title="Facebook"><i class="fab fa-facebook"></i></a>
+			<!-- Add more socials as needed -->
+		</div>
+	</main>
+	<footer class="footer">
+		&copy; 2025 Solar Car Club. All rights reserved.
+	</footer>
+</body>
+</html>
