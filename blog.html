@@ -55,21 +55,24 @@ fetch('blogs/index.json')
 	// Sort by date (oldest to newest)
 	posts.sort((a, b) => new Date(a.date) - new Date(b.date));
 	const list = document.getElementById('blog-list');
-	list.innerHTML = posts.map(post => `
-	  <a href="blogs/${post.filename}" style="text-decoration:none;color:inherit;">
-		<div class="blog-preview" style="display:flex;align-items:center;gap:1.5rem;cursor:pointer;background:var(--card);border-radius:var(--radius);box-shadow:0 1px 6px #0003;padding:1.2rem 1.2rem 1.2rem 0;margin-bottom:2rem;transition:box-shadow 0.15s;">
-		  <img src="blogs/${post.image}" alt="${post.title}" style="width:90px;height:90px;object-fit:cover;border-radius:8px;margin-left:1.2rem;background:#222;flex-shrink:0;">
-		  <div style="flex:1;">
-			<div style="display:flex;align-items:center;justify-content:space-between;">
-			  <div class="blog-title" style="margin-bottom:0;">${post.title}</div>
-			  <span style="color:var(--subtxt);font-size:0.98rem;">${post.readTime}</span>
+	list.innerHTML = posts.map(post => {
+	  const hasImage = post.image && post.image.trim() !== '';
+	  return `
+		<a href="blogs/${post.filename}" style="text-decoration:none;color:inherit;">
+		  <div class="blog-preview" style="display:flex;align-items:center;gap:1.5rem;cursor:pointer;background:var(--card);border-radius:var(--radius);box-shadow:0 1px 6px #0003;padding:1.2rem 1.2rem 1.2rem 0;margin-bottom:2rem;transition:box-shadow 0.15s;">
+			${hasImage ? `<img src="${post.image}" alt="${post.title}" style="width:90px;height:90px;object-fit:cover;border-radius:8px;margin-left:1.2rem;background:#222;flex-shrink:0;">` : ''}
+			<div style="flex:1;">
+			  <div style="display:flex;align-items:center;justify-content:space-between;">
+				<div class="blog-title" style="margin-bottom:0;">${post.title}</div>
+				<span style="color:var(--subtxt);font-size:0.98rem;">${post.readTime}</span>
+			  </div>
+			  <div class="blog-meta">${post.date} &middot; by ${post.author}${post.updated ? ` &middot; Updated: ${post.updated}` : ''}</div>
+			  <div style="color:var(--subtxt);font-size:1.08rem;">${post.preview}</div>
 			</div>
-			<div class="blog-meta">${post.date} &middot; by ${post.author}${post.updated ? ` &middot; Updated: ${post.updated}` : ''}</div>
-			<div style="color:var(--subtxt);font-size:1.08rem;">${post.preview}</div>
 		  </div>
-		</div>
-	  </a>
-	`).join('');
+		</a>
+	  `;
+	}).join('');
   });
 </script>
 </body>
