@@ -119,8 +119,8 @@
 </head>
 <body>
 	<header class="header">
-<div class="logo" style="padding:0;background:#222;overflow:hidden;">
-  <img src="assets/images/solarpack_logo.png" alt="SolarPack Logo" style="height:44px;width:44px;object-fit:contain;border-radius:50%;background:#222;display:block;" />
+<div class="logo" style="background:none;padding:0;margin-right:1.2rem;box-shadow:none;">
+  <img src="assets/images/solarpack_logo.png" alt="SolarPack Logo" style="height:44px;width:44px;object-fit:contain;display:block;background:none;border-radius:0;" />
 </div>
 		<nav class="nav">
 			<a href="index.html" class="active">Home</a>
@@ -134,7 +134,7 @@
 	</header>
 	<main>
 		<section class="hero">
-<img src="assets/images/solarpack_logo.gif" alt="SolarPack Logo" class="img-hero" style="max-width:320px;" />
+<img src="assets/images/solarpack_logo.gif" alt="SolarPack Logo" class="img-hero" style="max-width:320px;background:transparent;box-shadow:none;" />
 			<h1 style="margin-top:1.2rem;">SolarPack</h1>
 			<div class="subtitle" style="font-size:1.25rem;">Solar Vehicle Team at NC State</div>
 			<p style="color:var(--subtxt);max-width:600px;margin:1.2rem auto 0;">
@@ -150,32 +150,37 @@
 			</p>
 		</section>
 
-		<section class="section" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:2.2rem 1.5rem;max-width:900px;">
-<div style="text-align:center;">
-  <ion-icon name="earth-outline" style="font-size:3.2rem;color:var(--accent);margin-bottom:0.5rem;"></ion-icon>
-  <h3 style="color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:1.3rem;margin-bottom:0.3rem;">Global Impact</h3>
-  <p style="color:var(--subtxt);font-size:1.05rem;">We're showing the world that solar energy can power a multi-occupancy car. By building a vehicle no one has seen before, we hope to prove that sustainability and power can go hand in hand.</p>
-</div>
-<div style="text-align:center;">
-  <ion-icon name="cog-outline" style="font-size:3.2rem;color:var(--accent);margin-bottom:0.5rem;"></ion-icon>
-  <h3 style="color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:1.3rem;margin-bottom:0.3rem;">Engineering Excellence</h3>
-  <p style="color:var(--subtxt);font-size:1.05rem;">Our team thrives on creative problem solving. Members develop real-world skills as they tackle unique engineering challenges throughout our build process.</p>
-</div>
-<div style="text-align:center;">
-  <ion-icon name="bulb-outline" style="font-size:3.2rem;color:var(--accent);margin-bottom:0.5rem;"></ion-icon>
-  <h3 style="color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:1.3rem;margin-bottom:0.3rem;">Innovation</h3>
-  <p style="color:var(--subtxt);font-size:1.05rem;">Pioneering new solutions, our members are always innovating—using every resource to bring big ideas to life and push the boundaries of solar vehicle technology.</p>
-</div>
-<div style="text-align:center;">
-  <ion-icon name="hand-left-outline" style="font-size:3.2rem;color:var(--accent);margin-bottom:0.5rem;"></ion-icon>
-  <h3 style="color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:1.3rem;margin-bottom:0.3rem;">Collaboration</h3>
-  <p style="color:var(--subtxt);font-size:1.05rem;">We partner with companies and alumni to guide our journey, building strong relationships as we promote the future of energy-efficient vehicles.</p>
-</div>
-<div style="text-align:center;">
-  <ion-icon name="location-outline" style="font-size:3.2rem;color:var(--accent);margin-bottom:0.5rem;"></ion-icon>
-  <h3 style="color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:1.3rem;margin-bottom:0.3rem;">Rooted in the Triangle</h3>
-  <p style="color:var(--subtxt);font-size:1.05rem;">Proudly representing the Research Triangle, we embody the spirit of innovation and excellence that defines our region—driving forward as leaders in sustainable technology.</p>
-</div>
+<section class="section" style="max-width:900px;padding-bottom:2.5rem;">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:2.2rem 1.5rem;justify-items:center;">
+	<div style="text-align:center;width:100%;max-width:340px;">
+	  <ion-icon name="earth-outline" style="font-size:3.2rem;color:var(--accent);margin-bottom:0.7rem;"></ion-icon>
+	  <h3 style="color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:1.7rem;margin-bottom:0.7rem;letter-spacing:0.06em;line-height:1.2;">Global Impact</h3>
+	  <p style="color:var(--subtxt);font-size:1.13rem;line-height:1.7;margin-bottom:1.7rem;">We're showing the world that solar energy can power a multi-occupancy car. By building a vehicle no one has seen before, we hope to prove that sustainability and power can go hand in hand.</p>
+	</div>
+	<div style="text-align:center;width:100%;max-width:340px;">
+	  <ion-icon name="cog-outline" style="font-size:3.2rem;color:var(--accent);margin-bottom:0.7rem;"></ion-icon>
+	  <h3 style="color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:1.7rem;margin-bottom:0.7rem;letter-spacing:0.06em;line-height:1.2;">Engineering Excellence</h3>
+	  <p style="color:var(--subtxt);font-size:1.13rem;line-height:1.7;margin-bottom:1.7rem;">Our team thrives on creative problem solving. Members develop real-world skills as they tackle unique engineering challenges throughout our build process.</p>
+	</div>
+	<div style="text-align:center;width:100%;max-width:340px;">
+	  <ion-icon name="bulb-outline" style="font-size:3.2rem;color:var(--accent);margin-bottom:0.7rem;"></ion-icon>
+	  <h3 style="color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:1.7rem;margin-bottom:0.7rem;letter-spacing:0.06em;line-height:1.2;">Innovation</h3>
+	  <p style="color:var(--subtxt);font-size:1.13rem;line-height:1.7;margin-bottom:1.7rem;">Pioneering new solutions, our members are always innovating—using every resource to bring big ideas to life and push the boundaries of solar vehicle technology.</p>
+	</div>
+  </div>
+  <div style="display:flex;justify-content:center;gap:2.2rem;margin-top:2.2rem;">
+	<div style="text-align:center;width:100%;max-width:340px;">
+	  <ion-icon name="hand-left-outline" style="font-size:3.2rem;color:var(--accent);margin-bottom:0.7rem;"></ion-icon>
+	  <h3 style="color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:1.7rem;margin-bottom:0.7rem;letter-spacing:0.06em;line-height:1.2;">Collaboration</h3>
+	  <p style="color:var(--subtxt);font-size:1.13rem;line-height:1.7;margin-bottom:1.7rem;">We partner with companies and alumni to guide our journey, building strong relationships as we promote the future of energy-efficient vehicles.</p>
+	</div>
+	<div style="text-align:center;width:100%;max-width:340px;">
+	  <ion-icon name="location-outline" style="font-size:3.2rem;color:var(--accent);margin-bottom:0.7rem;"></ion-icon>
+	  <h3 style="color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:1.7rem;margin-bottom:0.7rem;letter-spacing:0.06em;line-height:1.2;">Rooted in the Triangle</h3>
+	  <p style="color:var(--subtxt);font-size:1.13rem;line-height:1.7;margin-bottom:1.7rem;">Proudly representing the Research Triangle, we embody the spirit of innovation and excellence that defines our region—driving forward as leaders in sustainable technology.</p>
+	</div>
+  </div>
+</section>
 		</section>
 
 		<div class="socials">
