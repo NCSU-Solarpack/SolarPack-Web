@@ -28,6 +28,9 @@ body {
     justify-content: space-between;
     padding: 1.5rem 2rem 1rem;
     background: var(--card);
+    transition: max-height 0.3s cubic-bezier(0.4,0,0.2,1), padding-bottom 0.3s cubic-bezier(0.4,0,0.2,1);
+    overflow: hidden;
+    max-height: 120px;
 }
 
 .logo {
@@ -83,20 +86,10 @@ body {
 
 .mobile-menu {
     display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    width: 100vw;
-    background: var(--card);
-    border-top: 1px solid #333;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    z-index: 9999;
-    padding-top: 64px; /* height of header */
 }
 
 .mobile-menu.active {
-    display: block;
+    display: none;
 }
 
 .mobile-menu .nav {
@@ -120,16 +113,47 @@ body {
 /* Mobile responsive navigation */
 @media (max-width: 768px) {
     .header {
+        flex-direction: column;
+        align-items: stretch;
         position: relative;
+        max-height: 120px;
+        padding-bottom: 1rem;
     }
-    
+    .header.expanded {
+        max-height: 600px;
+        padding-bottom: 0.5rem;
+    }
     .header .nav {
         display: none !important;
+        flex-direction: column;
+        gap: 0;
+        padding: 0;
+        margin: 0;
+        width: 100%;
     }
-    
+    .header.expanded .nav {
+        display: flex !important;
+        flex-direction: column;
+        gap: 0;
+        padding: 0.5rem 0 0.5rem 0;
+        margin: 0;
+        width: 100%;
+    }
+    .header .nav a {
+        padding: 1rem 2rem;
+        border-radius: 0;
+        border-bottom: 1px solid #333;
+        display: block;
+        text-align: left;
+        width: 100%;
+    }
+    .header .nav a:last-child {
+        border-bottom: none;
+    }
     .mobile-menu-toggle {
         display: block;
     }
+    .mobile-menu { display: none !important; }
 }
 </style>
 `;
@@ -199,45 +223,41 @@ function setActiveNavItem() {
 // Function to initialize mobile menu
 function initializeMobileMenu() {
     const menuToggle = document.getElementById('mobile-menu-toggle');
-    const mobileMenu = document.getElementById('mobile-menu');
-    
-    if (menuToggle && mobileMenu) {
+    const header = document.querySelector('.header');
+    const nav = header ? header.querySelector('.nav') : null;
+    if (menuToggle && header && nav) {
         menuToggle.addEventListener('click', function(e) {
             e.stopPropagation();
-            mobileMenu.classList.toggle('active');
-            
+            header.classList.toggle('expanded');
             // Update hamburger icon
             const icon = menuToggle.querySelector('i');
-            if (mobileMenu.classList.contains('active')) {
+            if (header.classList.contains('expanded')) {
                 icon.className = 'fas fa-times';
             } else {
                 icon.className = 'fas fa-bars';
             }
         });
-        
         // Close menu when clicking outside
         document.addEventListener('click', function(e) {
-            if (!mobileMenu.contains(e.target) && !menuToggle.contains(e.target)) {
-                mobileMenu.classList.remove('active');
+            if (!header.contains(e.target) && !menuToggle.contains(e.target)) {
+                header.classList.remove('expanded');
                 const icon = menuToggle.querySelector('i');
                 icon.className = 'fas fa-bars';
             }
         });
-        
         // Close menu when clicking on a link
-        const mobileNavLinks = mobileMenu.querySelectorAll('a');
-        mobileNavLinks.forEach(link => {
+        const navLinks = nav.querySelectorAll('a');
+        navLinks.forEach(link => {
             link.addEventListener('click', function() {
-                mobileMenu.classList.remove('active');
+                header.classList.remove('expanded');
                 const icon = menuToggle.querySelector('i');
                 icon.className = 'fas fa-bars';
             });
         });
-        
         // Close menu on window resize to desktop size
         window.addEventListener('resize', function() {
             if (window.innerWidth > 768) {
-                mobileMenu.classList.remove('active');
+                header.classList.remove('expanded');
                 const icon = menuToggle.querySelector('i');
                 icon.className = 'fas fa-bars';
             }
