@@ -121,8 +121,8 @@ body {
         position: relative;
     }
     
-    .nav {
-        display: none;
+    .header .nav {
+        display: none !important;
     }
     
     .mobile-menu-toggle {
