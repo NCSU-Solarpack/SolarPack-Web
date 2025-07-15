@@ -130,6 +130,9 @@ body {
         max-height: 600px;
         padding-bottom: 0.5rem;
     }
+    .header .logo {
+        margin-right: 1.2rem;
+    }
     .header .nav {
         display: none !important;
         flex-direction: column;
@@ -159,8 +162,23 @@ body {
     }
     .mobile-menu-toggle {
         display: block;
-        align-self: flex-end;
         margin-left: auto;
+        margin-right: 0;
+        align-self: center;
+        position: relative;
+        z-index: 2;
+    }
+    .header {
+        width: 100%;
+    }
+    .logo {
+        flex-shrink: 0;
+    }
+    .header {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
     }
     .mobile-menu { display: none !important; }
 }
