@@ -7,57 +7,12 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 	<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&display=swap" rel="stylesheet" />
+	
+	<!-- SolarPack Header Component -->
+	<script src="assets/js/header.js"></script>
+	
 	<style>
-		:root {
-			--bg: #0e0e0e;
-			--card: #181818;
-			--txt: #ffffff;
-			--subtxt: #cecece;
-			--accent: #e53935;
-			--radius: 8px;
-		}
-		body {
-			margin: 0;
-			font-family: "DM Sans", system-ui, sans-serif;
-			background: var(--bg);
-			color: var(--txt);
-		}
-		.header {
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			padding: 1.5rem 2rem 1rem;
-			background: var(--card);
-		}
-		.logo {
-			height: 48px;
-			width: 48px;
-			background: #222;
-			border-radius: 50%;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			font-family: "Bebas Neue", sans-serif;
-			font-size: 2rem;
-			color: var(--accent);
-			margin-right: 1.2rem;
-		}
-		.nav {
-			display: flex;
-			gap: 1.2rem;
-		}
-		.nav a {
-			color: var(--txt);
-			text-decoration: none;
-			font-weight: 600;
-			padding: 0.4rem 0.9rem;
-			border-radius: var(--radius);
-			transition: background 0.15s;
-		}
-		.nav a.active, .nav a:hover {
-			background: var(--accent);
-			color: #fff;
-		}
+		/* Page-specific styles */
   .hero {
 	text-align: center;
 	margin: 1.5rem 0 2.5rem;
@@ -118,20 +73,7 @@
   <script nomodule src="https://unpkg.com/ionicons@7.2.1/dist/ionicons/ionicons.js"></script>
 </head>
 <body>
-	<header class="header">
-<div class="logo" style="background:none;padding:0;margin-right:1.2rem;box-shadow:none;">
-  <img src="assets/images/solarpack_logo.png" alt="SolarPack Logo" style="height:44px;width:44px;object-fit:contain;display:block;background:none;border-radius:0;" />
-</div>
-		<nav class="nav">
-			<a href="index.html" class="active">Home</a>
-			<a href="app.html">App</a>
-			<a href="team.html">Team</a>
-			<a href="alumni.html">Alumni</a>
-			<a href="donate.html">Donate</a>
-			<a href="blog.html">Blog</a>
-			<a href="contact.html">Contact</a>
-		</nav>
-	</header>
+	<!-- Header will be automatically injected here by header.js -->
 	<main>
 <section class="hero" style="display:flex;align-items:center;justify-content:center;gap:2.5rem;flex-wrap:wrap;">
   <img src="assets/images/solarpack_logo.gif" alt="SolarPack Logo" style="max-width:320px;width:32vw;min-width:120px;background:transparent;box-shadow:none;display:block;" />
