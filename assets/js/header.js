@@ -83,14 +83,16 @@ body {
 
 .mobile-menu {
     display: none;
-    position: absolute;
-    top: 100%;
+    position: fixed;
+    top: 0;
     left: 0;
     right: 0;
+    width: 100vw;
     background: var(--card);
     border-top: 1px solid #333;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    z-index: 1000;
+    z-index: 9999;
+    padding-top: 64px; /* height of header */
 }
 
 .mobile-menu.active {

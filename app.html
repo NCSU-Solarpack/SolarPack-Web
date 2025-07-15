@@ -41,22 +41,70 @@
 				<img src="assets/images/app_store.png" alt="Download on the App Store" style="height:60px;width:auto;box-shadow:none;background:none;" />
 			</a>
 
-			<!-- App Screenshots Grid -->
-			<div style="width:100%;display:flex;justify-content:center;margin-top:2.5rem;">
-				<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1.5rem;max-width:700px;width:100%;justify-content:center;">
-					<img src="assets/images/iphone-app/Iphone2.png" alt="App Screenshot 2" style="width:100%;max-width:180px;border-radius:var(--radius);box-shadow:0 2px 16px #0005;background:#222;justify-self:center;" />
-					<img src="assets/images/iphone-app/Iphone3.png" alt="App Screenshot 3" style="width:100%;max-width:180px;border-radius:var(--radius);box-shadow:0 2px 16px #0005;background:#222;justify-self:center;" />
-					<img src="assets/images/iphone-app/Iphone4.png" alt="App Screenshot 4" style="width:100%;max-width:180px;border-radius:var(--radius);box-shadow:0 2px 16px #0005;background:#222;justify-self:center;" />
-					<img src="assets/images/iphone-app/Iphone5.png" alt="App Screenshot 5" style="width:100%;max-width:180px;border-radius:var(--radius);box-shadow:0 2px 16px #0005;background:#222;justify-self:center;" />
-					<img src="assets/images/iphone-app/Iphone1.png" alt="App Screenshot 1" style="width:100%;max-width:180px;border-radius:var(--radius);box-shadow:0 2px 16px #0005;background:#222;justify-self:center;" />
+			<!-- App Screenshots Grid: Responsive for iPhone/iPad -->
+			<div class="screenshots-container">
+				<!-- iPhone Screenshots (default, mobile) -->
+				<div class="screenshots-grid iphone-screens">
+					<img src="assets/images/iphone-app/Iphone2.png" alt="iPhone Screenshot 2" />
+					<img src="assets/images/iphone-app/Iphone3.png" alt="iPhone Screenshot 3" />
+					<img src="assets/images/iphone-app/Iphone4.png" alt="iPhone Screenshot 4" />
+					<img src="assets/images/iphone-app/Iphone5.png" alt="iPhone Screenshot 5" />
+					<img src="assets/images/iphone-app/Iphone1.png" alt="iPhone Screenshot 1" />
+				</div>
+				<!-- iPad Screenshots (hidden on mobile, shown on tablet/desktop) -->
+				<div class="screenshots-grid ipad-screens">
+					<img src="assets/images/ipad-app/Ipad 1.png" alt="iPad Screenshot 1" />
+					<img src="assets/images/ipad-app/Ipad 2.png" alt="iPad Screenshot 2" />
+					<img src="assets/images/ipad-app/Ipad 3.png" alt="iPad Screenshot 3" />
+					<img src="assets/images/ipad-app/Ipad 4.png" alt="iPad Screenshot 4" />
+					<img src="assets/images/ipad-app/Ipad 5.png" alt="iPad Screenshot 5" />
 				</div>
 			</div>
 			<!-- End App Screenshots Grid -->
-		</section>
-	</main>
-	<footer class="footer">
-		&copy; 2025 SolarPack · NC State Solar Vehicle Team. All rights reserved.<br />
-		<a href="privacy-policy.html" style="color:var(--accent);text-decoration:none;font-size:0.98rem;">Privacy Policy</a>
-	</footer>
-</body>
-</html>
+   <style>
+	   /* Page-specific styles */
+	   .section {
+		   background: var(--card);
+		   border-radius: var(--radius);
+		   padding: 2rem 1.5rem;
+		   margin: 2.5rem auto 0;
+		   max-width: 700px;
+		   box-shadow: 0 1px 6px #0003;
+	   }
+	   .footer {
+		   text-align: center;
+		   color: #888;
+		   font-size: 1rem;
+		   margin: 3.5rem 0 1.5rem;
+	   }
+	   .screenshots-container {
+		   width: 100%;
+		   display: flex;
+		   justify-content: center;
+		   margin-top: 2.5rem;
+	   }
+	   .screenshots-grid {
+		   display: grid;
+		   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+		   gap: 1.5rem;
+		   max-width: 700px;
+		   width: 100%;
+		   justify-content: center;
+	   }
+	   .screenshots-grid img {
+		   width: 100%;
+		   max-width: 220px;
+		   border-radius: var(--radius);
+		   box-shadow: 0 2px 16px #0005;
+		   background: #222;
+		   justify-self: center;
+	   }
+	   /* Show only iPhone screenshots by default */
+	   .ipad-screens { display: none; }
+	   .iphone-screens { display: grid; }
+	   /* On iPad/desktop (min-width: 769px), show iPad screenshots instead */
+	   @media (min-width: 769px) {
+		   .ipad-screens { display: grid; }
+		   .iphone-screens { display: none; }
+	   }
+   </style>
