@@ -128,15 +128,11 @@
       font-size: 3rem;
       color: var(--accent);
       margin-bottom: 0.5rem;
-      z-index: 1;
+      z-index: 0;
       position: relative;
     }
 
-    /* Ensure features section is below overlays/menus */
-    .features {
-      z-index: 1;
-      position: relative;
-    }
+    /* Remove z-index/position from .features to avoid stacking whole section above overlays */
 
     .socials {
       display: flex;
