@@ -17,6 +17,29 @@
 	text-align: center;
 	margin: 1.5rem 0 2.5rem;
   }
+  
+  .hero-content {
+	text-align: left;
+	min-width: 220px;
+	max-width: 480px;
+  }
+  
+  /* Mobile responsive hero section */
+  @media (max-width: 768px) {
+	.hero-content {
+		text-align: center !important;
+		max-width: 100%;
+	}
+	
+	.hero-content p {
+		max-width: 100% !important;
+		margin: 0 auto !important;
+	}
+	
+	.hero {
+		padding: 0 1rem;
+	}
+  }
 		h1 {
 			font-family: "Bebas Neue", sans-serif;
 			font-size: clamp(2.5rem, 7vw, 4.5rem);
@@ -77,7 +100,7 @@
 	<main>
 <section class="hero" style="display:flex;align-items:center;justify-content:center;gap:2.5rem;flex-wrap:wrap;">
   <img src="assets/images/solarpack_logo.gif" alt="SolarPack Logo" style="max-width:320px;width:32vw;min-width:120px;background:transparent;box-shadow:none;display:block;" />
-  <div style="text-align:left;min-width:220px;max-width:480px;">
+  <div class="hero-content">
 	<h1 style="margin:0 0 0.5rem 0;font-size:clamp(3.5rem,8vw,6.5rem);line-height:1.05;color:var(--accent);">SolarPack</h1>
 	<div class="subtitle" style="font-size:1.25rem;margin-bottom:1.2rem;">Solar Vehicle Team at NC State</div>
 	<p style="color:var(--subtxt);max-width:600px;margin:0;">
@@ -95,7 +118,7 @@
 </section>
 
 <section class="section" style="max-width:900px;padding-bottom:2.5rem;">
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:2.2rem 1.5rem;justify-items:center;">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:2.2rem;justify-items:center;">
 	<div style="text-align:center;width:100%;max-width:340px;">
 	  <ion-icon name="earth-outline" style="font-size:3.2rem;color:var(--accent);margin-bottom:0.7rem;"></ion-icon>
 	  <h3 style="color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:1.7rem;margin-bottom:0.7rem;letter-spacing:0.06em;line-height:1.2;">Global Impact</h3>
@@ -111,8 +134,6 @@
 	  <h3 style="color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:1.7rem;margin-bottom:0.7rem;letter-spacing:0.06em;line-height:1.2;">Innovation</h3>
 	  <p style="color:var(--subtxt);font-size:1.13rem;line-height:1.7;margin-bottom:1.7rem;">Pioneering new solutions, our members are always innovating—using every resource to bring big ideas to life and push the boundaries of solar vehicle technology.</p>
 	</div>
-  </div>
-  <div style="display:flex;justify-content:center;gap:2.2rem;margin-top:2.2rem;">
 	<div style="text-align:center;width:100%;max-width:340px;">
 	  <ion-icon name="hand-left-outline" style="font-size:3.2rem;color:var(--accent);margin-bottom:0.7rem;"></ion-icon>
 	  <h3 style="color:var(--accent);font-family:'Bebas Neue',sans-serif;font-size:1.7rem;margin-bottom:0.7rem;letter-spacing:0.06em;line-height:1.2;">Collaboration</h3>
