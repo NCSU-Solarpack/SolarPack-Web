@@ -1,77 +1,111 @@
-/* ─── SolarPack Header Component – v2 ───────────────────────────────────── *\
-   Injects responsive header with mobile‑first slide‑down nav
-\* ───────────────────────────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────
+   SolarPack Header  •  v3
+   Fully‑responsive navigation bar (desktop ⇄ mobile)
+   Drop this file in assets/js/header.js and reference it in <head>
+   Requires Font Awesome 6 for the bars / times icons.
+──────────────────────────────────────────────────────────────── */
 
 const headerCSS = /* css */ `
-:root {
+:root{
   --bg:       #0e0e0e;
   --surface:  #181818;
   --text:     #ffffff;
   --muted:    #c9c9c9;
   --accent:   #e53935;
   --radius:   10px;
-  --speed:    240ms;
+  --speed:    220ms;
 }
 
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:"DM Sans",system-ui,sans-serif;background:var(--bg);color:var(--text)}
 
+body{
+  font-family:"DM Sans",system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+
+/* ─── Header Bar ─────────────────────────────────────────── */
 .header{
-  position:sticky;top:0;z-index:1000;
-  display:flex;align-items:center;gap:1.2rem;
-  padding:1rem 1.6rem;
+  position:sticky;top:0;left:0;width:100%;z-index:999;
+  display:flex;align-items:center;
+  padding:.9rem 1.2rem;
   background:var(--surface);
-  box-shadow:0 1px 6px #0009;
+  box-shadow:0 1px 6px #0008;
 }
 
+/* logo */
 .logo{
-  display:flex;align-items:center;gap:.6rem;
-  text-decoration:none;color:var(--accent);
-  font-family:"Bebas Neue",sans-serif;font-size:2rem;letter-spacing:.05em;
+  display:flex;align-items:center;gap:.55rem;
+  color:var(--accent);text-decoration:none;
+  font-family:"Bebas Neue",sans-serif;font-size:2rem;letter-spacing:.04em;
 }
-
 .logo img{height:42px;width:42px;object-fit:contain}
 
+/* desktop / tablet nav */
 .nav{
-  display:flex;gap:1rem;margin-left:auto
+  margin-left:auto;
+  display:flex;align-items:center;gap:1.1rem;
 }
 .nav a{
-  text-decoration:none;color:var(--text);font-weight:600;
-  padding:.5rem .9rem;border-radius:var(--radius);
-  transition:background var(--speed) ease;
+  position:relative;
+  padding:.45rem .9rem;
+  font-weight:600;
+  color:var(--text);text-decoration:none;
+  border-radius:var(--radius);
+  transition:background var(--speed),color var(--speed);
 }
 .nav a:hover,.nav a.active{background:var(--accent);color:#fff}
 
-/* ── Hamburger ───────────────────── */
+/* ─── Hamburger ───────────────────────────────────────────── */
 .burger{
-  display:none;margin-left:auto;background:none;border:none;
-  font-size:1.9rem;color:var(--text);cursor:pointer;
-  transition:transform var(--speed) ease;
+  display:none;           /* hidden by default */
+  margin-left:auto;
+  border:none;background:none;padding:.25rem;
+  font-size:1.9rem;line-height:1;
+  color:var(--text);
+  cursor:pointer;
+  transition:transform var(--speed);
 }
 
-/* ── Slide‑down mobile menu ───────── */
+/* remove default focus outline + custom focus ring */
+.burger:focus{outline:none}
+.burger:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px;
+}
+
+/* ─── Mobile slide‑down panel ─────────────────────────────── */
 .mobile-panel{
-  position:fixed;top:0;left:0;width:100%;height:0;
-  overflow:hidden;
+  position:fixed;top:0;left:0;width:100%;
+  height:0;overflow:hidden;
   background:var(--surface);
   transition:height var(--speed) ease;
 }
 .mobile-panel.open{height:100vh}
-.m-nav{display:flex;flex-direction:column;padding:4.5rem 1.2rem;gap:.3rem}
+
+.m-nav{
+  display:flex;flex-direction:column;
+  padding:4.5rem 1.2rem 2rem;
+  gap:.2rem;
+}
 .m-nav a{
-  text-decoration:none;color:var(--text);font-weight:600;
   padding:1rem;border-radius:var(--radius);
+  font-weight:600;text-decoration:none;color:var(--text);
 }
 .m-nav a:hover,.m-nav a.active{background:var(--accent);color:#fff}
 
-/* ── Breakpoints ──────────────────── */
-@media (max-width:767px){        /* phones */
+/* ─── Breakpoints ─────────────────────────────────────────── */
+@media (max-width:767px){        /* mobile */
   .nav{display:none}
   .burger{display:block}
 }
-@media (min-width:768px) and (max-width:1023px){  /* tablets */
-  .header{flex-wrap:wrap;row-gap:.8rem}
-  .nav{flex:1 1 100%;justify-content:center}
+
+@media (min-width:768px) and (max-width:1023px){ /* tablet */
+  .header{padding:.9rem 1.6rem}
+  .nav{gap:.9rem}
+}
+
+@media (min-width:1024px){       /* desktop */
+  .header{padding:.9rem 2rem}
 }
 `;
 
@@ -94,11 +128,10 @@ const headerHTML = /* html */ `
   </nav>
 
   <button class="burger" id="burger" aria-label="Toggle navigation">
-    <i class="fas fa-bars"></i>
+    <i class="fas fa-bars" aria-hidden="true"></i>
   </button>
 </header>
 
-<!-- mobile slide‑down -->
 <div class="mobile-panel" id="mobile-panel">
   <nav class="m-nav">
     <a href="index.html"    data-page="index">Home</a>
@@ -114,11 +147,11 @@ const headerHTML = /* html */ `
 `;
 
 function initHeader(){
-  /* inject */
+  /* inject styles + markup */
   document.head.insertAdjacentHTML('beforeend', `<style>${headerCSS}</style>`);
   document.body.insertAdjacentHTML('afterbegin', headerHTML);
 
-  setActiveLink();
+  highlightActive();
 
   const burger = document.getElementById('burger');
   const panel  = document.getElementById('mobile-panel');
@@ -126,33 +159,36 @@ function initHeader(){
   burger.addEventListener('click', e=>{
     e.stopPropagation();
     const open = panel.classList.toggle('open');
-    burger.firstElementChild.className = open ? 'fas fa-times' : 'fas fa-bars';
+    burger.querySelector('i').className = open ? 'fas fa-times' : 'fas fa-bars';
+    document.body.style.overflow = open ? 'hidden' : '';  // lock scroll
   });
 
-  /* close panel on outside tap */
+  /* close panel on outside click */
   document.addEventListener('click', e=>{
-    if(!panel.contains(e.target) && !burger.contains(e.target)){
+    if(!panel.contains(e.target) && !burger.contains(e.target) && panel.classList.contains('open')){
       panel.classList.remove('open');
-      burger.firstElementChild.className = 'fas fa-bars';
+      burger.querySelector('i').className = 'fas fa-bars';
+      document.body.style.overflow='';
     }
   });
 
-  /* close on resize to desktop */
+  /* close on resize up to desktop */
   window.addEventListener('resize', ()=>{
-    if(window.innerWidth>767){
+    if(window.innerWidth>767 && panel.classList.contains('open')){
       panel.classList.remove('open');
-      burger.firstElementChild.className = 'fas fa-bars';
+      burger.querySelector('i').className = 'fas fa-bars';
+      document.body.style.overflow='';
     }
   });
 }
 
-/* highlight current page */
-function setActiveLink(){
+/* mark current page */
+function highlightActive(){
   const page = (location.pathname.split('/').pop() || 'index.html').replace('.html','');
   document.querySelectorAll('[data-page]').forEach(a=>{
-    if(a.dataset.page===page)a.classList.add('active');
+    if(a.dataset.page===page) a.classList.add('active');
   });
 }
 
 document.addEventListener('DOMContentLoaded', initHeader);
-window.SolarPackHeader = { init:initHeader, setActive:setActiveLink };
+window.SolarPackHeader = { init:initHeader, setActive:highlightActive };
