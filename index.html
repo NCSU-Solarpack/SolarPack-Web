@@ -158,6 +158,25 @@
       margin: 2rem 0 1rem;
     }
 
+    /* Carousel styles */
+    .carousel-container {
+      position: relative;
+      overflow: hidden;
+      margin-top: 1.5rem;
+    }
+
+    .carousel-track {
+      display: flex;
+      transition: transform 0.5s ease-in-out;
+      will-change: transform;
+    }
+
+    .carousel-track img {
+      min-width: 100%;
+      border-radius: var(--radius);
+      box-shadow: 0 2px 16px #0005;
+    }
+
     @media (max-width: 600px) {
       .hero-content {
         text-align: center;
@@ -210,6 +229,24 @@
         <ion-icon name="location-outline"></ion-icon>
         <h3>Rooted in the Triangle</h3>
         <p>Proudly representing the Research Triangle, we embody the spirit of innovation and excellence that defines our region—driving forward as leaders in sustainable technology.</p>
+      </div>
+    </section>
+
+    <!-- Race 2025 Image Carousel -->
+    <section class="section race-carousel">
+      <h2>2025 Race Highlights</h2>
+      <div class="carousel-container">
+        <div class="carousel-track">
+          <img src="assets/images/race2025/race2025_1.jpg" alt="Race 2025 Image 1">
+          <img src="assets/images/race2025/race2025_2.jpg" alt="Race 2025 Image 2">
+          <img src="assets/images/race2025/race2025_3.jpg" alt="Race 2025 Image 3">
+          <img src="assets/images/race2025/race2025_4.jpg" alt="Race 2025 Image 4">
+          <img src="assets/images/race2025/race2025_5.jpg" alt="Race 2025 Image 5">
+          <img src="assets/images/race2025/race2025_6.jpg" alt="Race 2025 Image 6">
+          <img src="assets/images/race2025/race2025_7.jpg" alt="Race 2025 Image 7">
+          <img src="assets/images/race2025/race2025_8.jpg" alt="Race 2025 Image 8">
+          <img src="assets/images/race2025/race2025_9.jpg" alt="Race 2025 Image 9">
+        </div>
       </div>
     </section>
 
