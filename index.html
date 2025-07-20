@@ -163,18 +163,88 @@
       position: relative;
       overflow: hidden;
       margin-top: 1.5rem;
+      width: 100%;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
     }
 
     .carousel-track {
       display: flex;
-      transition: transform 0.5s ease-in-out;
+      transition: transform 0.5s cubic-bezier(.77,0,.18,1);
       will-change: transform;
+      gap: 1.2rem;
+      padding: 0 2.5rem;
     }
 
     .carousel-track img {
-      min-width: 100%;
+      width: 320px;
+      height: 200px;
+      object-fit: cover;
       border-radius: var(--radius);
       box-shadow: 0 2px 16px #0005;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    .carousel-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(24,24,24,0.8);
+      color: var(--accent);
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      cursor: pointer;
+      z-index: 2;
+      transition: background 0.2s;
+    }
+    .carousel-arrow:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+    .carousel-arrow.left {
+      left: 10px;
+    }
+    .carousel-arrow.right {
+      right: 10px;
+    }
+
+    .carousel-dots {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.7rem;
+      margin-top: 1.2rem;
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 10px;
+      z-index: 1;
+    }
+
+    .carousel-dots .dot {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: #444;
+      opacity: 0.6;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+      border: 2px solid transparent;
+      display: inline-block;
+    }
+
+    .carousel-dots .dot.active {
+      background: var(--accent);
+      opacity: 1;
+      border-color: #fff;
     }
 
     @media (max-width: 600px) {
@@ -183,6 +253,28 @@
       }
       .hero img {
         max-width: 140px;
+      }
+      .carousel-track img {
+        width: 180px;
+        height: 110px;
+      }
+      .carousel-track {
+        gap: 0.7rem;
+        padding: 0 1.2rem;
+      }
+      .carousel-arrow {
+        width: 32px;
+        height: 32px;
+        font-size: 1.3rem;
+      }
+      .carousel-dots .dot {
+        width: 9px;
+        height: 9px;
+      }
+      .carousel-dots {
+        gap: 0.4rem;
+        margin-top: 0.7rem;
+        bottom: 4px;
       }
     }
   </style>
@@ -236,6 +328,7 @@
     <section class="section race-carousel">
       <h2>2025 Race Highlights</h2>
       <div class="carousel-container">
+        <button class="carousel-arrow left" aria-label="Previous"><i class="fas fa-chevron-left"></i></button>
         <div class="carousel-track">
           <img src="assets/images/race2025/race2025_1.jpg" alt="Race 2025 Image 1">
           <img src="assets/images/race2025/race2025_2.jpg" alt="Race 2025 Image 2">
@@ -246,6 +339,18 @@
           <img src="assets/images/race2025/race2025_7.jpg" alt="Race 2025 Image 7">
           <img src="assets/images/race2025/race2025_8.jpg" alt="Race 2025 Image 8">
           <img src="assets/images/race2025/race2025_9.jpg" alt="Race 2025 Image 9">
+        </div>
+        <button class="carousel-arrow right" aria-label="Next"><i class="fas fa-chevron-right"></i></button>
+        <div class="carousel-dots">
+          <span class="dot" data-index="0"></span>
+          <span class="dot" data-index="1"></span>
+          <span class="dot" data-index="2"></span>
+          <span class="dot" data-index="3"></span>
+          <span class="dot" data-index="4"></span>
+          <span class="dot" data-index="5"></span>
+          <span class="dot" data-index="6"></span>
+          <span class="dot" data-index="7"></span>
+          <span class="dot" data-index="8"></span>
         </div>
       </div>
     </section>
@@ -260,5 +365,73 @@
   <footer class="footer">
     &copy; 2025 SolarPack · NC State Solar Vehicle Team. All rights reserved.
   </footer>
+
+  <script>
+    // Carousel logic
+    document.addEventListener('DOMContentLoaded', function () {
+      const track = document.querySelector('.carousel-track');
+      const images = Array.from(track.children);
+      const leftBtn = document.querySelector('.carousel-arrow.left');
+      const rightBtn = document.querySelector('.carousel-arrow.right');
+      const dots = Array.from(document.querySelectorAll('.carousel-dots .dot'));
+      let currentIndex = 0;
+      const imgWidth = images[0].offsetWidth + parseInt(getComputedStyle(track).gap || 20);
+
+      function updateCarousel() {
+        // Show edges of previous/next images
+        const offset = -currentIndex * imgWidth + imgWidth * 0.3;
+        track.style.transform = `translateX(${offset}px)`;
+        dots.forEach((dot, i) => {
+          dot.classList.toggle('active', i === currentIndex);
+        });
+      }
+
+      function loopIndex(idx) {
+        if (idx < 0) return images.length - 1;
+        if (idx >= images.length) return 0;
+        return idx;
+      }
+
+      leftBtn.addEventListener('click', function () {
+        currentIndex = loopIndex(currentIndex - 1);
+        updateCarousel();
+      });
+      rightBtn.addEventListener('click', function () {
+        currentIndex = loopIndex(currentIndex + 1);
+        updateCarousel();
+      });
+
+      // Dot navigation
+      dots.forEach(dot => {
+        dot.addEventListener('click', function () {
+          currentIndex = parseInt(dot.dataset.index);
+          updateCarousel();
+        });
+      });
+
+      // Drag/Swipe support
+      let startX = null;
+      track.addEventListener('mousedown', e => startX = e.pageX);
+      track.addEventListener('mouseup', e => {
+        if (startX !== null) {
+          if (e.pageX < startX - 30) rightBtn.click();
+          else if (e.pageX > startX + 30) leftBtn.click();
+        }
+        startX = null;
+      });
+      track.addEventListener('touchstart', e => startX = e.touches[0].pageX);
+      track.addEventListener('touchend', e => {
+        if (startX !== null) {
+          const endX = e.changedTouches[0].pageX;
+          if (endX < startX - 30) rightBtn.click();
+          else if (endX > startX + 30) leftBtn.click();
+        }
+        startX = null;
+      });
+
+      window.addEventListener('resize', updateCarousel);
+      updateCarousel();
+    });
+  </script>
 </body>
 </html>
