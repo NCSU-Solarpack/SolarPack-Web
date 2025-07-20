@@ -14,12 +14,17 @@
 	
 	<style>
 		/* Page-specific styles */
+		:root {
+			--card: #1a1a1a;
+			--subtxt: #c9c9c9;
+		}
+		
 		.section {
 			background: var(--card);
 			border-radius: var(--radius);
 			padding: 2rem 1.5rem;
 			margin: 2.5rem auto 0;
-			max-width: 700px;
+			max-width: 1200px;
 			box-shadow: 0 1px 6px #0003;
 		}
 		
@@ -28,6 +33,210 @@
 			color: #888;
 			font-size: 1rem;
 			margin: 3.5rem 0 1.5rem;
+		}
+
+		/* App Screenshots Grid */
+		.screenshots-container {
+			width: 100%;
+			display: flex;
+			justify-content: center;
+			margin-top: 3rem;
+		}
+
+		.screenshots-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+			gap: 2rem;
+			max-width: 1200px;
+			width: 100%;
+			justify-content: center;
+			padding: 0 1rem;
+		}
+
+		.screenshot-card {
+			position: relative;
+			cursor: pointer;
+			transition: transform 0.3s ease, box-shadow 0.3s ease;
+			border-radius: var(--radius);
+			overflow: hidden;
+			background: #222;
+		}
+
+		.screenshot-card:hover {
+			transform: translateY(-8px) scale(1.02);
+			box-shadow: 0 12px 32px rgba(229, 57, 53, 0.3);
+		}
+
+		.screenshot-card img {
+			width: 100%;
+			height: auto;
+			max-width: 100%;
+			border-radius: var(--radius);
+			display: block;
+		}
+
+		.screenshot-overlay {
+			position: absolute;
+			bottom: 0;
+			left: 0;
+			right: 0;
+			background: linear-gradient(transparent, rgba(0,0,0,0.9));
+			color: white;
+			padding: 1.5rem;
+			transform: translateY(100%);
+			transition: transform 0.3s ease;
+		}
+
+		.screenshot-card:hover .screenshot-overlay {
+			transform: translateY(0);
+		}
+
+		.screenshot-title {
+			font-family: 'Bebas Neue', sans-serif;
+			font-size: 1.5rem;
+			color: var(--accent);
+			margin-bottom: 0.5rem;
+		}
+
+		.screenshot-preview {
+			font-size: 0.9rem;
+			color: #ccc;
+		}
+
+		/* Modal Styles */
+		.modal-overlay {
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: rgba(0, 0, 0, 0.9);
+			display: none;
+			justify-content: center;
+			align-items: center;
+			z-index: 1000;
+			padding: 2rem;
+		}
+
+		.modal-overlay.active {
+			display: flex;
+		}
+
+		.modal-content {
+			background: var(--surface);
+			border-radius: var(--radius);
+			max-width: 900px;
+			width: 100%;
+			max-height: 90vh;
+			overflow-y: auto;
+			position: relative;
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 2rem;
+			padding: 2rem;
+		}
+
+		.modal-image {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+		}
+
+		.modal-image img {
+			max-width: 100%;
+			max-height: 500px;
+			border-radius: var(--radius);
+			box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+		}
+
+		.modal-details {
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+		}
+
+		.modal-title {
+			font-family: 'Bebas Neue', sans-serif;
+			font-size: 2.5rem;
+			color: var(--accent);
+			margin-bottom: 1rem;
+		}
+
+		.modal-description {
+			color: var(--muted);
+			line-height: 1.6;
+			font-size: 1.1rem;
+			margin-bottom: 1.5rem;
+		}
+
+		.modal-features {
+			list-style: none;
+			padding: 0;
+		}
+
+		.modal-features li {
+			display: flex;
+			align-items: center;
+			margin-bottom: 0.8rem;
+			color: var(--text);
+		}
+
+		.modal-features li::before {
+			content: "✓";
+			color: var(--accent);
+			font-weight: bold;
+			margin-right: 0.8rem;
+			font-size: 1.2rem;
+		}
+
+		.close-btn {
+			position: absolute;
+			top: 1rem;
+			right: 1rem;
+			background: none;
+			border: none;
+			color: var(--text);
+			font-size: 2rem;
+			cursor: pointer;
+			transition: color 0.3s ease;
+			z-index: 1001;
+		}
+
+		.close-btn:hover {
+			color: var(--accent);
+		}
+
+		/* Responsive Design */
+		@media (max-width: 768px) {
+			.modal-content {
+				grid-template-columns: 1fr;
+				gap: 1.5rem;
+				padding: 1.5rem;
+			}
+
+			.modal-title {
+				font-size: 2rem;
+			}
+
+			.screenshots-grid {
+				grid-template-columns: 1fr;
+				gap: 1.5rem;
+			}
+
+			.section {
+				margin: 1.5rem auto 0;
+				padding: 1.5rem;
+			}
+		}
+
+		@media (max-width: 480px) {
+			.modal-overlay {
+				padding: 1rem;
+			}
+
+			.modal-content {
+				padding: 1rem;
+			}
 		}
 	</style>
 </head>
@@ -51,69 +260,197 @@
 				</a>
 			</div>
 			
-			<!-- App Screenshots Grid: Responsive for iPhone/iPad -->
+			<!-- App Screenshots Grid: Interactive iPad Screenshots -->
 			<div class="screenshots-container">
-				<!-- iPhone Screenshots (default, mobile) -->
-				<div class="screenshots-grid iphone-screens">
-					<img src="assets/images/iphone-app/Iphone2.png" alt="iPhone Screenshot 2" />
-					<img src="assets/images/iphone-app/Iphone3.png" alt="iPhone Screenshot 3" />
-					<img src="assets/images/iphone-app/Iphone4.png" alt="iPhone Screenshot 4" />
-					<img src="assets/images/iphone-app/Iphone5.png" alt="iPhone Screenshot 5" />
-					<img src="assets/images/iphone-app/Iphone1.png" alt="iPhone Screenshot 1" />
-				</div>
-				<!-- iPad Screenshots (hidden on mobile, shown on tablet/desktop) -->
-				<div class="screenshots-grid ipad-screens">
-					<img src="assets/images/ipad-app/Ipad 1.png" alt="iPad Screenshot 1" />
-					<img src="assets/images/ipad-app/Ipad 2.png" alt="iPad Screenshot 2" />
-					<img src="assets/images/ipad-app/Ipad 3.png" alt="iPad Screenshot 3" />
-					<img src="assets/images/ipad-app/Ipad 4.png" alt="iPad Screenshot 4" />
-					<img src="assets/images/ipad-app/Ipad 5.png" alt="iPad Screenshot 5" />
+				<div class="screenshots-grid">
+					<div class="screenshot-card" onclick="openModal('ipad1')">
+						<img src="assets/images/ipad-app/Ipad 1.png" alt="iPad Screenshot 1" />
+						<div class="screenshot-overlay">
+							<div class="screenshot-title">Dashboard Overview</div>
+							<div class="screenshot-preview">Click to learn more about the main dashboard features...</div>
+						</div>
+					</div>
+					
+					<div class="screenshot-card" onclick="openModal('ipad2')">
+						<img src="assets/images/ipad-app/Ipad 2.png" alt="iPad Screenshot 2" />
+						<div class="screenshot-overlay">
+							<div class="screenshot-title">Data Analytics</div>
+							<div class="screenshot-preview">Explore detailed solar energy analytics and insights...</div>
+						</div>
+					</div>
+					
+					<div class="screenshot-card" onclick="openModal('ipad3')">
+						<img src="assets/images/ipad-app/Ipad 3.png" alt="iPad Screenshot 3" />
+						<div class="screenshot-overlay">
+							<div class="screenshot-title">System Monitoring</div>
+							<div class="screenshot-preview">Real-time monitoring of your solar pack performance...</div>
+						</div>
+					</div>
+					
+					<div class="screenshot-card" onclick="openModal('ipad4')">
+						<img src="assets/images/ipad-app/Ipad 4.png" alt="iPad Screenshot 4" />
+						<div class="screenshot-overlay">
+							<div class="screenshot-title">Settings & Control</div>
+							<div class="screenshot-preview">Configure and control your solar pack settings...</div>
+						</div>
+					</div>
+					
+					<div class="screenshot-card" onclick="openModal('ipad5')">
+						<img src="assets/images/ipad-app/Ipad 5.png" alt="iPad Screenshot 5" />
+						<div class="screenshot-overlay">
+							<div class="screenshot-title">Energy Reports</div>
+							<div class="screenshot-preview">Detailed energy production and usage reports...</div>
+						</div>
+					</div>
 				</div>
 			</div>
-   <style>
-	   /* Page-specific styles */
-	   .section {
-		   background: var(--card);
-		   border-radius: var(--radius);
-		   padding: 2rem 1.5rem;
-		   margin: 2.5rem auto 0;
-		   max-width: 700px;
-		   box-shadow: 0 1px 6px #0003;
-	   }
-	   .footer {
-		   text-align: center;
-		   color: #888;
-		   font-size: 1rem;
-		   margin: 3.5rem 0 1.5rem;
-	   }
-	   .screenshots-container {
-		   width: 100%;
-		   display: flex;
-		   justify-content: center;
-		   margin-top: 2.5rem;
-	   }
-	   .screenshots-grid {
-		   display: grid;
-		   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-		   gap: 1.5rem;
-		   max-width: 700px;
-		   width: 100%;
-		   justify-content: center;
-	   }
-	   .screenshots-grid img {
-		   width: 100%;
-		   max-width: 220px;
-		   border-radius: var(--radius);
-		   box-shadow: 0 2px 16px #0005;
-		   background: #222;
-		   justify-self: center;
-	   }
-	   /* Show only iPhone screenshots by default */
-	   .ipad-screens { display: none; }
-	   .iphone-screens { display: grid; }
-	   /* On iPad/desktop (min-width: 769px), show iPad screenshots instead */
-	   @media (min-width: 769px) {
-		   .ipad-screens { display: grid; }
-		   .iphone-screens { display: none; }
-	   }
-   </style>
+
+			<!-- Modal Popups for Each Screenshot -->
+			<div class="modal-overlay" id="modal-ipad1">
+				<div class="modal-content">
+					<button class="close-btn" onclick="closeModal('ipad1')">&times;</button>
+					<div class="modal-image">
+						<img src="assets/images/ipad-app/Ipad 1.png" alt="Dashboard Overview" />
+					</div>
+					<div class="modal-details">
+						<h2 class="modal-title">Dashboard Overview</h2>
+						<p class="modal-description">
+							The main dashboard provides a comprehensive overview of your SolarPack system's performance. 
+							Get instant insights into your energy production, consumption, and system health at a glance.
+						</p>
+						<ul class="modal-features">
+							<li>Real-time energy production metrics</li>
+							<li>Current system status indicators</li>
+							<li>Quick access to key system controls</li>
+							<li>Weather integration for performance optimization</li>
+							<li>Daily, weekly, and monthly summaries</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+
+			<div class="modal-overlay" id="modal-ipad2">
+				<div class="modal-content">
+					<button class="close-btn" onclick="closeModal('ipad2')">&times;</button>
+					<div class="modal-image">
+						<img src="assets/images/ipad-app/Ipad 2.png" alt="Data Analytics" />
+					</div>
+					<div class="modal-details">
+						<h2 class="modal-title">Data Analytics</h2>
+						<p class="modal-description">
+							Advanced analytics help you understand your energy patterns and optimize your solar pack performance. 
+							Dive deep into historical data and predictive insights.
+						</p>
+						<ul class="modal-features">
+							<li>Interactive charts and graphs</li>
+							<li>Historical performance trends</li>
+							<li>Energy efficiency recommendations</li>
+							<li>Cost savings calculations</li>
+							<li>Performance comparison tools</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+
+			<div class="modal-overlay" id="modal-ipad3">
+				<div class="modal-content">
+					<button class="close-btn" onclick="closeModal('ipad3')">&times;</button>
+					<div class="modal-image">
+						<img src="assets/images/ipad-app/Ipad 3.png" alt="System Monitoring" />
+					</div>
+					<div class="modal-details">
+						<h2 class="modal-title">System Monitoring</h2>
+						<p class="modal-description">
+							Monitor every aspect of your solar pack system in real-time. Stay informed about performance, 
+							maintenance needs, and system optimization opportunities.
+						</p>
+						<ul class="modal-features">
+							<li>Live performance monitoring</li>
+							<li>System health diagnostics</li>
+							<li>Maintenance alerts and reminders</li>
+							<li>Component status tracking</li>
+							<li>Remote troubleshooting capabilities</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+
+			<div class="modal-overlay" id="modal-ipad4">
+				<div class="modal-content">
+					<button class="close-btn" onclick="closeModal('ipad4')">&times;</button>
+					<div class="modal-image">
+						<img src="assets/images/ipad-app/Ipad 4.png" alt="Settings & Control" />
+					</div>
+					<div class="modal-details">
+						<h2 class="modal-title">Settings & Control</h2>
+						<p class="modal-description">
+							Take full control of your SolarPack system with comprehensive settings and configuration options. 
+							Customize the system to match your specific energy needs and preferences.
+						</p>
+						<ul class="modal-features">
+							<li>System configuration settings</li>
+							<li>Energy management preferences</li>
+							<li>Notification and alert customization</li>
+							<li>User account management</li>
+							<li>Device pairing and connectivity</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+
+			<div class="modal-overlay" id="modal-ipad5">
+				<div class="modal-content">
+					<button class="close-btn" onclick="closeModal('ipad5')">&times;</button>
+					<div class="modal-image">
+						<img src="assets/images/ipad-app/Ipad 5.png" alt="Energy Reports" />
+					</div>
+					<div class="modal-details">
+						<h2 class="modal-title">Energy Reports</h2>
+						<p class="modal-description">
+							Generate detailed reports about your energy production, consumption, and savings. 
+							Track your environmental impact and financial benefits over time.
+						</p>
+						<ul class="modal-features">
+							<li>Customizable report generation</li>
+							<li>Export data in multiple formats</li>
+							<li>Environmental impact tracking</li>
+							<li>Financial savings analysis</li>
+							<li>Scheduled report delivery</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+		</section>
+	</main>
+
+	<script>
+		function openModal(modalId) {
+			document.getElementById(`modal-${modalId}`).classList.add('active');
+			document.body.style.overflow = 'hidden';
+		}
+
+		function closeModal(modalId) {
+			document.getElementById(`modal-${modalId}`).classList.remove('active');
+			document.body.style.overflow = '';
+		}
+
+		// Close modal when clicking outside the content
+		document.addEventListener('click', function(e) {
+			if (e.target.classList.contains('modal-overlay')) {
+				e.target.classList.remove('active');
+				document.body.style.overflow = '';
+			}
+		});
+
+		// Close modal with Escape key
+		document.addEventListener('keydown', function(e) {
+			if (e.key === 'Escape') {
+				document.querySelectorAll('.modal-overlay.active').forEach(modal => {
+					modal.classList.remove('active');
+				});
+				document.body.style.overflow = '';
+			}
+		});
+	</script>
+</body>
+</html>
