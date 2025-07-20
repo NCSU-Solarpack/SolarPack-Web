@@ -1,45 +1,46 @@
 /* ──────────────────────────────────────────────────────────────
-   SolarPack Header  •  v3
-   Fully‑responsive navigation bar (desktop ⇄ mobile)
+   SolarPack Header  •  v4
+   Responsive navigation (desktop ⇄ mobile) in telemetry style
    Drop this file in assets/js/header.js and reference it in <head>
    Requires Font Awesome 6 for the bars / times icons.
 ──────────────────────────────────────────────────────────────── */
 
 const headerCSS = /* css */ `
 :root{
-  --bg:       #0e0e0e;
-  --surface:  #181818;
-  --text:     #ffffff;
-  --muted:    #c9c9c9;
-  --accent:   #e53935;
-  --radius:   10px;
-  --speed:    220ms;
+  --bg:#0c0c0c;           /* site background (telemetry)   */
+  --surface:#161616;      /* cards / mobile panel          */
+  --text:#f5f5f5;
+  --muted:#9e9e9e;
+  --accent:#e31b23;       /* SolarPack red                 */
+  --radius:12px;
+  --speed:240ms;
 }
 
 *{box-sizing:border-box;margin:0;padding:0}
 
 body{
-  font-family:"DM Sans",system-ui,sans-serif;
+  font-family:"DM Sans",Arial,Helvetica,sans-serif;
   background:var(--bg);
   color:var(--text);
-  padding-top:64px; /* push content below fixed header */
+  padding-top:64px;                 /* keep content below fixed nav */
 }
 
-/* ─── Header Bar ─────────────────────────────────────────── */
+/* ─── Fixed Header Bar ─────────────────────────────────────── */
 .header{
-  position:fixed;top:0;left:0;right:0;height:64px;
+  position:fixed;inset:0 0 auto 0;height:64px;
   background:#000;
   display:flex;align-items:center;gap:2rem;
   padding:0 2rem;
-  z-index:1000;
   box-shadow:0 1px 6px #0008;
+  z-index:1000;
 }
 
 /* logo */
 .logo{
   display:flex;align-items:center;gap:.55rem;
   color:var(--accent);text-decoration:none;
-  font-family:"Bebas Neue",sans-serif;font-size:2rem;letter-spacing:.04em;
+  font-family:"Bebas Neue",sans-serif;
+  font-size:2rem;letter-spacing:.04em;
 }
 .logo img{height:36px;width:auto;}
 
@@ -51,12 +52,8 @@ body{
 .nav a{
   font-family:"Bebas Neue",sans-serif;
   font-size:1.25rem;
-  text-decoration:none;
-  color:var(--text);
-  position:relative;
-  padding:0.25rem 0;
-  background:transparent;
-  border-radius:0;
+  text-decoration:none;color:var(--text);
+  position:relative;padding:.25rem 0;
   transition:color var(--speed);
 }
 .nav a.active,
@@ -65,84 +62,72 @@ body{
 .nav a:hover::after{
   content:"";
   position:absolute;left:0;right:0;bottom:-6px;
-  height:3px;background:var(--accent);border-radius:3px;
+  height:3px;border-radius:3px;background:var(--accent);
 }
 
-/* ─── Hamburger ───────────────────────────────────────────── */
+/* ─── Hamburger ────────────────────────────────────────────── */
 .burger{
-  display:none;
-  flex-direction:column;
-  justify-content:center;
-  align-items:center;
+  display:none;                       /* hidden on ≥768 px */
+  flex-direction:column;justify-content:center;align-items:center;
   width:40px;height:40px;
-  cursor:pointer;
-  margin-left:auto;
-  z-index:9900;
-  background:none;
-  border:none;
-  font-size:1.9rem;
-  color:var(--text);
-}
+  cursor:pointer;margin-left:auto;
+  background:none;border:none;
+  font-size:1.9rem;color:var(--text);
 
-/* remove default focus outline + custom focus ring */
-.burger:focus{outline:none}
-.burger:focus-visible{
-  outline:2px solid var(--accent);outline-offset:2px;
+  position:relative;z-index:1201;      /* stay above the slide panel */
 }
+.burger:focus{outline:none;}
+.burger:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 
 /* ─── Mobile slide‑down panel ─────────────────────────────── */
 .mobile-panel{
-  position:fixed;top:0;left:0;width:100vw;
+  position:fixed;top:64px;left:0;width:100vw;      /* sits under header */
   height:0;overflow:hidden;
-  background:#161616; /* match dashboard card bg */
+  background:var(--surface);
+  box-shadow:0 2px 12px #000;
   transition:height var(--speed) ease;
   z-index:1100;
-  box-shadow:0 2px 12px #000; /* match dashboard modal shadow */
   display:flex;flex-direction:column;align-items:center;
 }
-.mobile-panel.open{height:100vh;}
+.mobile-panel.open{height:calc(100vh - 64px);}
 
 .m-nav{
   display:flex;flex-direction:column;
-  padding:4.5rem 1.2rem 2rem;
-  gap:.2rem;
-  width:90%;max-width:500px;
+  padding:4rem 1.5rem 2rem;
+  gap:.2rem;width:90%;max-width:500px;
 }
 .m-nav a{
-  padding:1rem 2rem;
-  border-radius:16px; /* match dashboard modal */
-  font-weight:600;text-decoration:none;color:var(--text);
-  font-size:1.1rem;
+  font-size:1.1rem;text-decoration:none;
+  color:var(--text);background:transparent;
+  padding:1rem 2rem;border-radius:16px;
   border-bottom:1px solid #222;
-  background:transparent;
   transition:background var(--speed),color var(--speed);
-  text-align:left;
+  text-align:left;font-weight:600;
 }
-.m-nav a:hover,.m-nav a.active{
+.m-nav a:hover,
+.m-nav a.active{
   background:var(--accent);color:#fff;
 }
 
 /* ─── Breakpoints ─────────────────────────────────────────── */
-@media (max-width:767px){        /* mobile */
-  .nav{display:none}
-  .burger{display:flex}
+@media(max-width:767px){
+  .nav{display:none;}
+  .burger{display:flex;}
   .header{padding:0 1.2rem;}
 }
-
-@media (min-width:768px) and (max-width:1023px){ /* tablet */
+@media(min-width:768px) and (max-width:1023px){
   .header{padding:0 1.6rem;}
-  .nav{gap:.9rem}
+  .nav{gap:1rem;}
 }
-
-@media (min-width:1024px){       /* desktop */
-  .header{padding:0 2rem}
+@media(min-width:1024px){
+  .header{padding:0 2rem;}
 }
 `;
 
 const headerHTML = /* html */ `
 <header class="header">
   <a href="index.html" class="logo">
-    <img src="assets/images/solarpack_logo.png" alt="SolarPack Logo">
+    <img src="assets/images/solarpack_logo.png" alt="SolarPack logo">
     SolarPack
   </a>
 
@@ -173,48 +158,49 @@ const headerHTML = /* html */ `
 `;
 
 function initHeader(){
-  /* inject styles + markup */
-  document.head.insertAdjacentHTML('beforeend', `<style>${headerCSS}</style>`);
-  document.body.insertAdjacentHTML('afterbegin', headerHTML);
+  /* Inject styles + markup */
+  document.head.insertAdjacentHTML("beforeend", `<style>${headerCSS}</style>`);
+  document.body.insertAdjacentHTML("afterbegin", headerHTML);
 
   highlightActive();
 
-  const burger = document.getElementById('burger');
-  const panel  = document.getElementById('mobile-panel');
+  const burger = document.getElementById("burger");
+  const panel  = document.getElementById("mobile-panel");
 
-  burger.addEventListener('click', e=>{
+  /* Toggle panel */
+  burger.addEventListener("click", e=>{
     e.stopPropagation();
-    const open = panel.classList.toggle('open');
-    burger.querySelector('i').className = open ? 'fas fa-times' : 'fas fa-bars';
-    document.body.style.overflow = open ? 'hidden' : '';  // lock scroll
+    togglePanel();
   });
-
-  /* close panel on outside click */
-  document.addEventListener('click', e=>{
-    if(!panel.contains(e.target) && !burger.contains(e.target) && panel.classList.contains('open')){
-      panel.classList.remove('open');
-      burger.querySelector('i').className = 'fas fa-bars';
-      document.body.style.overflow='';
+  /* Close on outside click */
+  document.addEventListener("click", e=>{
+    if (!panel.contains(e.target) && !burger.contains(e.target) && panel.classList.contains("open")){
+      togglePanel(false);
+    }
+  });
+  /* Close on viewport ≥768 px */
+  window.addEventListener("resize", ()=>{
+    if (window.innerWidth > 767 && panel.classList.contains("open")){
+      togglePanel(false);
     }
   });
 
-  /* close on resize up to desktop */
-  window.addEventListener('resize', ()=>{
-    if(window.innerWidth>767 && panel.classList.contains('open')){
-      panel.classList.remove('open');
-      burger.querySelector('i').className = 'fas fa-bars';
-      document.body.style.overflow='';
-    }
-  });
+  /* helper */
+  function togglePanel(forceOpen){
+    const willOpen = forceOpen ?? !panel.classList.contains("open");
+    panel.classList.toggle("open", willOpen);
+    burger.querySelector("i").className = willOpen ? "fas fa-times" : "fas fa-bars";
+    document.body.style.overflow = willOpen ? "hidden" : "";
+  }
 }
 
-/* mark current page */
+/* Highlight current page in both navs */
 function highlightActive(){
-  const page = (location.pathname.split('/').pop() || 'index.html').replace('.html','');
-  document.querySelectorAll('[data-page]').forEach(a=>{
-    if(a.dataset.page===page) a.classList.add('active');
+  const page = (location.pathname.split("/").pop() || "index.html").replace(".html","");
+  document.querySelectorAll("[data-page]").forEach(a=>{
+    if (a.dataset.page === page) a.classList.add("active");
   });
 }
 
-document.addEventListener('DOMContentLoaded', initHeader);
+document.addEventListener("DOMContentLoaded", initHeader);
 window.SolarPackHeader = { init:initHeader, setActive:highlightActive };
