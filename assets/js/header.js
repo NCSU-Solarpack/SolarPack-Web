@@ -75,23 +75,35 @@ body{
 
 /* ─── Mobile slide‑down panel ─────────────────────────────── */
 .mobile-panel{
-  position:fixed;top:0;left:0;width:100%;
+  position:fixed;top:0;left:0;width:100vw;
   height:0;overflow:hidden;
-  background:var(--surface);
+  background:#161616; /* match dashboard card bg */
   transition:height var(--speed) ease;
+  z-index:1100;
+  box-shadow:0 2px 12px #000; /* match dashboard modal shadow */
+  display:flex;flex-direction:column;align-items:center;
 }
-.mobile-panel.open{height:100vh}
+.mobile-panel.open{height:100vh;}
 
 .m-nav{
   display:flex;flex-direction:column;
   padding:4.5rem 1.2rem 2rem;
   gap:.2rem;
+  width:90%;max-width:500px;
 }
 .m-nav a{
-  padding:1rem;border-radius:var(--radius);
+  padding:1rem 2rem;
+  border-radius:16px; /* match dashboard modal */
   font-weight:600;text-decoration:none;color:var(--text);
+  font-size:1.1rem;
+  border-bottom:1px solid #222;
+  background:transparent;
+  transition:background var(--speed),color var(--speed);
+  text-align:left;
 }
-.m-nav a:hover,.m-nav a.active{background:var(--accent);color:#fff}
+.m-nav a:hover,.m-nav a.active{
+  background:var(--accent);color:#fff;
+}
 
 /* ─── Breakpoints ─────────────────────────────────────────── */
 @media (max-width:767px){        /* mobile */
@@ -121,7 +133,6 @@ const headerHTML = /* html */ `
     <a href="app.html"      data-page="app">App</a>
     <a href="team.html"     data-page="team">Team</a>
     <a href="alumni.html"   data-page="alumni">Alumni</a>
-    <a href="sponsors.html" data-page="sponsors">Sponsors</a>
     <a href="donate.html"   data-page="donate">Donate</a>
     <a href="contact.html"  data-page="contact">Contact</a>
   </nav>
@@ -137,7 +148,6 @@ const headerHTML = /* html */ `
     <a href="app.html"      data-page="app">App</a>
     <a href="team.html"     data-page="team">Team</a>
     <a href="alumni.html"   data-page="alumni">Alumni</a>
-    <a href="sponsors.html" data-page="sponsors">Sponsors</a>
     <a href="donate.html"   data-page="donate">Donate</a>
     <a href="contact.html"  data-page="contact">Contact</a>
   </nav>
