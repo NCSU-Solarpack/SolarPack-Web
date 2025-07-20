@@ -22,6 +22,7 @@ body{
   font-family:"DM Sans",system-ui,sans-serif;
   background:var(--bg);
   color:var(--text);
+  padding-top:64px; /* push content below fixed header */
 }
 
 /* ─── Header Bar ─────────────────────────────────────────── */
@@ -76,7 +77,7 @@ body{
   width:40px;height:40px;
   cursor:pointer;
   margin-left:auto;
-  z-index:1100;
+  z-index:9900;
   background:none;
   border:none;
   font-size:1.9rem;
