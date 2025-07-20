@@ -26,10 +26,11 @@ body{
 
 /* ─── Header Bar ─────────────────────────────────────────── */
 .header{
-  position:sticky;top:0;left:0;width:100%;z-index:999;
-  display:flex;align-items:center;
-  padding:.9rem 1.2rem;
-  background:var(--surface);
+  position:fixed;top:0;left:0;right:0;height:64px;
+  background:#000;
+  display:flex;align-items:center;gap:2rem;
+  padding:0 2rem;
+  z-index:1000;
   box-shadow:0 1px 6px #0008;
 }
 
@@ -39,32 +40,47 @@ body{
   color:var(--accent);text-decoration:none;
   font-family:"Bebas Neue",sans-serif;font-size:2rem;letter-spacing:.04em;
 }
-.logo img{height:42px;width:42px;object-fit:contain}
+.logo img{height:36px;width:auto;}
 
 /* desktop / tablet nav */
 .nav{
   margin-left:auto;
-  display:flex;align-items:center;gap:1.1rem;
+  display:flex;gap:1.5rem;
 }
 .nav a{
+  font-family:"Bebas Neue",sans-serif;
+  font-size:1.25rem;
+  text-decoration:none;
+  color:var(--text);
   position:relative;
-  padding:.45rem .9rem;
-  font-weight:600;
-  color:var(--text);text-decoration:none;
-  border-radius:var(--radius);
-  transition:background var(--speed),color var(--speed);
+  padding:0.25rem 0;
+  background:transparent;
+  border-radius:0;
+  transition:color var(--speed);
 }
-.nav a:hover,.nav a.active{background:var(--accent);color:#fff}
+.nav a.active,
+.nav a:hover{color:var(--accent);}
+.nav a.active::after,
+.nav a:hover::after{
+  content:"";
+  position:absolute;left:0;right:0;bottom:-6px;
+  height:3px;background:var(--accent);border-radius:3px;
+}
 
 /* ─── Hamburger ───────────────────────────────────────────── */
 .burger{
-  display:none;           /* hidden by default */
-  margin-left:auto;
-  border:none;background:none;padding:.25rem;
-  font-size:1.9rem;line-height:1;
-  color:var(--text);
+  display:none;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  width:40px;height:40px;
   cursor:pointer;
-  transition:transform var(--speed);
+  margin-left:auto;
+  z-index:1100;
+  background:none;
+  border:none;
+  font-size:1.9rem;
+  color:var(--text);
 }
 
 /* remove default focus outline + custom focus ring */
@@ -108,16 +124,17 @@ body{
 /* ─── Breakpoints ─────────────────────────────────────────── */
 @media (max-width:767px){        /* mobile */
   .nav{display:none}
-  .burger{display:block}
+  .burger{display:flex}
+  .header{padding:0 1.2rem;}
 }
 
 @media (min-width:768px) and (max-width:1023px){ /* tablet */
-  .header{padding:.9rem 1.6rem}
+  .header{padding:0 1.6rem;}
   .nav{gap:.9rem}
 }
 
 @media (min-width:1024px){       /* desktop */
-  .header{padding:.9rem 2rem}
+  .header{padding:0 2rem}
 }
 `;
 
