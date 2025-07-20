@@ -56,7 +56,7 @@
 		.screenshot-card {
 			position: relative;
 			cursor: pointer;
-			transition: transform 0.3s ease, box-shadow 0.3s ease;
+			transition: transform 0.3s ease;
 			border-radius: var(--radius);
 			overflow: hidden;
 			background: #222;
@@ -64,7 +64,6 @@
 
 		.screenshot-card:hover {
 			transform: translateY(-8px) scale(1.02);
-			box-shadow: 0 12px 32px rgba(229, 57, 53, 0.3);
 		}
 
 		.screenshot-card img {
@@ -310,20 +309,19 @@
 				<div class="modal-content">
 					<button class="close-btn" onclick="closeModal('ipad1')">&times;</button>
 					<div class="modal-image">
-						<img src="assets/images/ipad-app/Ipad 1.png" alt="Dashboard Overview" />
+						<img src="assets/images/ipad-app/Ipad 1.png" alt="Home Page" />
 					</div>
 					<div class="modal-details">
-						<h2 class="modal-title">Dashboard Overview</h2>
+						<h2 class="modal-title">Home Page</h2>
 						<p class="modal-description">
-							The main dashboard provides a comprehensive overview of your SolarPack system's performance. 
-							Get instant insights into your energy production, consumption, and system health at a glance.
+							The Home Page is the main dashboard for the app, providing a real-time overview of all critical vehicle and system stats. It is designed for quick-glance monitoring and immediate access to the most important data.
 						</p>
 						<ul class="modal-features">
-							<li>Real-time energy production metrics</li>
-							<li>Current system status indicators</li>
-							<li>Quick access to key system controls</li>
-							<li>Weather integration for performance optimization</li>
-							<li>Daily, weekly, and monthly summaries</li>
+							<li>Live Gauges: Speed, RPM, and current draw with animated arc gauges</li>
+							<li>Battery & Solar Info: Battery voltage, wattage, solar voltage, and solar power</li>
+							<li>Temperature Readouts: Motor and inverter temperatures</li>
+							<li>System Status Indicator: Animated status dot and label</li>
+							<li>Responsive Layout: Optimized for iPad with large, easy-to-read values</li>
 						</ul>
 					</div>
 				</div>
@@ -333,20 +331,19 @@
 				<div class="modal-content">
 					<button class="close-btn" onclick="closeModal('ipad2')">&times;</button>
 					<div class="modal-image">
-						<img src="assets/images/ipad-app/Ipad 2.png" alt="Data Analytics" />
+						<img src="assets/images/ipad-app/Ipad 2.png" alt="BMS Page" />
 					</div>
 					<div class="modal-details">
-						<h2 class="modal-title">Data Analytics</h2>
+						<h2 class="modal-title">BMS Page</h2>
 						<p class="modal-description">
-							Advanced analytics help you understand your energy patterns and optimize your solar pack performance. 
-							Dive deep into historical data and predictive insights.
+							The BMS (Battery Management System) Page provides a detailed, real-time overview of battery pack health, cell-level data, and system status. Essential for monitoring, diagnostics, and troubleshooting of the battery system.
 						</p>
 						<ul class="modal-features">
-							<li>Interactive charts and graphs</li>
-							<li>Historical performance trends</li>
-							<li>Energy efficiency recommendations</li>
-							<li>Cost savings calculations</li>
-							<li>Performance comparison tools</li>
+							<li>Pack Overview: Total battery voltage, current draw, wattage, and 12V battery voltage</li>
+							<li>State Badges: Charging/discharging status and enable signals</li>
+							<li>Cell Grid: 10×10 grid of all cell voltages and temperatures, labeled and color-coded</li>
+							<li>Fault Codes: Lists active BMS fault codes</li>
+							<li>Status Indicator: Animated status dot and label for BMS power state</li>
 						</ul>
 					</div>
 				</div>
@@ -356,20 +353,19 @@
 				<div class="modal-content">
 					<button class="close-btn" onclick="closeModal('ipad3')">&times;</button>
 					<div class="modal-image">
-						<img src="assets/images/ipad-app/Ipad 3.png" alt="System Monitoring" />
+						<img src="assets/images/ipad-app/Ipad 3.png" alt="Motor Controller Page" />
 					</div>
 					<div class="modal-details">
-						<h2 class="modal-title">System Monitoring</h2>
+						<h2 class="modal-title">Motor Controller Page</h2>
 						<p class="modal-description">
-							Monitor every aspect of your solar pack system in real-time. Stay informed about performance, 
-							maintenance needs, and system optimization opportunities.
+							The Motor Controller Page provides a comprehensive, real-time view of the traction motor and its controller, including RPM, temperatures, voltages, and cooling system status. Essential for monitoring drive performance and diagnosing issues.
 						</p>
 						<ul class="modal-features">
-							<li>Live performance monitoring</li>
-							<li>System health diagnostics</li>
-							<li>Maintenance alerts and reminders</li>
-							<li>Component status tracking</li>
-							<li>Remote troubleshooting capabilities</li>
+							<li>RPM Gauge: Large animated arc gauge for motor RPM</li>
+							<li>Temperature Readouts: Motor and controller (inverter) temperatures</li>
+							<li>Voltage Monitoring: High-voltage and 12V system voltages</li>
+							<li>Cooling System Status: Visual indicators for radiator and pump status</li>
+							<li>System Status Indicator: Header with animated status dot and label</li>
 						</ul>
 					</div>
 				</div>
@@ -379,20 +375,20 @@
 				<div class="modal-content">
 					<button class="close-btn" onclick="closeModal('ipad4')">&times;</button>
 					<div class="modal-image">
-						<img src="assets/images/ipad-app/Ipad 4.png" alt="Settings & Control" />
+						<img src="assets/images/ipad-app/Ipad 4.png" alt="Charging Page" />
 					</div>
 					<div class="modal-details">
-						<h2 class="modal-title">Settings & Control</h2>
+						<h2 class="modal-title">Charging Page</h2>
 						<p class="modal-description">
-							Take full control of your SolarPack system with comprehensive settings and configuration options. 
-							Customize the system to match your specific energy needs and preferences.
+							The Charging Page provides a comprehensive, real-time overview of battery pack and solar charging status, including charge rates, voltages, estimated time remaining, and solar-only mode controls. Essential for monitoring charging performance and managing energy sources.
 						</p>
 						<ul class="modal-features">
-							<li>System configuration settings</li>
-							<li>Energy management preferences</li>
-							<li>Notification and alert customization</li>
-							<li>User account management</li>
-							<li>Device pairing and connectivity</li>
+							<li>Charging Status: Charger plugged in, requested current, charge rate, and pack voltage</li>
+							<li>Solar Charging: Solar voltage, amps, power, and charger status</li>
+							<li>Battery Visualization: Large battery icon with animated fill</li>
+							<li>Estimated Time Remaining: Calculates time to full charge</li>
+							<li>Solar-Only Mode: Toggle switch for solar-only charging</li>
+							<li>Rolling Line Chart: Real-time chart of charge rates</li>
 						</ul>
 					</div>
 				</div>
@@ -402,20 +398,18 @@
 				<div class="modal-content">
 					<button class="close-btn" onclick="closeModal('ipad5')">&times;</button>
 					<div class="modal-image">
-						<img src="assets/images/ipad-app/Ipad 5.png" alt="Energy Reports" />
+						<img src="assets/images/ipad-app/Ipad 5.png" alt="Low Voltage Page" />
 					</div>
 					<div class="modal-details">
-						<h2 class="modal-title">Energy Reports</h2>
+						<h2 class="modal-title">Low Voltage Page</h2>
 						<p class="modal-description">
-							Generate detailed reports about your energy production, consumption, and savings. 
-							Track your environmental impact and financial benefits over time.
+							The Low Voltage Page provides a real-time overview of board health and auxiliary systems, including a grid of board status indicators and ignition mode controls. Essential for monitoring the health of low-voltage electronics and managing ignition states.
 						</p>
 						<ul class="modal-features">
-							<li>Customizable report generation</li>
-							<li>Export data in multiple formats</li>
-							<li>Environmental impact tracking</li>
-							<li>Financial savings analysis</li>
-							<li>Scheduled report delivery</li>
+							<li>Board Health Grid: 2×3 grid of board cards showing status (OK, Fault, Offline)</li>
+							<li>Ignition Mode Control: View and adjust ignition mode (OFF, ACC, ON, START)</li>
+							<li>Status Indicators: Animated status dots for live feedback</li>
+							<li>Responsive Layout: Optimized for iPad with grid-based design and large icons</li>
 						</ul>
 					</div>
 				</div>
@@ -452,5 +446,6 @@
 			}
 		});
 	</script>
+	<footer class="footer">&copy; 2025 SolarPack. All rights reserved.</footer>
 </body>
 </html>
