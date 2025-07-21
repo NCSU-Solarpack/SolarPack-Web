@@ -221,11 +221,11 @@
       justify-content: center;
       align-items: center;
       gap: 0.7rem;
-      margin-top: 1.2rem;
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 10px;
+      margin-top: 2.2rem;
+      position: static;
+      left: unset;
+      right: unset;
+      bottom: unset;
       z-index: 1;
     }
 
@@ -379,7 +379,13 @@
 
       function updateCarousel() {
         // Show edges of previous/next images
-        const offset = -currentIndex * imgWidth + imgWidth * 0.3;
+        let offset;
+        if (currentIndex === 0) {
+          // Start further to the right for the first image
+          offset = imgWidth * 0.6;
+        } else {
+          offset = -currentIndex * imgWidth + imgWidth * 0.3;
+        }
         track.style.transform = `translateX(${offset}px)`;
         dots.forEach((dot, i) => {
           dot.classList.toggle('active', i === currentIndex);
