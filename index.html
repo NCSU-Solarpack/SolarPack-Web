@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SolarPack · Home</title>
 
-  <!-- Fonts / Icons -->
+  <!-- Fonts & Icons -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&display=swap" rel="stylesheet" />
@@ -13,110 +13,113 @@
   <script type="module" src="https://unpkg.com/ionicons@7.2.1/dist/ionicons/ionicons.esm.js"></script>
   <script nomodule src="https://unpkg.com/ionicons@7.2.1/dist/ionicons/ionicons.js"></script>
 
-  <!-- Your header script -->
+  <!-- Your header -->
   <script src="assets/js/header.js" defer></script>
 
   <style>
     :root{
-      --bg:#0e0e0e; --card:#181818; --txt:#fff; --subtxt:#cecece; --accent:#e53935;
-      --radius:10px; --shadow:#0005;
+      --bg:#0e0e0e;--card:#181818;--txt:#fff;--subtxt:#cecece;--accent:#e53935;--radius:10px;
+      --carousel-gap:1.2rem;
+      --slide-w:320px; /* desktop default; JS will read real width anyway */
+      --slide-h:200px;
     }
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);}
-    main{padding:2rem 1.2rem;max-width:1200px;margin:0 auto;}
-    img{display:block;width:100%;height:auto;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt)}
+    main{padding:2rem 1.2rem;max-width:1200px;margin:0 auto}
 
-    /* Hero */
-    .hero{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:2rem;text-align:center;margin-bottom:3rem;}
-    .hero img{max-width:320px;}
-    .hero-content{max-width:500px;}
-    .hero-content h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(3.5rem,8vw,6rem);color:var(--accent);margin-bottom:.5rem;}
-    .hero-content .subtitle{font-size:1.2rem;color:var(--subtxt);margin-bottom:1.2rem;}
-    .hero-content p{color:var(--subtxt);font-size:1.05rem;}
+    .hero{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:2rem;text-align:center;margin-bottom:3rem}
+    .hero img{width:100%;max-width:320px;background:transparent}
+    .hero-content{max-width:500px}
+    .hero-content h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(3.5rem,8vw,6rem);color:var(--accent);margin-bottom:.5rem}
+    .hero-content .subtitle{font-size:1.2rem;color:var(--subtxt);margin-bottom:1.2rem}
+    .hero-content p{color:var(--subtxt);font-size:1.05rem}
 
-    /* Sections */
-    .section{background:var(--card);border-radius:var(--radius);padding:2rem;margin-bottom:3rem;box-shadow:0 1px 6px #0004;}
-    .section img{border-radius:var(--radius);box-shadow:0 2px 16px var(--shadow);margin-bottom:1.5rem;background:#222;}
-    .section h2{text-align:center;margin-bottom:1rem;font-family:'Bebas Neue',sans-serif;letter-spacing:.04em;font-size:2.2rem;}
-    .section p{color:var(--subtxt);text-align:center;max-width:650px;margin:0 auto;}
+    .section{background:var(--card);border-radius:var(--radius);padding:2rem;margin-bottom:3rem;box-shadow:0 1px 6px #0004}
+    .section img{width:100%;border-radius:var(--radius);box-shadow:0 2px 16px #0005;margin-bottom:1.5rem;background:#222}
+    .section h2{text-align:center;margin-bottom:1rem}
+    .section p{color:var(--subtxt);text-align:center;max-width:650px;margin:0 auto}
 
-    /* Features */
-    .features{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:2rem;}
-    .feature{text-align:center;}
-    .feature h3{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;color:var(--accent);margin:.5rem 0;letter-spacing:.05em;}
-    .feature p{font-size:1.05rem;color:var(--subtxt);}
-    .feature ion-icon{font-size:3rem;color:var(--accent);margin-bottom:.5rem;}
+    .features{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:2rem}
+    .feature{text-align:center}
+    .feature h3{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;color:var(--accent);margin:.5rem 0;letter-spacing:.05em}
+    .feature p{font-size:1.05rem;color:var(--subtxt)}
+    .feature ion-icon{font-size:3rem;color:var(--accent);margin-bottom:.5rem;position:relative}
 
-    /* Carousel */
-    .carousel-wrapper{
+    .socials{display:flex;justify-content:center;gap:1.5rem;margin:2rem 0 1rem}
+    .socials a{color:var(--accent);font-size:2rem;transition:color .2s}
+    .socials a:hover{color:#fff}
+    .footer{text-align:center;color:#888;font-size:1rem;margin:2rem 0 1rem}
+
+    /* ---------- Carousel ---------- */
+    .carousel-container{
       position:relative;
-      margin:3rem auto;
       width:100%;
-      max-width:1000px;
-      overflow:hidden;   /* hide overflow but still peek with margins inside slides */
+      max-width:900px;
+      margin:1.5rem auto 0;
+      overflow:hidden;
+      /* allow side peeks */
+      padding:0 calc(var(--slide-w)/2);
+    }
+    .carousel-viewport{
+      overflow:hidden;
+      width:100%;
     }
     .carousel-track{
       display:flex;
-      align-items:center;
-      transition:transform .45s ease;
+      gap:var(--carousel-gap);
       will-change:transform;
+      transition:transform .5s cubic-bezier(.77,0,.18,1);
+      padding:0;  /* we compensate with container padding */
     }
     .carousel-slide{
-      flex:0 0 var(--slide-width,70%);
-      margin:0 1rem;
+      flex:0 0 auto;
+      width:var(--slide-w);
+      height:var(--slide-h);
       border-radius:var(--radius);
+      box-shadow:0 2px 16px #0005;
       overflow:hidden;
-      box-shadow:0 4px 18px var(--shadow);
-      background:#222;
+      user-select:none;
+      position:relative;
     }
     .carousel-slide img{
       width:100%;
-      height:auto;
-      display:block;
+      height:100%;
+      object-fit:cover;
+      pointer-events:none;
     }
 
-    /* Buttons */
-    .carousel-btn{
-      position:absolute;
-      top:50%;
-      transform:translateY(-50%);
-      width:48px;height:48px;border:none;border-radius:50%;
-      background:rgba(0,0,0,.55);
-      color:#fff;font-size:1.2rem;cursor:pointer;
+    .carousel-arrow{
+      position:absolute;top:50%;transform:translateY(-50%);
+      background:rgba(24,24,24,.8);color:var(--accent);
+      border:none;border-radius:50%;width:42px;height:42px;
       display:flex;align-items:center;justify-content:center;
-      backdrop-filter:blur(4px);
-      transition:background .15s;
-      z-index:3;
+      font-size:1.6rem;cursor:pointer;z-index:3;transition:background .2s,color .2s;
     }
-    .carousel-btn:hover{background:rgba(0,0,0,.8);}
-    .carousel-btn.prev{left:10px;}
-    .carousel-btn.next{right:10px;}
+    .carousel-arrow:hover{background:var(--accent);color:#fff}
+    .carousel-arrow.left{left:10px}
+    .carousel-arrow.right{right:10px}
 
-    /* Indicator dots (optional) */
     .carousel-dots{
-      display:flex;gap:.5rem;justify-content:center;margin-top:1rem;
+      display:flex;justify-content:center;gap:.7rem;margin-top:1.8rem;
     }
-    .carousel-dots button{
-      width:10px;height:10px;border-radius:50%;border:none;background:#666;cursor:pointer;
+    .carousel-dots .dot{
+      width:13px;height:13px;border-radius:50%;background:#444;opacity:.6;cursor:pointer;
+      transition:background .2s,opacity .2s;border:2px solid transparent;
     }
-    .carousel-dots button.active{background:var(--accent);}
+    .carousel-dots .dot.active{background:var(--accent);opacity:1;border-color:#fff}
 
-    /* Socials / Footer */
-    .socials{display:flex;justify-content:center;gap:1.5rem;margin:2rem 0 1rem;}
-    .socials a{color:var(--accent);font-size:2rem;transition:color .2s;}
-    .socials a:hover{color:#fff;}
-    .footer{text-align:center;color:#888;font-size:1rem;margin:2rem 0 1rem;}
-
-    @media(max-width:600px){
-      .hero img{max-width:140px;}
-      :root{--slide-width:85%;}
+    @media (max-width:600px){
+      :root{--slide-w:180px;--slide-h:110px;--carousel-gap:.7rem}
+      .hero img{max-width:140px}
+      .carousel-arrow{width:32px;height:32px;font-size:1.3rem}
+      .carousel-dots{gap:.4rem;margin-top:.7rem}
+      .carousel-dots .dot{width:9px;height:9px}
+      .carousel-container{padding:0 calc(var(--slide-w)/2)}
     }
   </style>
 </head>
 <body>
   <main>
-
-    <!-- HERO -->
     <section class="hero">
       <img src="assets/images/solarpack_logo.gif" alt="SolarPack Logo">
       <div class="hero-content">
@@ -126,29 +129,12 @@
       </div>
     </section>
 
-    <!-- IMAGE CAROUSEL -->
-    <section class="carousel-wrapper" id="gallery">
-      <button class="carousel-btn prev" aria-label="Previous image"><i class="fa-solid fa-chevron-left"></i></button>
-      <div class="carousel-track" id="carouselTrack">
-        <!-- Put your REAL image paths here -->
-        <div class="carousel-slide"><img src="assets/images/gallery/01.jpg" alt="Gallery 1"></div>
-        <div class="carousel-slide"><img src="assets/images/gallery/02.jpg" alt="Gallery 2"></div>
-        <div class="carousel-slide"><img src="assets/images/gallery/03.jpg" alt="Gallery 3"></div>
-        <div class="carousel-slide"><img src="assets/images/gallery/04.jpg" alt="Gallery 4"></div>
-        <div class="carousel-slide"><img src="assets/images/gallery/05.jpg" alt="Gallery 5"></div>
-      </div>
-      <button class="carousel-btn next" aria-label="Next image"><i class="fa-solid fa-chevron-right"></i></button>
-      <div class="carousel-dots" id="carouselDots"></div>
-    </section>
-
-    <!-- ABOUT SECTION -->
     <section class="section">
-      <img src="assets/images/hero_shot.jpg" alt="Solar Car Team">
+      <img src="assets/images/hero_shot.jpg" alt="SolarPack Team">
       <h2>Sustainable, Efficient, and Powerful.</h2>
       <p>As NC State's first solar vehicle team, we are aiming to show the world that solar energy can be used to power a car. Along the way, we are making a solar vehicle no other team has done before.</p>
     </section>
 
-    <!-- FEATURES -->
     <section class="section features">
       <div class="feature">
         <ion-icon name="earth-outline"></ion-icon>
@@ -177,7 +163,34 @@
       </div>
     </section>
 
-    <!-- SOCIALS -->
+    <!-- Race 2025 Image Carousel -->
+    <section class="section race-carousel">
+      <h2>2025 Race Highlights</h2>
+
+      <div class="carousel-container">
+        <button class="carousel-arrow left" aria-label="Previous"><i class="fas fa-chevron-left"></i></button>
+
+        <div class="carousel-viewport">
+          <div class="carousel-track" id="raceTrack">
+            <!-- Slides (NO CLONES HERE; JS will clone) -->
+            <div class="carousel-slide"><img src="assets/images/race2025/race2025_1.jpg" alt="Race 2025 Image 1"></div>
+            <div class="carousel-slide"><img src="assets/images/race2025/race2025_2.jpg" alt="Race 2025 Image 2"></div>
+            <div class="carousel-slide"><img src="assets/images/race2025/race2025_3.jpg" alt="Race 2025 Image 3"></div>
+            <div class="carousel-slide"><img src="assets/images/race2025/race2025_4.jpg" alt="Race 2025 Image 4"></div>
+            <div class="carousel-slide"><img src="assets/images/race2025/race2025_5.jpg" alt="Race 2025 Image 5"></div>
+            <div class="carousel-slide"><img src="assets/images/race2025/race2025_6.jpg" alt="Race 2025 Image 6"></div>
+            <div class="carousel-slide"><img src="assets/images/race2025/race2025_7.jpg" alt="Race 2025 Image 7"></div>
+            <div class="carousel-slide"><img src="assets/images/race2025/race2025_8.jpg" alt="Race 2025 Image 8"></div>
+            <div class="carousel-slide"><img src="assets/images/race2025/race2025_9.jpg" alt="Race 2025 Image 9"></div>
+          </div>
+        </div>
+
+        <button class="carousel-arrow right" aria-label="Next"><i class="fas fa-chevron-right"></i></button>
+
+        <div class="carousel-dots" id="raceDots"></div>
+      </div>
+    </section>
+
     <div class="socials">
       <a href="https://www.instagram.com/solarpacknc/" target="_blank"><i class="fab fa-instagram"></i></a>
       <a href="https://www.linkedin.com/company/solarpack-nc-state/" target="_blank"><i class="fab fa-linkedin"></i></a>
@@ -185,116 +198,142 @@
     </div>
   </main>
 
-  <footer class="footer">&copy; 2025 SolarPack · NC State Solar Vehicle Team. All rights reserved.</footer>
+  <footer class="footer">
+    &copy; 2025 SolarPack · NC State Solar Vehicle Team. All rights reserved.
+  </footer>
 
   <script>
-    // ===== Infinite, one-slide-at-a-time carousel =====
-    (function(){
-      const track = document.getElementById('carouselTrack');
-      const prevBtn = document.querySelector('.carousel-btn.prev');
-      const nextBtn = document.querySelector('.carousel-btn.next');
-      const dotsContainer = document.getElementById('carouselDots');
+    document.addEventListener('DOMContentLoaded', () => {
+      setupInfiniteCarousel({
+        trackSelector: '#raceTrack',
+        dotsSelector: '#raceDots',
+        leftBtn: document.querySelector('.carousel-arrow.left'),
+        rightBtn: document.querySelector('.carousel-arrow.right')
+      });
+    });
 
-      let slides = Array.from(track.children);
+    function setupInfiniteCarousel({ trackSelector, dotsSelector, leftBtn, rightBtn }) {
+      const track = document.querySelector(trackSelector);
+      const viewport = track.parentElement;
+      const container = viewport.parentElement;
+      const gap = parseFloat(getComputedStyle(track).gap || 0);
+
+      let slides = Array.from(track.children); // original slides
       const slideCount = slides.length;
-      let currentIndex = 0;
-      let slideWidth; // calc later
-      let isAnimating = false;
 
-      // Clone first & last slides for seamless loop
+      // Create dots
+      const dotsWrap = document.querySelector(dotsSelector);
+      dotsWrap.innerHTML = '';
+      for (let i = 0; i < slideCount; i++) {
+        const d = document.createElement('span');
+        d.className = 'dot' + (i === 0 ? ' active' : '');
+        d.dataset.index = i;
+        dotsWrap.appendChild(d);
+      }
+      const dots = Array.from(dotsWrap.children);
+
+      // Clone first & last slide for seamless loop
       const firstClone = slides[0].cloneNode(true);
-      const lastClone = slides[slides.length-1].cloneNode(true);
-      track.insertBefore(lastClone, slides[0]);
+      const lastClone = slides[slides.length - 1].cloneNode(true);
+      firstClone.classList.add('clone');
+      lastClone.classList.add('clone');
+      track.insertBefore(lastClone, track.firstChild);
       track.appendChild(firstClone);
 
-      // refresh slides after cloning
-      slides = Array.from(track.children);
+      slides = Array.from(track.children); // now includes clones
 
-      function setSizes(){
-        // width is based on CSS variable --slide-width, but we need px for transforms
-        const firstSlide = slides[0];
-        slideWidth = firstSlide.getBoundingClientRect().width + 2*parseFloat(getComputedStyle(firstSlide).marginLeft);
-        // Center on "real" first slide (index 1 because of the prepended clone)
-        track.style.transform = `translateX(${-slideWidth * (currentIndex + 1)}px)`;
-      }
+      let currentIndex = 1; // because of leading clone
+      let slideW = slides[0].getBoundingClientRect().width;
+      let offsetCenter = (container.clientWidth - slideW) / 2; // center main
 
-      function createDots(){
-        dotsContainer.innerHTML = '';
-        for(let i=0;i<slideCount;i++){
-          const b = document.createElement('button');
-          if(i===currentIndex) b.classList.add('active');
-          b.addEventListener('click',()=>jumpTo(i));
-          dotsContainer.appendChild(b);
-        }
-      }
-
-      function updateDots(){
-        [...dotsContainer.children].forEach((d,i)=>{
-          d.classList.toggle('active', i===currentIndex);
-        });
-      }
-
-      function moveTo(index){
-        if(isAnimating) return;
-        isAnimating = true;
-        currentIndex = index;
-        track.style.transition = 'transform .45s ease';
-        track.style.transform = `translateX(${-slideWidth * (currentIndex + 1)}px)`;
-      }
-
-      function jumpTo(index){
-        currentIndex = index;
+      function setVars() {
+        slideW = slides[0].getBoundingClientRect().width;
+        offsetCenter = (container.clientWidth - slideW) / 2;
         track.style.transition = 'none';
-        track.style.transform = `translateX(${-slideWidth * (currentIndex + 1)}px)`;
-        requestAnimationFrame(()=>requestAnimationFrame(()=>{ // double rAF to ensure no transition glitch
-          updateDots();
-        }));
+        moveTo(currentIndex, false);
+        requestAnimationFrame(() => { track.style.transition = ''; });
       }
 
-      track.addEventListener('transitionend', ()=>{
-        isAnimating = false;
-        // loop handling
-        if(currentIndex === -1){
-          currentIndex = slideCount - 1;
-          track.style.transition = 'none';
-          track.style.transform = `translateX(${-slideWidth * (currentIndex + 1)}px)`;
-        }else if(currentIndex === slideCount){
-          currentIndex = 0;
-          track.style.transition = 'none';
-          track.style.transform = `translateX(${-slideWidth * (currentIndex + 1)}px)`;
+      function moveTo(idx, animate = true) {
+        if (!animate) track.style.transition = 'none';
+        const translate = -(idx * (slideW + gap)) + offsetCenter;
+        track.style.transform = `translateX(${translate}px)`;
+        if (!animate) {
+          // force reflow to flush transition removal
+          track.getBoundingClientRect();
+          track.style.transition = '';
         }
         updateDots();
-      });
+      }
 
-      prevBtn.addEventListener('click', ()=> moveTo(currentIndex - 1));
-      nextBtn.addEventListener('click', ()=> moveTo(currentIndex + 1));
+      function updateDots() {
+        const realIndex = (currentIndex - 1 + slideCount) % slideCount;
+        dots.forEach((d,i)=>d.classList.toggle('active', i===realIndex));
+      }
 
-      // Keyboard support
-      document.addEventListener('keydown', e=>{
-        if(e.key === 'ArrowLeft') prevBtn.click();
-        if(e.key === 'ArrowRight') nextBtn.click();
-      });
+      function next() { goTo(currentIndex + 1); }
+      function prev() { goTo(currentIndex - 1); }
 
-      // Basic swipe support
-      let startX = 0;
-      track.addEventListener('pointerdown', e=>{
-        startX = e.clientX;
-      });
-      track.addEventListener('pointerup', e=>{
-        const dx = e.clientX - startX;
-        if(Math.abs(dx) > 50){
-          if(dx < 0) nextBtn.click();
-          else prevBtn.click();
+      function goTo(target) {
+        currentIndex = target;
+        moveTo(currentIndex, true);
+      }
+
+      track.addEventListener('transitionend', () => {
+        // Jump without animation if we hit a clone
+        if (slides[currentIndex].classList.contains('clone')) {
+          track.style.transition = 'none';
+          if (currentIndex === 0) {
+            currentIndex = slideCount;
+          } else if (currentIndex === slides.length - 1) {
+            currentIndex = 1;
+          }
+          moveTo(currentIndex, false);
         }
       });
 
-      window.addEventListener('resize', setSizes);
+      // Buttons
+      leftBtn.addEventListener('click', prev);
+      rightBtn.addEventListener('click', next);
 
-      // init
-      setSizes();
-      createDots();
-      updateDots();
-    })();
+      // Dots
+      dots.forEach(dot => {
+        dot.addEventListener('click', () => {
+          currentIndex = parseInt(dot.dataset.index, 10) + 1;
+          moveTo(currentIndex, true);
+        });
+      });
+
+      // Drag / Swipe
+      let startX = null;
+      let dragging = false;
+      viewport.addEventListener('mousedown', e => {
+        startX = e.pageX; dragging = true;
+      });
+      window.addEventListener('mouseup', e => {
+        if (!dragging) return;
+        dragging = false;
+        if (e.pageX < startX - 30) next();
+        else if (e.pageX > startX + 30) prev();
+        startX = null;
+      });
+      viewport.addEventListener('touchstart', e => {
+        startX = e.touches[0].pageX; dragging = true;
+      }, {passive:true});
+      viewport.addEventListener('touchend', e => {
+        if (!dragging) return;
+        dragging = false;
+        const endX = e.changedTouches[0].pageX;
+        if (endX < startX - 30) next();
+        else if (endX > startX + 30) prev();
+        startX = null;
+      }, {passive:true});
+
+      window.addEventListener('resize', setVars);
+
+      // Init
+      setVars();
+    }
   </script>
 </body>
 </html>
