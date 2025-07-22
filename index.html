@@ -1,339 +1,318 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SolarPack · Home</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SolarPack · Home</title>
 
-  <!-- Fonts & Icons -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
-  <script type="module" src="https://unpkg.com/ionicons@7.2.1/dist/ionicons/ionicons.esm.js"></script>
-  <script nomodule src="https://unpkg.com/ionicons@7.2.1/dist/ionicons/ionicons.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+<script type="module" src="https://unpkg.com/ionicons@7.2.1/dist/ionicons/ionicons.esm.js"></script>
+<script nomodule src="https://unpkg.com/ionicons@7.2.1/dist/ionicons/ionicons.js"></script>
+<script src="assets/js/header.js" defer></script>
 
-  <!-- Your header -->
-  <script src="assets/js/header.js" defer></script>
+<style>
+:root{
+  --bg:#0e0e0e;--card:#181818;--txt:#fff;--subtxt:#cecece;--accent:#e53935;--radius:10px;
+  --carousel-gap:1.2rem;
+  --slide-w:320px;
+  --slide-h:200px;
+  --peek: clamp(16px, 8vw, 120px); /* how much of neighbors you see */
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt)}
+main{padding:2rem 1.2rem;max-width:1200px;margin:0 auto}
 
-  <style>
-    :root{
-      --bg:#0e0e0e;--card:#181818;--txt:#fff;--subtxt:#cecece;--accent:#e53935;--radius:10px;
-      --carousel-gap:1.2rem;
-      --slide-w:320px; /* desktop default; JS will read real width anyway */
-      --slide-h:200px;
-    }
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt)}
-    main{padding:2rem 1.2rem;max-width:1200px;margin:0 auto}
+.hero{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:2rem;text-align:center;margin-bottom:3rem}
+.hero img{width:100%;max-width:320px;background:transparent}
+.hero-content{max-width:500px}
+.hero-content h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(3.5rem,8vw,6rem);color:var(--accent);margin-bottom:.5rem}
+.hero-content .subtitle{font-size:1.2rem;color:var(--subtxt);margin-bottom:1.2rem}
+.hero-content p{color:var(--subtxt);font-size:1.05rem}
 
-    .hero{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:2rem;text-align:center;margin-bottom:3rem}
-    .hero img{width:100%;max-width:320px;background:transparent}
-    .hero-content{max-width:500px}
-    .hero-content h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(3.5rem,8vw,6rem);color:var(--accent);margin-bottom:.5rem}
-    .hero-content .subtitle{font-size:1.2rem;color:var(--subtxt);margin-bottom:1.2rem}
-    .hero-content p{color:var(--subtxt);font-size:1.05rem}
+.section{background:var(--card);border-radius:var(--radius);padding:2rem;margin-bottom:3rem;box-shadow:0 1px 6px #0004}
+.section img{width:100%;border-radius:var(--radius);box-shadow:0 2px 16px #0005;margin-bottom:1.5rem;background:#222}
+.section h2{text-align:center;margin-bottom:1rem}
+.section p{color:var(--subtxt);text-align:center;max-width:650px;margin:0 auto}
 
-    .section{background:var(--card);border-radius:var(--radius);padding:2rem;margin-bottom:3rem;box-shadow:0 1px 6px #0004}
-    .section img{width:100%;border-radius:var(--radius);box-shadow:0 2px 16px #0005;margin-bottom:1.5rem;background:#222}
-    .section h2{text-align:center;margin-bottom:1rem}
-    .section p{color:var(--subtxt);text-align:center;max-width:650px;margin:0 auto}
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:2rem}
+.feature{text-align:center}
+.feature h3{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;color:var(--accent);margin:.5rem 0;letter-spacing:.05em}
+.feature p{font-size:1.05rem;color:var(--subtxt)}
+.feature ion-icon{font-size:3rem;color:var(--accent);margin-bottom:.5rem;position:relative}
 
-    .features{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:2rem}
-    .feature{text-align:center}
-    .feature h3{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;color:var(--accent);margin:.5rem 0;letter-spacing:.05em}
-    .feature p{font-size:1.05rem;color:var(--subtxt)}
-    .feature ion-icon{font-size:3rem;color:var(--accent);margin-bottom:.5rem;position:relative}
+.socials{display:flex;justify-content:center;gap:1.5rem;margin:2rem 0 1rem}
+.socials a{color:var(--accent);font-size:2rem;transition:color .2s}
+.socials a:hover{color:#fff}
+.footer{text-align:center;color:#888;font-size:1rem;margin:2rem 0 1rem}
 
-    .socials{display:flex;justify-content:center;gap:1.5rem;margin:2rem 0 1rem}
-    .socials a{color:var(--accent);font-size:2rem;transition:color .2s}
-    .socials a:hover{color:#fff}
-    .footer{text-align:center;color:#888;font-size:1rem;margin:2rem 0 1rem}
+/* -------- Carousel -------- */
+.carousel-container{
+  position:relative;
+  width:100%;
+  max-width:1200px;        /* wider now */
+  margin:1.5rem auto 0;
+  overflow:hidden;
+}
+.carousel-viewport{
+  width:100%;
+  overflow:hidden;
+  /* show peeks by padding viewport, not container */
+  padding:0 var(--peek);
+}
+.carousel-track{
+  display:flex;
+  gap:var(--carousel-gap);
+  will-change:transform;
+  transition:transform .5s cubic-bezier(.77,0,.18,1);
+}
+.carousel-slide{
+  flex:0 0 auto;
+  width:var(--slide-w);
+  height:var(--slide-h);
+  border-radius:var(--radius);
+  box-shadow:0 2px 16px #0005;
+  overflow:hidden;
+  user-select:none;
+  position:relative;
+}
+.carousel-slide img{
+  width:100%;height:100%;object-fit:cover;pointer-events:none;
+}
 
-    /* ---------- Carousel ---------- */
-    .carousel-container{
-      position:relative;
-      width:100%;
-      max-width:900px;
-      margin:1.5rem auto 0;
-      overflow:hidden;
-      /* allow side peeks */
-      padding:0 calc(var(--slide-w)/2);
-    }
-    .carousel-viewport{
-      overflow:hidden;
-      width:100%;
-    }
-    .carousel-track{
-      display:flex;
-      gap:var(--carousel-gap);
-      will-change:transform;
-      transition:transform .5s cubic-bezier(.77,0,.18,1);
-      padding:0;  /* we compensate with container padding */
-    }
-    .carousel-slide{
-      flex:0 0 auto;
-      width:var(--slide-w);
-      height:var(--slide-h);
-      border-radius:var(--radius);
-      box-shadow:0 2px 16px #0005;
-      overflow:hidden;
-      user-select:none;
-      position:relative;
-    }
-    .carousel-slide img{
-      width:100%;
-      height:100%;
-      object-fit:cover;
-      pointer-events:none;
-    }
+.carousel-arrow{
+  position:absolute;top:50%;transform:translateY(-50%);
+  background:rgba(24,24,24,.85);color:var(--accent);
+  border:none;border-radius:50%;width:42px;height:42px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.6rem;cursor:pointer;z-index:3;transition:background .2s,color .2s;
+}
+.carousel-arrow:hover{background:var(--accent);color:#fff}
+.carousel-arrow.left{left:6px}
+.carousel-arrow.right{right:6px}
 
-    .carousel-arrow{
-      position:absolute;top:50%;transform:translateY(-50%);
-      background:rgba(24,24,24,.8);color:var(--accent);
-      border:none;border-radius:50%;width:42px;height:42px;
-      display:flex;align-items:center;justify-content:center;
-      font-size:1.6rem;cursor:pointer;z-index:3;transition:background .2s,color .2s;
-    }
-    .carousel-arrow:hover{background:var(--accent);color:#fff}
-    .carousel-arrow.left{left:10px}
-    .carousel-arrow.right{right:10px}
+.carousel-dots{
+  display:flex;justify-content:center;gap:.7rem;margin-top:1.4rem;
+}
+.carousel-dots .dot{
+  width:13px;height:13px;border-radius:50%;background:#444;opacity:.6;cursor:pointer;
+  transition:background .2s,opacity .2s;border:2px solid transparent;
+}
+.carousel-dots .dot.active{background:var(--accent);opacity:1;border-color:#fff}
 
-    .carousel-dots{
-      display:flex;justify-content:center;gap:.7rem;margin-top:1.8rem;
-    }
-    .carousel-dots .dot{
-      width:13px;height:13px;border-radius:50%;background:#444;opacity:.6;cursor:pointer;
-      transition:background .2s,opacity .2s;border:2px solid transparent;
-    }
-    .carousel-dots .dot.active{background:var(--accent);opacity:1;border-color:#fff}
-
-    @media (max-width:600px){
-      :root{--slide-w:180px;--slide-h:110px;--carousel-gap:.7rem}
-      .hero img{max-width:140px}
-      .carousel-arrow{width:32px;height:32px;font-size:1.3rem}
-      .carousel-dots{gap:.4rem;margin-top:.7rem}
-      .carousel-dots .dot{width:9px;height:9px}
-      .carousel-container{padding:0 calc(var(--slide-w)/2)}
-    }
-  </style>
+@media (max-width:600px){
+  :root{--slide-w:180px;--slide-h:110px;--carousel-gap:.7rem;--peek:32px}
+  .hero img{max-width:140px}
+  .carousel-arrow{width:32px;height:32px;font-size:1.3rem}
+  .carousel-dots{gap:.4rem;margin-top:.7rem}
+  .carousel-dots .dot{width:9px;height:9px}
+}
+</style>
 </head>
 <body>
-  <main>
-    <section class="hero">
-      <img src="assets/images/solarpack_logo.gif" alt="SolarPack Logo">
-      <div class="hero-content">
-        <h1>SolarPack</h1>
-        <div class="subtitle">Solar Vehicle Team at NC State</div>
-        <p>Striving to break barriers in the sustainable vehicle industry with a hardworking group of over 40 passionate students. Join us in our journey to a more sustainable future for transportation.</p>
-      </div>
-    </section>
-
-    <section class="section">
-      <img src="assets/images/hero_shot.jpg" alt="SolarPack Team">
-      <h2>Sustainable, Efficient, and Powerful.</h2>
-      <p>As NC State's first solar vehicle team, we are aiming to show the world that solar energy can be used to power a car. Along the way, we are making a solar vehicle no other team has done before.</p>
-    </section>
-
-    <section class="section features">
-      <div class="feature">
-        <ion-icon name="earth-outline"></ion-icon>
-        <h3>Global Impact</h3>
-        <p>We're showing the world that solar energy can power a multi-occupancy car. By building a vehicle no one has seen before, we hope to prove that sustainability and power can go hand in hand.</p>
-      </div>
-      <div class="feature">
-        <ion-icon name="cog-outline"></ion-icon>
-        <h3>Engineering Excellence</h3>
-        <p>Our team thrives on creative problem solving. Members develop real-world skills as they tackle unique engineering challenges throughout our build process.</p>
-      </div>
-      <div class="feature">
-        <ion-icon name="bulb-outline"></ion-icon>
-        <h3>Innovation</h3>
-        <p>Pioneering new solutions, our members are always innovating—using every resource to bring big ideas to life and push the boundaries of solar vehicle technology.</p>
-      </div>
-      <div class="feature">
-        <ion-icon name="hand-left-outline"></ion-icon>
-        <h3>Collaboration</h3>
-        <p>We partner with companies and alumni to guide our journey, building strong relationships as we promote the future of energy-efficient vehicles.</p>
-      </div>
-      <div class="feature">
-        <ion-icon name="location-outline"></ion-icon>
-        <h3>Rooted in the Triangle</h3>
-        <p>Proudly representing the Research Triangle, we embody the spirit of innovation and excellence that defines our region—driving forward as leaders in sustainable technology.</p>
-      </div>
-    </section>
-
-    <!-- Race 2025 Image Carousel -->
-    <section class="section race-carousel">
-      <h2>2025 Race Highlights</h2>
-
-      <div class="carousel-container">
-        <button class="carousel-arrow left" aria-label="Previous"><i class="fas fa-chevron-left"></i></button>
-
-        <div class="carousel-viewport">
-          <div class="carousel-track" id="raceTrack">
-            <!-- Slides (NO CLONES HERE; JS will clone) -->
-            <div class="carousel-slide"><img src="assets/images/race2025/race2025_1.jpg" alt="Race 2025 Image 1"></div>
-            <div class="carousel-slide"><img src="assets/images/race2025/race2025_2.jpg" alt="Race 2025 Image 2"></div>
-            <div class="carousel-slide"><img src="assets/images/race2025/race2025_3.jpg" alt="Race 2025 Image 3"></div>
-            <div class="carousel-slide"><img src="assets/images/race2025/race2025_4.jpg" alt="Race 2025 Image 4"></div>
-            <div class="carousel-slide"><img src="assets/images/race2025/race2025_5.jpg" alt="Race 2025 Image 5"></div>
-            <div class="carousel-slide"><img src="assets/images/race2025/race2025_6.jpg" alt="Race 2025 Image 6"></div>
-            <div class="carousel-slide"><img src="assets/images/race2025/race2025_7.jpg" alt="Race 2025 Image 7"></div>
-            <div class="carousel-slide"><img src="assets/images/race2025/race2025_8.jpg" alt="Race 2025 Image 8"></div>
-            <div class="carousel-slide"><img src="assets/images/race2025/race2025_9.jpg" alt="Race 2025 Image 9"></div>
-          </div>
-        </div>
-
-        <button class="carousel-arrow right" aria-label="Next"><i class="fas fa-chevron-right"></i></button>
-
-        <div class="carousel-dots" id="raceDots"></div>
-      </div>
-    </section>
-
-    <div class="socials">
-      <a href="https://www.instagram.com/solarpacknc/" target="_blank"><i class="fab fa-instagram"></i></a>
-      <a href="https://www.linkedin.com/company/solarpack-nc-state/" target="_blank"><i class="fab fa-linkedin"></i></a>
-      <a href="https://www.facebook.com/SolarPackNC/" target="_blank"><i class="fab fa-facebook"></i></a>
+<main>
+  <section class="hero">
+    <img src="assets/images/solarpack_logo.gif" alt="SolarPack Logo">
+    <div class="hero-content">
+      <h1>SolarPack</h1>
+      <div class="subtitle">Solar Vehicle Team at NC State</div>
+      <p>Striving to break barriers in the sustainable vehicle industry with a hardworking group of over 40 passionate students. Join us in our journey to a more sustainable future for transportation.</p>
     </div>
-  </main>
+  </section>
 
-  <footer class="footer">
-    &copy; 2025 SolarPack · NC State Solar Vehicle Team. All rights reserved.
-  </footer>
+  <section class="section">
+    <img src="assets/images/hero_shot.jpg" alt="SolarPack Team">
+    <h2>Sustainable, Efficient, and Powerful.</h2>
+    <p>As NC State's first solar vehicle team, we are aiming to show the world that solar energy can be used to power a car. Along the way, we are making a solar vehicle no other team has done before.</p>
+  </section>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      setupInfiniteCarousel({
-        trackSelector: '#raceTrack',
-        dotsSelector: '#raceDots',
-        leftBtn: document.querySelector('.carousel-arrow.left'),
-        rightBtn: document.querySelector('.carousel-arrow.right')
-      });
-    });
+  <section class="section features">
+    <div class="feature">
+      <ion-icon name="earth-outline"></ion-icon>
+      <h3>Global Impact</h3>
+      <p>We're showing the world that solar energy can power a multi-occupancy car. By building a vehicle no one has seen before, we hope to prove that sustainability and power can go hand in hand.</p>
+    </div>
+    <div class="feature">
+      <ion-icon name="cog-outline"></ion-icon>
+      <h3>Engineering Excellence</h3>
+      <p>Our team thrives on creative problem solving. Members develop real-world skills as they tackle unique engineering challenges throughout our build process.</p>
+    </div>
+    <div class="feature">
+      <ion-icon name="bulb-outline"></ion-icon>
+      <h3>Innovation</h3>
+      <p>Pioneering new solutions, our members are always innovating—using every resource to bring big ideas to life and push the boundaries of solar vehicle technology.</p>
+    </div>
+    <div class="feature">
+      <ion-icon name="hand-left-outline"></ion-icon>
+      <h3>Collaboration</h3>
+      <p>We partner with companies and alumni to guide our journey, building strong relationships as we promote the future of energy-efficient vehicles.</p>
+    </div>
+    <div class="feature">
+      <ion-icon name="location-outline"></ion-icon>
+      <h3>Rooted in the Triangle</h3>
+      <p>Proudly representing the Research Triangle, we embody the spirit of innovation and excellence that defines our region—driving forward as leaders in sustainable technology.</p>
+    </div>
+  </section>
 
-    function setupInfiniteCarousel({ trackSelector, dotsSelector, leftBtn, rightBtn }) {
-      const track = document.querySelector(trackSelector);
-      const viewport = track.parentElement;
-      const container = viewport.parentElement;
-      const gap = parseFloat(getComputedStyle(track).gap || 0);
+  <!-- Race 2025 Image Carousel -->
+  <section class="section race-carousel">
+    <h2>2025 Race Highlights</h2>
 
-      let slides = Array.from(track.children); // original slides
-      const slideCount = slides.length;
+    <div class="carousel-container">
+      <button class="carousel-arrow left" aria-label="Previous"><i class="fas fa-chevron-left"></i></button>
 
-      // Create dots
-      const dotsWrap = document.querySelector(dotsSelector);
-      dotsWrap.innerHTML = '';
-      for (let i = 0; i < slideCount; i++) {
-        const d = document.createElement('span');
-        d.className = 'dot' + (i === 0 ? ' active' : '');
-        d.dataset.index = i;
-        dotsWrap.appendChild(d);
-      }
-      const dots = Array.from(dotsWrap.children);
+      <div class="carousel-viewport">
+        <div class="carousel-track" id="raceTrack">
+          <!-- Raw slides (JS clones ends) -->
+          <div class="carousel-slide"><img src="assets/images/race2025/race2025_1.jpg" alt="Race 2025 Image 1"></div>
+          <div class="carousel-slide"><img src="assets/images/race2025/race2025_2.jpg" alt="Race 2025 Image 2"></div>
+          <div class="carousel-slide"><img src="assets/images/race2025/race2025_3.jpg" alt="Race 2025 Image 3"></div>
+          <div class="carousel-slide"><img src="assets/images/race2025/race2025_4.jpg" alt="Race 2025 Image 4"></div>
+          <div class="carousel-slide"><img src="assets/images/race2025/race2025_5.jpg" alt="Race 2025 Image 5"></div>
+          <div class="carousel-slide"><img src="assets/images/race2025/race2025_6.jpg" alt="Race 2025 Image 6"></div>
+          <div class="carousel-slide"><img src="assets/images/race2025/race2025_7.jpg" alt="Race 2025 Image 7"></div>
+          <div class="carousel-slide"><img src="assets/images/race2025/race2025_8.jpg" alt="Race 2025 Image 8"></div>
+          <div class="carousel-slide"><img src="assets/images/race2025/race2025_9.jpg" alt="Race 2025 Image 9"></div>
+        </div>
+      </div>
 
-      // Clone first & last slide for seamless loop
-      const firstClone = slides[0].cloneNode(true);
-      const lastClone = slides[slides.length - 1].cloneNode(true);
-      firstClone.classList.add('clone');
-      lastClone.classList.add('clone');
-      track.insertBefore(lastClone, track.firstChild);
-      track.appendChild(firstClone);
+      <button class="carousel-arrow right" aria-label="Next"><i class="fas fa-chevron-right"></i></button>
 
-      slides = Array.from(track.children); // now includes clones
+      <div class="carousel-dots" id="raceDots"></div>
+    </div>
+  </section>
 
-      let currentIndex = 1; // because of leading clone
-      let slideW = slides[0].getBoundingClientRect().width;
-      let offsetCenter = (container.clientWidth - slideW) / 2; // center main
+  <div class="socials">
+    <a href="https://www.instagram.com/solarpacknc/" target="_blank"><i class="fab fa-instagram"></i></a>
+    <a href="https://www.linkedin.com/company/solarpack-nc-state/" target="_blank"><i class="fab fa-linkedin"></i></a>
+    <a href="https://www.facebook.com/SolarPackNC/" target="_blank"><i class="fab fa-facebook"></i></a>
+  </div>
+</main>
 
-      function setVars() {
-        slideW = slides[0].getBoundingClientRect().width;
-        offsetCenter = (container.clientWidth - slideW) / 2;
-        track.style.transition = 'none';
-        moveTo(currentIndex, false);
-        requestAnimationFrame(() => { track.style.transition = ''; });
-      }
+<footer class="footer">
+  &copy; 2025 SolarPack · NC State Solar Vehicle Team. All rights reserved.
+</footer>
 
-      function moveTo(idx, animate = true) {
-        if (!animate) track.style.transition = 'none';
-        const translate = -(idx * (slideW + gap)) + offsetCenter;
-        track.style.transform = `translateX(${translate}px)`;
-        if (!animate) {
-          // force reflow to flush transition removal
-          track.getBoundingClientRect();
-          track.style.transition = '';
-        }
-        updateDots();
-      }
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  setupInfiniteCarousel({
+    trackSelector: '#raceTrack',
+    dotsSelector: '#raceDots',
+    leftBtn: document.querySelector('.carousel-arrow.left'),
+    rightBtn: document.querySelector('.carousel-arrow.right')
+  });
+});
 
-      function updateDots() {
-        const realIndex = (currentIndex - 1 + slideCount) % slideCount;
-        dots.forEach((d,i)=>d.classList.toggle('active', i===realIndex));
-      }
+function setupInfiniteCarousel({ trackSelector, dotsSelector, leftBtn, rightBtn }) {
+  const track = document.querySelector(trackSelector);
+  const viewport = track.parentElement;
+  const gap = parseFloat(getComputedStyle(track).gap || 0);
 
-      function next() { goTo(currentIndex + 1); }
-      function prev() { goTo(currentIndex - 1); }
+  let slides = Array.from(track.children); // originals
+  const originalCount = slides.length;
 
-      function goTo(target) {
-        currentIndex = target;
-        moveTo(currentIndex, true);
-      }
+  // dots
+  const dotsWrap = document.querySelector(dotsSelector);
+  dotsWrap.innerHTML = '';
+  for (let i=0;i<originalCount;i++){
+    const dot=document.createElement('span');
+    dot.className='dot'+(i===0?' active':'');
+    dot.dataset.index=i;
+    dotsWrap.appendChild(dot);
+  }
+  const dots = Array.from(dotsWrap.children);
 
-      track.addEventListener('transitionend', () => {
-        // Jump without animation if we hit a clone
-        if (slides[currentIndex].classList.contains('clone')) {
-          track.style.transition = 'none';
-          if (currentIndex === 0) {
-            currentIndex = slideCount;
-          } else if (currentIndex === slides.length - 1) {
-            currentIndex = 1;
-          }
-          moveTo(currentIndex, false);
-        }
-      });
+  // clones
+  const firstClone = slides[0].cloneNode(true);
+  const lastClone  = slides[slides.length-1].cloneNode(true);
+  firstClone.classList.add('clone');
+  lastClone.classList.add('clone');
+  track.insertBefore(lastClone, track.firstChild);
+  track.appendChild(firstClone);
 
-      // Buttons
-      leftBtn.addEventListener('click', prev);
-      rightBtn.addEventListener('click', next);
+  slides = Array.from(track.children);
+  let currentIndex = 1;
 
-      // Dots
-      dots.forEach(dot => {
-        dot.addEventListener('click', () => {
-          currentIndex = parseInt(dot.dataset.index, 10) + 1;
-          moveTo(currentIndex, true);
-        });
-      });
+  let slideW, viewportW, translateBase;
 
-      // Drag / Swipe
-      let startX = null;
-      let dragging = false;
-      viewport.addEventListener('mousedown', e => {
-        startX = e.pageX; dragging = true;
-      });
-      window.addEventListener('mouseup', e => {
-        if (!dragging) return;
-        dragging = false;
-        if (e.pageX < startX - 30) next();
-        else if (e.pageX > startX + 30) prev();
-        startX = null;
-      });
-      viewport.addEventListener('touchstart', e => {
-        startX = e.touches[0].pageX; dragging = true;
-      }, {passive:true});
-      viewport.addEventListener('touchend', e => {
-        if (!dragging) return;
-        dragging = false;
-        const endX = e.changedTouches[0].pageX;
-        if (endX < startX - 30) next();
-        else if (endX > startX + 30) prev();
-        startX = null;
-      }, {passive:true});
+  const ro = new ResizeObserver(recalc);
+  ro.observe(viewport);
 
-      window.addEventListener('resize', setVars);
+  function recalc() {
+    slideW = slides[0].getBoundingClientRect().width;
+    viewportW = viewport.getBoundingClientRect().width;
+    // center = we want the active slide center at viewport center
+    translateBase = Math.round((viewportW - slideW) / 2);
+    snap(false);
+  }
 
-      // Init
-      setVars();
+  function snap(animate=true){
+    if(!animate) track.style.transition='none';
+    const x = -Math.round(currentIndex * (slideW + gap)) + translateBase;
+    track.style.transform = `translateX(${x}px)`;
+    if(!animate){
+      track.getBoundingClientRect(); // flush
+      track.style.transition='';
     }
-  </script>
+    updateDots();
+  }
+
+  function updateDots(){
+    const real = (currentIndex - 1 + originalCount) % originalCount;
+    dots.forEach((d,i)=>d.classList.toggle('active', i===real));
+  }
+
+  function next(){ go(currentIndex+1); }
+  function prev(){ go(currentIndex-1); }
+  function go(idx){
+    currentIndex = idx;
+    snap(true);
+  }
+
+  track.addEventListener('transitionend', ()=>{
+    if (slides[currentIndex].classList.contains('clone')){
+      track.style.transition='none';
+      if(currentIndex===0) currentIndex = originalCount;
+      else if(currentIndex===slides.length-1) currentIndex = 1;
+      snap(false);
+    }
+  });
+
+  leftBtn.addEventListener('click', prev);
+  rightBtn.addEventListener('click', next);
+
+  dots.forEach(dot=>{
+    dot.addEventListener('click', ()=>{
+      currentIndex = parseInt(dot.dataset.index,10) + 1;
+      snap(true);
+    });
+  });
+
+  // drag/swipe
+  let startX=null, dragging=false;
+  viewport.addEventListener('mousedown', e=>{startX=e.pageX;dragging=true;});
+  window.addEventListener('mouseup', e=>{
+    if(!dragging) return;
+    dragging=false;
+    if(e.pageX < startX-30) next();
+    else if(e.pageX > startX+30) prev();
+    startX=null;
+  });
+  viewport.addEventListener('touchstart', e=>{startX=e.touches[0].pageX;dragging=true;},{passive:true});
+  viewport.addEventListener('touchend', e=>{
+    if(!dragging) return;
+    dragging=false;
+    const endX=e.changedTouches[0].pageX;
+    if(endX < startX-30) next();
+    else if(endX > startX+30) prev();
+    startX=null;
+  },{passive:true});
+
+  // init
+  recalc();
+}
+</script>
 </body>
 </html>
