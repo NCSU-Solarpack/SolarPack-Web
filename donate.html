@@ -23,9 +23,9 @@
 
 		/* Donorbox modal (popup) */
 		.dbx-modal { position: fixed; inset: 0; display: none; z-index: 1000; }
-		.dbx-modal[open] { display: block; }
+		.dbx-modal[open] { display: flex; align-items: center; justify-content: center; padding: 3vh 0; }
 		.dbx-modal__backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.55); }
-		.dbx-modal__dialog { position: relative; margin: 3vh auto; background: var(--card, #fff); color: inherit; border-radius: var(--radius, 12px); width: min(100% - 1.5rem, 560px); box-shadow: 0 12px 32px rgba(0,0,0,0.35); max-height: 94vh; display: flex; flex-direction: column; overflow: hidden; }
+		.dbx-modal__dialog { position: relative; margin: 0; background: var(--card, #fff); color: inherit; border-radius: var(--radius, 12px); width: min(100% - 1.5rem, 560px); box-shadow: 0 12px 32px rgba(0,0,0,0.35); max-height: 94vh; display: flex; flex-direction: column; overflow: hidden; }
 		.dbx-modal__close { position: absolute; top: .5rem; right: .5rem; background: transparent; border: 0; font-size: 1.6rem; line-height: 1; padding: .25rem .5rem; cursor: pointer; color: #666; }
 		.dbx-modal__close:hover { color: #000; }
 		.dbx-modal__body { padding: 2.25rem 1rem 1rem; overflow: auto; display: flex; justify-content: center; }
@@ -33,7 +33,8 @@
 
 		/* Donation meter + legal note */
 		.donation-meter { margin: 1rem auto 1.25rem; display: flex; justify-content: center; }
-		.donation-meter iframe { width: 100%; max-width: 500px; height: 93px; border: 0; }
+		.donation-meter-card { background: #fff; color: #000; border-radius: var(--radius, 12px); padding: 0.75rem; box-shadow: 0 1px 6px rgba(0,0,0,0.15); border: 1px solid rgba(0,0,0,0.06); }
+		.donation-meter iframe { width: 100%; max-width: 500px; height: 93px; border: 0; background: #fff; border-radius: 8px; }
 		.donate-note { margin-top: 1rem; color: var(--subtxt, #666); font-size: .9rem; }
 		.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 	</style>
@@ -46,7 +47,9 @@
 			<p>Your donation helps us build, innovate, and compete in solar car challenges. Every contribution makes a difference!</p>
 			<!-- Visible campaign progress (Donorbox donation meter) -->
 			<div class="donation-meter" aria-label="Campaign progress">
-				<iframe frameborder="0" height="93px" name="donorbox" scrolling="no" seamless="seamless" src="https://donorbox.org/embed/adopt-a-battery-cell?donation_meter_color=%23e74c3c&amp;only_donation_meter=true" style="max-width:500px; min-width:250px; max-height:none!important" width="100%"></iframe>
+				<div class="donation-meter-card">
+					<iframe frameborder="0" height="93px" name="donorbox" scrolling="no" seamless="seamless" src="https://donorbox.org/embed/adopt-a-battery-cell?donation_meter_color=%23e74c3c&amp;only_donation_meter=true" style="max-width:500px; min-width:250px; max-height:none!important" width="100%"></iframe>
+				</div>
 			</div>
 			<ul style="text-align:left;max-width:420px;margin:1.5rem auto 1.5rem auto;color:var(--subtxt);font-size:1.08rem;line-height:1.7;">
 				<li><b>Aeroshell Construction:</b> The largest portion of your donation will go directly toward building our new carbon fiber aeroshell, which is essential for our car's performance and efficiency.</li>
