@@ -37,6 +37,67 @@
 		.donation-meter iframe { width: 100%; max-width: 500px; height: 93px; border: 0; background: #fff; border-radius: 8px; }
 		.donate-note { margin-top: 1.5rem; color: var(--subtxt, #666); font-size: .82rem; line-height: 1.4; }
 		.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+		/* Styled donation choices */
+		.donation-choices-group {
+			display: flex;
+			gap: 0.7rem;
+			align-items: center;
+			justify-content: center;
+			margin-top: 0.5rem;
+			flex-wrap: wrap;
+		}
+		.donation-choice {
+			background: var(--accent, #e74c3c);
+			color: #fff;
+			border: none;
+			border-radius: 8px;
+			font-size: 1.08rem;
+			font-weight: 600;
+			padding: 0.6rem 1.3rem;
+			cursor: pointer;
+			transition: background 0.18s, box-shadow 0.18s;
+			box-shadow: 0 1px 4px #0002;
+			outline: none;
+		}
+		.donation-choice.active, .donation-choice:focus {
+			background: #b71c1c;
+			box-shadow: 0 2px 8px #0003;
+		}
+		.donation-choice:hover {
+			background: #c0392b;
+		}
+		#donation-amount {
+			border: 1.5px solid var(--accent, #e74c3c);
+			border-radius: 8px;
+			padding: 0.6rem 1rem;
+			font-size: 1.08rem;
+			width: 120px;
+			margin-left: 0.7rem;
+			transition: border-color 0.18s;
+		}
+		#donation-amount:focus {
+			border-color: #b71c1c;
+			outline: none;
+		}
+		.selected-amount-display {
+			font-size: 1.7rem;
+			font-weight: 700;
+			color: var(--accent, #e74c3c);
+			margin: 1.2rem auto 0.7rem auto;
+			text-align: center;
+			letter-spacing: 0.02em;
+		}
+		.paypal-dropdown {
+			margin: 0.5rem auto 1.2rem auto;
+			padding: 1.2rem 1.2rem 0.7rem 1.2rem;
+			background: #fff;
+			border-radius: 12px;
+			box-shadow: 0 2px 12px #0001;
+			max-width: 340px;
+			text-align: center;
+			transition: all 0.2s;
+		}
 	</style>
 </head>
 <body>
@@ -47,22 +108,26 @@
 			<p>Your donation helps us build, innovate, and compete in solar car challenges. Every contribution makes a difference!</p>
 			   <!-- PayPal Donation Section -->
 			   <form id="paypal-donation-form" style="margin:2rem 0;">
-				   <div style="margin-bottom:1.2rem;">
-					   <label for="donation-amount" style="font-weight:600;">Choose an amount:</label><br>
-					   <button type="button" class="donation-choice" data-amount="5">$5</button>
-					   <button type="button" class="donation-choice" data-amount="50">$50</button>
-					   <button type="button" class="donation-choice" data-amount="100">$100</button>
-					   <button type="button" class="donation-choice" data-amount="200">$200</button>
-					   <input type="number" min="1" step="1" id="donation-amount" placeholder="Custom amount" style="width:110px;margin-left:1rem;" />
-				   </div>
-				   <div id="paypal-button-container"></div>
-			   </form>
+    <div style="margin-bottom:1.2rem;">
+        <label for="donation-amount" style="font-weight:600; margin-bottom:0.7rem; display:block;">Choose an amount:</label>
+        <div class="donation-choices-group">
+            <button type="button" class="donation-choice" data-amount="5">$5</button>
+            <button type="button" class="donation-choice" data-amount="50">$50</button>
+            <button type="button" class="donation-choice" data-amount="100">$100</button>
+            <button type="button" class="donation-choice" data-amount="200">$200</button>
+            <input type="number" min="1" step="1" id="donation-amount" placeholder="Custom amount" />
+        </div>
+    </div>
+    <div id="selected-amount-display" class="selected-amount-display" style="display:none;"></div>
+    <div id="paypal-dropdown" class="paypal-dropdown" style="display:none;">
+        <div id="paypal-button-container"></div>
+    </div>
+</form>
 			<ul style="text-align:left;max-width:420px;margin:1.5rem auto 1.5rem auto;color:var(--subtxt);font-size:1.08rem;line-height:1.7;">
 				<li><b>Aeroshell Construction:</b> The largest portion of your donation will go directly toward building our new carbon fiber aeroshell, which is essential for our car's performance and efficiency.</li>
 				<li><b>Regulatory Components:</b> We need to purchase fasteners, wires, and other small accessories to meet strict race regulations—including the battery box, ballast boxes, and other required safety features.</li>
 				<li><b>2026 Race Preparation:</b> Your support helps us meet all technical and safety requirements so we can compete in the 2026 solar car race and represent NC State on a national stage.</li>
 			</ul>
-			<a href="#" class="donate-btn" aria-haspopup="dialog" aria-controls="donateModal"><i class="fas fa-heart"></i> Donate Now</a>
 			<p class="donate-note">We are a 501(c)(3) charitable organization, EIN: 81-4817863. All the contributions are tax deductible. No goods or services will be provided for the contribution.</p>
 		</div>
 	</main>
@@ -74,45 +139,75 @@
 
 	   <!-- PayPal JS SDK -->
 	   <script src="https://www.paypal.com/sdk/js?client-id=AbrOHBdv-w2Wr7D5j8FJxAR3aC56hZ5SuDeDg6bINhSenNmItsGCq3QNk_-H_AAJZros5UnDB_iGwZF-&currency=USD"></script>
-	   <script>
-	   // PayPal donation logic
-	   (function() {
-		   var selectedAmount = null;
-		   var amountInput = document.getElementById('donation-amount');
-		   var choices = document.querySelectorAll('.donation-choice');
-		   choices.forEach(function(btn) {
-			   btn.addEventListener('click', function() {
-				   selectedAmount = btn.getAttribute('data-amount');
-				   amountInput.value = selectedAmount;
-				   choices.forEach(function(b){ b.classList.remove('active'); });
-				   btn.classList.add('active');
-			   });
-		   });
-		   amountInput.addEventListener('input', function() {
-			   selectedAmount = amountInput.value;
-			   choices.forEach(function(b){ b.classList.remove('active'); });
-		   });
-		   // Render PayPal button
-		   paypal.Buttons({
-			   style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'donate' },
-			   createOrder: function(data, actions) {
-				   var amt = parseFloat(selectedAmount) || 0;
-				   if (!amt || amt < 1) {
-					   alert('Please enter a valid donation amount.');
-					   throw new Error('Invalid amount');
-				   }
-				   return actions.order.create({
-					   purchase_units: [{ amount: { value: amt.toFixed(2) } }]
-				   });
-			   },
-			   onApprove: function(data, actions) {
-				   return actions.order.capture().then(function(details) {
-					   alert('Thank you for your donation, ' + details.payer.name.given_name + '!');
-				   });
-			   }
-		   }).render('#paypal-button-container');
-	   })();
-	   </script>
+<script>
+// Enhanced PayPal donation logic with dropdown and amount display
+(function() {
+    var selectedAmount = null;
+    var amountInput = document.getElementById('donation-amount');
+    var choices = document.querySelectorAll('.donation-choice');
+    var amountDisplay = document.getElementById('selected-amount-display');
+    var paypalDropdown = document.getElementById('paypal-dropdown');
+    var paypalButtonContainer = document.getElementById('paypal-button-container');
+    var paypalRendered = false;
+
+    function showAmountAndDropdown(amount) {
+        amountDisplay.textContent = 'You are donating: $' + parseFloat(amount).toFixed(2);
+        amountDisplay.style.display = 'block';
+        paypalDropdown.style.display = 'block';
+        if (!paypalRendered) {
+            renderPayPalButton();
+            paypalRendered = true;
+        }
+    }
+    function hideAmountAndDropdown() {
+        amountDisplay.style.display = 'none';
+        paypalDropdown.style.display = 'none';
+        paypalButtonContainer.innerHTML = '';
+        paypalRendered = false;
+    }
+    function renderPayPalButton() {
+        paypalButtonContainer.innerHTML = '';
+        paypal.Buttons({
+            style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'donate' },
+            createOrder: function(data, actions) {
+                var amt = parseFloat(selectedAmount) || 0;
+                if (!amt || amt < 1) {
+                    alert('Please enter a valid donation amount.');
+                    throw new Error('Invalid amount');
+                }
+                return actions.order.create({
+                    purchase_units: [{ amount: { value: amt.toFixed(2) } }]
+                });
+            },
+            onApprove: function(data, actions) {
+                return actions.order.capture().then(function(details) {
+                    alert('Thank you for your donation, ' + details.payer.name.given_name + '!');
+                });
+            }
+        }).render('#paypal-button-container');
+    }
+    choices.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            selectedAmount = btn.getAttribute('data-amount');
+            amountInput.value = selectedAmount;
+            choices.forEach(function(b){ b.classList.remove('active'); });
+            btn.classList.add('active');
+            showAmountAndDropdown(selectedAmount);
+        });
+    });
+    amountInput.addEventListener('input', function() {
+        selectedAmount = amountInput.value;
+        choices.forEach(function(b){ b.classList.remove('active'); });
+        if (selectedAmount && parseFloat(selectedAmount) >= 1) {
+            showAmountAndDropdown(selectedAmount);
+        } else {
+            hideAmountAndDropdown();
+        }
+    });
+    // Hide dropdown on page load
+    hideAmountAndDropdown();
+})();
+</script>
 
 
 </body>
