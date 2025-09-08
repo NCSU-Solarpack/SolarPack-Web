@@ -45,12 +45,18 @@
 		<h1>Support Our Mission</h1>
 		<div class="donate-section">
 			<p>Your donation helps us build, innovate, and compete in solar car challenges. Every contribution makes a difference!</p>
-			<!-- Visible campaign progress (Donorbox donation meter) -->
-			<div class="donation-meter" aria-label="Campaign progress">
-				<div class="donation-meter-card">
-					<iframe frameborder="0" height="93px" name="donorbox" scrolling="no" seamless="seamless" src="https://donorbox.org/embed/adopt-a-battery-cell?donation_meter_color=%23e74c3c&amp;only_donation_meter=true" style="max-width:500px; min-width:250px; max-height:none!important" width="100%"></iframe>
-				</div>
-			</div>
+			   <!-- PayPal Donation Section -->
+			   <form id="paypal-donation-form" style="margin:2rem 0;">
+				   <div style="margin-bottom:1.2rem;">
+					   <label for="donation-amount" style="font-weight:600;">Choose an amount:</label><br>
+					   <button type="button" class="donation-choice" data-amount="5">$5</button>
+					   <button type="button" class="donation-choice" data-amount="50">$50</button>
+					   <button type="button" class="donation-choice" data-amount="100">$100</button>
+					   <button type="button" class="donation-choice" data-amount="200">$200</button>
+					   <input type="number" min="1" step="1" id="donation-amount" placeholder="Custom amount" style="width:110px;margin-left:1rem;" />
+				   </div>
+				   <div id="paypal-button-container"></div>
+			   </form>
 			<ul style="text-align:left;max-width:420px;margin:1.5rem auto 1.5rem auto;color:var(--subtxt);font-size:1.08rem;line-height:1.7;">
 				<li><b>Aeroshell Construction:</b> The largest portion of your donation will go directly toward building our new carbon fiber aeroshell, which is essential for our car's performance and efficiency.</li>
 				<li><b>Regulatory Components:</b> We need to purchase fasteners, wires, and other small accessories to meet strict race regulations—including the battery box, ballast boxes, and other required safety features.</li>
@@ -61,43 +67,53 @@
 		</div>
 	</main>
 
-	<!-- Donorbox Popup Modal -->
-	<div id="donateModal" class="dbx-modal" aria-hidden="true">
-		<div class="dbx-modal__backdrop" data-close="true"></div>
-		<div class="dbx-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="donorboxDialogTitle">
-			<h2 id="donorboxDialogTitle" class="sr-only">Donation Form</h2>
-			<button class="dbx-modal__close" type="button" aria-label="Close donation form">&times;</button>
-			<div class="dbx-modal__body">
-				<!-- Donorbox embed -->
-				<iframe src="https://donorbox.org/embed/adopt-a-battery-cell?default_interval=o&hide_donation_meter=true" name="donorbox" allowpaymentrequest="allowpaymentrequest" seamless="seamless" frameborder="0" scrolling="no" height="900px" width="100%" style="max-width: 500px; min-width: 250px; max-height:none!important"></iframe>
-			</div>
-		</div>
-	</div>
+
 
 	<footer class="footer">&copy; 2025 SolarPack. All rights reserved.</footer>
 
-	<!-- Donorbox widget script (load once) -->
-	<script src="https://donorbox.org/widget.js" paypalExpress="true"></script>
 
-	<!-- Modal open/close wiring -->
-	<script>
-		(function() {
-			function ready(fn){ if (document.readyState !== 'loading') { fn(); } else { document.addEventListener('DOMContentLoaded', fn); } }
-			ready(function(){
-				var modal = document.getElementById('donateModal');
-				if (!modal) return;
-				var openBtn = document.querySelector('.donate-btn');
-				var closeBtn = modal.querySelector('.dbx-modal__close');
-				var backdrop = modal.querySelector('.dbx-modal__backdrop');
-				var lastActive = null;
-				function open(e){ if (e) e.preventDefault(); lastActive = document.activeElement; modal.setAttribute('open',''); modal.setAttribute('aria-hidden','false'); document.body.style.overflow = 'hidden'; if (closeBtn) closeBtn.focus(); }
-				function close(){ modal.removeAttribute('open'); modal.setAttribute('aria-hidden','true'); document.body.style.overflow = ''; if (lastActive && lastActive.focus) lastActive.focus(); }
-				if (openBtn) openBtn.addEventListener('click', open);
-				if (closeBtn) closeBtn.addEventListener('click', close);
-				if (backdrop) backdrop.addEventListener('click', close);
-				document.addEventListener('keydown', function(ev){ if (ev.key === 'Escape' && modal.hasAttribute('open')) close(); });
-			});
-		})();
-	</script>
+	   <!-- PayPal JS SDK -->
+	   <script src="https://www.paypal.com/sdk/js?client-id=AbrOHBdv-w2Wr7D5j8FJxAR3aC56hZ5SuDeDg6bINhSenNmItsGCq3QNk_-H_AAJZros5UnDB_iGwZF-&currency=USD"></script>
+	   <script>
+	   // PayPal donation logic
+	   (function() {
+		   var selectedAmount = null;
+		   var amountInput = document.getElementById('donation-amount');
+		   var choices = document.querySelectorAll('.donation-choice');
+		   choices.forEach(function(btn) {
+			   btn.addEventListener('click', function() {
+				   selectedAmount = btn.getAttribute('data-amount');
+				   amountInput.value = selectedAmount;
+				   choices.forEach(function(b){ b.classList.remove('active'); });
+				   btn.classList.add('active');
+			   });
+		   });
+		   amountInput.addEventListener('input', function() {
+			   selectedAmount = amountInput.value;
+			   choices.forEach(function(b){ b.classList.remove('active'); });
+		   });
+		   // Render PayPal button
+		   paypal.Buttons({
+			   style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'donate' },
+			   createOrder: function(data, actions) {
+				   var amt = parseFloat(selectedAmount) || 0;
+				   if (!amt || amt < 1) {
+					   alert('Please enter a valid donation amount.');
+					   throw new Error('Invalid amount');
+				   }
+				   return actions.order.create({
+					   purchase_units: [{ amount: { value: amt.toFixed(2) } }]
+				   });
+			   },
+			   onApprove: function(data, actions) {
+				   return actions.order.capture().then(function(details) {
+					   alert('Thank you for your donation, ' + details.payer.name.given_name + '!');
+				   });
+			   }
+		   }).render('#paypal-button-container');
+	   })();
+	   </script>
+
+
 </body>
 </html>
