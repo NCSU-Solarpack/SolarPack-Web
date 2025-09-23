@@ -138,9 +138,11 @@ const headerHTML = /* html */ `
     <a href="alumni.html"   data-page="alumni">Alumni</a>
     <a href="donate.html"   data-page="donate">Donate</a>
     <a href="contact.html"  data-page="contact">Contact</a>
+    <a href="sponsorship.html" data-page="sponsorship">Sponsorship</a>
   </nav>
 
   <button class="burger" id="burger" aria-label="Toggle navigation">
+      <a href="sponsorship.html" data-page="sponsorship">Sponsors</a>
     <i class="fas fa-bars" aria-hidden="true"></i>
   </button>
 </header>
@@ -153,8 +155,10 @@ const headerHTML = /* html */ `
     <a href="alumni.html"   data-page="alumni">Alumni</a>
     <a href="donate.html"   data-page="donate">Donate</a>
     <a href="contact.html"  data-page="contact">Contact</a>
+    <a href="sponsorship.html" data-page="sponsorship">Sponsorship</a>
   </nav>
 </div>
+      <a href="sponsorship.html" data-page="sponsorship">Sponsors</a>
 `;
 
 function initHeader(){
