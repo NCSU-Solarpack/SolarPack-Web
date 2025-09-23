@@ -136,7 +136,7 @@ const headerHTML = /* html */ `
     <a href="app.html"      data-page="app">App</a>
     <a href="team.html"     data-page="team">Team</a>
     <a href="alumni.html"   data-page="alumni">Alumni</a>
-    <a href="sponsorship.html" data-page="sponsorship">Sponsors</a>
+    <a href="sponsors.html" data-page="sponsors">Sponsors</a>
     <a href="donate.html"   data-page="donate">Donate</a>
     <a href="contact.html"  data-page="contact">Contact</a>
   </nav>
@@ -152,7 +152,7 @@ const headerHTML = /* html */ `
     <a href="app.html"      data-page="app">App</a>
     <a href="team.html"     data-page="team">Team</a>
     <a href="alumni.html"   data-page="alumni">Alumni</a>
-    <a href="sponsorship.html" data-page="sponsorship">Sponsors</a>
+    <a href="sponsors.html" data-page="sponsors">Sponsors</a>
     <a href="donate.html"   data-page="donate">Donate</a>
     <a href="contact.html"  data-page="contact">Contact</a>
   </nav>
