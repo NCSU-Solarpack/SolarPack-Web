@@ -11,7 +11,7 @@ import Team from './pages/Team'
 import Schedules from './pages/Schedules'
 import NotFound from './pages/NotFound'
 import Admin from './components/Admin'
-
+//App Router with Layout wrapping regular pages and Admin page without layout
 function AppRouter() {
   return (
     <Routes>
