@@ -1,0 +1,95 @@
+{
+  "teamMembers": [
+    {
+      "id": 1,
+      "name": "Fabiola Fabian Plascencia",
+      "role": "Project Director",
+      "image": "/images/headshots/fabiola_plascencia.jpg",
+      "bio": "As project director, I manage SolarPack's administration, coordinate collaboration between teams, and keep us true to our core mission of practical sustainability. I joined SolarPack because I want to use my mechanical engineering degree to contribute to the creation and implementation of sustainable practices. The engineers I admire the most are those who carefully consider how their designs will impact people in unexpected ways, both in the present and in the future. In my free time, I enjoy listening to musicals, playing video games, and watching Disney movies.",
+      "email": "",
+      "linkedin": "",
+      "order": 1
+    },
+    {
+      "id": 2,
+      "name": "Will Shearin",
+      "role": "Technical Director",
+      "image": "/images/headshots/will_shearin.jpg",
+      "bio": "As Technical Director, I manage a team of students whose responsibility is to model, test, and fabricate the chassis, roll cage, and other mechanical structures of the car, while also coordinating efforts across all engineering teams. I am currently a senior in mechanical engineering, and I joined SolarPack right after my sophomore year. I took over as Technical Director after my junior year and have really enjoyed all my time here. I can see how my classroom skills translate into real-world environments, and how I can contribute to promoting sustainability. In my free time, I enjoy hanging out with friends and cooking.",
+      "email": "",
+      "linkedin": "",
+      "order": 2
+    },
+    {
+      "id": 3,
+      "name": "Maghen Lahoud",
+      "role": "Aerodynamics Lead",
+      "image": "/images/headshots/maghen_lahoud.jpg",
+      "bio": "As the aero team lead, I oversee the development of the aeroshell through 3D modeling and composite manufacturing. I joined SolarPack as a freshman because it aligns with my goal of eventually working in aerospace sustainability. Now, as a sophomore, I feel I've gained valuable technical and interpersonal skills while on the team. Outside of SolarPack, I enjoy hiking, swimming, traveling, trying new foods, and collecting rocks.",
+      "email": "",
+      "linkedin": "",
+      "order": 3
+    },
+    {
+      "id": 4,
+      "name": "Nathan Hambleton",
+      "role": "High Voltage Lead",
+      "image": "/images/headshots/nathan_hambleton.jpg",
+      "bio": "As High Voltage Lead, I'm responsible for the car's main power and propulsion systems—the 3‑phase motor, inverter, battery pack, and protection systems. I am a senior in electrical engineering and this is my 4th year in the club. I started out in vehicle dynamics but have since transitioned to high voltage systems. I will also jump in on low‑voltage, building firmware, controls, and interfaces, and I help out with our website and app code when needed.",
+      "email": "",
+      "linkedin": "",
+      "order": 4
+    },
+    {
+      "id": 5,
+      "name": "Matt Pugliese",
+      "role": "Low Voltage Lead",
+      "image": "/images/headshots/matt_pugliese.jpg",
+      "bio": "As the Low Voltage lead, I manage the systems of the car that allow it to charge using solar energy, as well as the design and communication of the car's low voltage accessory systems. I joined solarpack during my freshman year because of my interest in renewable energy and love of motorsports. I am currently a senior in electrical engineering with a focus in power systems engineering. Solarpack has given me a lot of hands-on experience and knowledge of hardware and software design outside of classes. Some of my hobbies include playing video games, racquetball, and gardening",
+      "email": "",
+      "linkedin": "",
+      "order": 5
+    },
+    {
+      "id": 6,
+      "name": "Max Weiser",
+      "role": "System Architecture Lead",
+      "image": "/images/headshots/max_weiser.jpg",
+      "bio": "As the Systems Architecture lead, I lead the development of communication and telemetry systems in the car. I joined SolarPack during the first semester of my freshman year because I was fascinated with the concept of making an electric car fun to drive. During my time with SolarPack, I have learned many skills and gained experiences that I would have never received in my classes. For example, I am now capable of designing and building PCBs, operating HAM radio, and so much more. During my free time, I enjoy playing video games, watching anime, and cooking.",
+      "email": "",
+      "linkedin": "",
+      "order": 6
+    },
+    {
+      "id": 7,
+      "name": "Ansh Aggarwal",
+      "role": "Structures Lead",
+      "image": "/images/headshots/ansh_aggarwal.jpg",
+      "bio": "As the Structures Lead, I oversee the creation and development of most immobile mechanical structures present in the car, involving structures such as the chassis, doors, and battery enclosures. I am a sophomore in chemical engineering and paper science engineering, and this is my 2nd year on SolarPack. I joined SolarPack as it reminded me of FRC, a robotics competition I invested lots of time and effort in in high school. Some of my hobbies include woodworking, reading, and playing videogames.",
+      "email": "",
+      "linkedin": "",
+      "order": 7
+    },
+    {
+      "id": 8,
+      "name": "Aaron Wold",
+      "role": "Vehicle Dynamics Lead",
+      "image": "/images/headshots/aaron_wold.jpg",
+      "bio": "As the vehicle dynamics team lead, I oversee the development of mechanical aspects within the car, involving systems such as suspension, steering, and powertrain. My interest in these systems stemmed from my interest in LEGO as a child. My other hobbies include playing guitar, playing videogames, and skateboarding.",
+      "email": "",
+      "linkedin": "",
+      "order": 8
+    },
+    {
+      "id": 9,
+      "name": "Aaron Yang",
+      "role": "Business Lead",
+      "image": "/images/headshots/aaron_yang.jpg",
+      "bio": "As the business team lead, I oversee sponsorship, finance, social media, and outreach events for SolarPack. I am a sophomore majoring in Business Administration with a concentration in Finance. Originally, I was going to major in Mechanical Engineering given my interest in cars and combustion engines. I enjoy playing games, food, and learning to cook foods.",
+      "email": "",
+      "linkedin": "",
+      "order": 9
+    }
+  ],
+  "lastUpdated": "2024-10-31T00:00:00Z"
+}

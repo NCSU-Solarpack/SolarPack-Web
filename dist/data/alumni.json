@@ -1,0 +1,121 @@
+{
+  "alumniData": [
+    {
+      "semester": "Fall 2025",
+      "leadership": [
+        { "role": "Project Director", "name": "Fabiola Fabian Plascencia" },
+        { "role": "Technical Director", "name": "Will Shearin" },
+        { "role": "Aerodynamics Lead", "name": "Maghen Lahoud" },
+        { "role": "High Voltage Lead", "name": "Nathan Hambleton" },
+        { "role": "Low Voltage Lead", "name": "Matt Pugliese" },
+        { "role": "System Architecture Lead", "name": "Max Weiser" },
+        { "role": "Structures Lead", "name": "Will Shearin" },
+        { "role": "Vehicle Dynamics Lead", "name": "Aaron Wold" },
+        { "role": "Business Lead", "name": "Aaron Yang" }
+      ]
+    },
+    {
+      "semester": "Spring 2021",
+      "leadership": [
+        { "role": "Project Director", "name": "Alex Kelly" },
+        { "role": "Technical Director", "name": "Ben Nichols" },
+        { "role": "Structures", "name": "Bec Alderson" },
+        { "role": "Vehicle Dynamics", "name": "Matt Blake" },
+        { "role": "Solar", "name": "Matt Panizza" },
+        { "role": "High Voltage", "name": "Harrison Strag" },
+        { "role": "Business", "name": "Emma McLaughlin" },
+        { "role": "Systems Architecture", "name": "Joe Schroedl" },
+        { "role": "Aerodynamics", "name": "Jonathan Rhodes" }
+      ]
+    },
+    {
+      "semester": "Fall 2020",
+      "leadership": [
+        { "role": "Project Director", "name": "Alex Kelly" },
+        { "role": "Technical Director", "name": "Emily Solis" },
+        { "role": "Structures", "name": "Bec Alderson" },
+        { "role": "Vehicle Dynamics", "name": "Jack McDonald" },
+        { "role": "Electrical", "name": "Nilesh Contractor" },
+        { "role": "Business", "name": "Alex Kelly" },
+        { "role": "Systems Architecture", "name": "Colin Brown" },
+        { "role": "Aerodynamics", "name": "Jesse Heidrich" }
+      ]
+    },
+    {
+      "semester": "Spring 2020",
+      "leadership": [
+        { "role": "Project Director", "name": "Adam Lineberger" },
+        { "role": "Technical Director", "name": "Emily Solis" },
+        { "role": "Structures", "name": "Bec Alderson" },
+        { "role": "Vehicle Dynamics", "name": "Alex Kelly" },
+        { "role": "Electrical", "name": "Nilesh Contractor" },
+        { "role": "Business", "name": "Kathie Tran" },
+        { "role": "Systems Architecture", "name": "Colin Brown" },
+        { "role": "Aerodynamics", "name": "Jesse Heidrich" }
+      ]
+    },
+    {
+      "semester": "Fall 2019",
+      "leadership": [
+        { "role": "Director", "name": "Adam Lineberger" },
+        { "role": "Structures", "name": "Emma Bartlett" },
+        { "role": "Vehicle Dynamics", "name": "Emily Solis" },
+        { "role": "Electrical", "name": "Ram Bala" },
+        { "role": "Business", "name": "Marie-Fleur Hombrecher" },
+        { "role": "Systems Architecture", "name": "Seth Hollandsworth" },
+        { "role": "Aerodynamics", "name": "Nate Browning" }
+      ]
+    },
+    {
+      "semester": "Fall 2018",
+      "leadership": [
+        { "role": "Director", "name": "Cody Biedermann" },
+        { "role": "Structures", "name": "Jess Somerville" },
+        { "role": "Vehicle Dynamics", "name": "Elton Padua" },
+        { "role": "Electrical", "name": "Micah Ulrich" },
+        { "role": "Business", "name": "Sam Brennen-Lisko" },
+        { "role": "Systems Architecture", "name": "Byron Spells" }
+      ]
+    },
+    {
+      "semester": "Spring 2018",
+      "leadership": [
+        { "role": "Director", "name": "Byron Spells" },
+        { "role": "Structures", "name": "Rachel Shalloway" },
+        { "role": "Vehicle Dynamics", "name": "Cody Biedermann" },
+        { "role": "Electrical", "name": "Komal Charania" },
+        { "role": "Business", "name": "Sam Brennen-Lisko" },
+        { "role": "Design", "name": "Jecori Owens-Schuler" }
+      ]
+    },
+    {
+      "semester": "Fall 2017",
+      "leadership": [
+        { "role": "Director", "name": "Byron Spells" },
+        { "role": "Structures", "name": "Grant Hierman" },
+        { "role": "Vehicle Dynamics", "name": "Cody Biedermann" },
+        { "role": "Electrical", "name": "Thomas Dotson" },
+        { "role": "Business", "name": "Hannah Schauer" },
+        { "role": "Design", "name": "Jecori Owens-Schuler" },
+        { "role": "Aerodynamics", "name": "AB Gundala" }
+      ]
+    },
+    {
+      "semester": "Spring 2017",
+      "leadership": [
+        { "role": "Director", "name": "Byron Spells" },
+        { "role": "Structures", "name": "Arsh Grewal" },
+        { "role": "Vehicle Dynamics", "name": "Melissa Hyland" },
+        { "role": "Electrical", "name": "Thomas Dotson" }
+      ]
+    },
+    {
+      "semester": "2016",
+      "leadership": [
+        { "role": "Director", "name": "Byron Spells" },
+        { "role": "Structures", "name": "Arsh Grewal" },
+        { "role": "Vehicle Dynamics", "name": "Aciel Binhza" }
+      ]
+    }
+  ]
+}

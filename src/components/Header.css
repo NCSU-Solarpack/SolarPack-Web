@@ -1,0 +1,480 @@
+/* Header Styles */
+.header{
+  position:fixed;
+  inset:0 0 auto 0;
+  height:64px;
+  background:#000;
+  display:flex;
+  align-items:center;
+  gap:2rem;
+  padding:0 2rem;
+  box-shadow:0 1px 6px #0008;
+  z-index:1000;
+}
+
+/* logo */
+.logo{
+  display:flex;
+  align-items:center;
+  gap:.55rem;
+  color:var(--accent);
+  text-decoration:none;
+  font-family:"Bebas Neue",sans-serif;
+  font-size:2rem;
+  letter-spacing:.04em;
+}
+
+.logo img{
+  height:36px;
+  width:auto;
+}
+
+/* desktop / tablet nav */
+.nav{
+  margin-left:auto;
+  display:flex;
+  gap:1.5rem;
+}
+
+.nav a{
+  font-family:"Bebas Neue",sans-serif;
+  font-size:1.25rem;
+  text-decoration:none;
+  color:var(--text);
+  position:relative;
+  padding:.25rem 0;
+  transition:color var(--speed);
+}
+
+.nav a.active,
+.nav a:hover{
+  color:var(--accent);
+}
+
+.nav a.active::after,
+.nav a:hover::after{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:-6px;
+  height:3px;
+  border-radius:3px;
+  background:var(--accent);
+}
+
+/* Auth section */
+.auth-section {
+  margin-left: 1.5rem;
+  display: flex;
+  align-items: center;
+}
+
+.auth-dropdown {
+  position: relative;
+}
+
+.account-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: 2px solid var(--text);
+  color: var(--text);
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all var(--speed);
+}
+
+.account-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.account-btn.authenticated {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(227, 27, 35, 0.1);
+}
+
+.dropdown-arrow {
+  font-size: 0.8rem;
+  margin-left: 0.25rem;
+  transition: transform var(--speed);
+}
+
+.auth-dropdown.open .dropdown-arrow {
+  transform: rotate(180deg);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid #333;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  min-width: 160px;
+  z-index: 1000;
+  animation: dropdownSlideIn 0.2s ease-out;
+}
+
+@keyframes dropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background var(--speed);
+  text-align: left;
+}
+
+.dropdown-item:first-child {
+  border-radius: 8px 8px 0 0;
+}
+
+.dropdown-item:last-child {
+  border-radius: 0 0 8px 8px;
+}
+
+.dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dropdown-item.logout:hover {
+  background: rgba(220, 53, 69, 0.2);
+  color: #dc3545;
+}
+
+.auth-text {
+  display: none;
+}
+
+@media (min-width: 480px) {
+  .auth-text {
+    display: inline;
+  }
+}
+
+/* Hamburger */
+.burger{
+  display:none;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  width:40px;
+  height:40px;
+  cursor:pointer;
+  margin-left:auto;
+  background:none;
+  border:none;
+  font-size:1.9rem;
+  color:var(--text);
+  position:relative;
+  z-index:1201;
+}
+
+.burger:focus{
+  outline:none;
+}
+
+.burger:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+
+/* Mobile slide-down panel */
+.mobile-panel{
+  position:fixed;
+  top:64px;
+  left:0;
+  width:100vw;
+  height:0;
+  overflow:hidden;
+  background:var(--surface);
+  box-shadow:0 2px 12px #000;
+  transition:height var(--speed) ease;
+  z-index:1100;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+
+.mobile-panel.open{
+  height:calc(100vh - 64px);
+}
+
+.m-nav{
+  display:flex;
+  flex-direction:column;
+  padding:4rem 1.5rem 2rem;
+  gap:.2rem;
+  width:90%;
+  max-width:500px;
+}
+
+.m-nav a{
+  font-size:1.1rem;
+  text-decoration:none;
+  color:var(--text);
+  background:transparent;
+  padding:1rem 2rem;
+  border-radius:16px;
+  border-bottom:1px solid #222;
+  transition:background var(--speed),color var(--speed);
+  text-align:left;
+  font-weight:600;
+}
+
+.m-nav a:hover,
+.m-nav a.active{
+  background:var(--accent);
+  color:#fff;
+}
+
+/* Mobile auth section */
+.mobile-auth {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #333;
+}
+
+.mobile-auth-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  background: none;
+  border: 2px solid var(--text);
+  color: var(--text);
+  padding: 1rem 2rem;
+  border-radius: 16px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--speed);
+  text-align: left;
+}
+
+.mobile-auth-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.mobile-auth-btn.authenticated {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(227, 27, 35, 0.1);
+}
+
+.mobile-auth-btn.logout {
+  margin-top: 0.5rem;
+  border-color: #dc3545;
+  color: #dc3545;
+}
+
+.mobile-auth-btn.logout:hover {
+  background: rgba(220, 53, 69, 0.2);
+}
+
+/* Login Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  padding: 1rem;
+}
+
+.login-modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem 1rem;
+  border-bottom: 1px solid #333;
+}
+
+.modal-header h2 {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.8rem;
+  color: var(--accent);
+  margin: 0;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: color var(--speed);
+}
+
+.close-btn:hover {
+  color: var(--accent);
+}
+
+.login-form {
+  padding: 2rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  color: var(--text);
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid #333;
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 1rem;
+  transition: border-color var(--speed);
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.form-group input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error-message {
+  background: rgba(220, 53, 69, 0.1);
+  border: 1px solid #dc3545;
+  color: #dc3545;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.submit-btn {
+  width: 100%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--speed);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: #c41520;
+  transform: translateY(-1px);
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.submit-btn.loading {
+  background: #bbb;
+  cursor: wait;
+}
+
+/* Breakpoints */
+@media(max-width:767px){
+  .nav{
+    display:none;
+  }
+  .auth-section {
+    display: none;
+  }
+  .burger{
+    display:flex;
+  }
+  .header{
+    padding:0 1.2rem;
+  }
+}
+
+@media(min-width:768px) and (max-width:1023px){
+  .header{
+    padding:0 1.6rem;
+  }
+  .nav{
+    gap:1rem;
+  }
+  .auth-section {
+    margin-left: 1rem;
+  }
+}
+
+@media(min-width:1024px){
+  .header{
+    padding:0 2rem;
+  }
+}

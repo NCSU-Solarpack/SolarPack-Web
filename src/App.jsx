@@ -1,0 +1,43 @@
+import { Routes, Route } from 'react-router-dom'
+import Layout from './components/Layout'
+import Home from './pages/Home'
+import App from './pages/App'
+import Alumni from './pages/Alumni'
+import Contact from './pages/Contact'
+import Donate from './pages/Donate'
+import PrivacyPolicy from './pages/PrivacyPolicy'
+import Sponsors from './pages/Sponsors'
+import Team from './pages/Team'
+import Schedules from './pages/Schedules'
+import NotFound from './pages/NotFound'
+import Admin from './components/Admin'
+
+function AppRouter() {
+  return (
+    <Routes>
+      {/* Admin route without layout */}
+      <Route path="/admin" element={<Admin />} />
+      
+      {/* Regular routes with layout */}
+      <Route path="/*" element={
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/app" element={<App />} />
+            <Route path="/alumni" element={<Alumni />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/donate" element={<Donate />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/sponsors" element={<Sponsors />} />
+            <Route path="/schedules" element={<Schedules />} />
+            <Route path="/team" element={<Team />} />
+            {/* Catch-all route for 404 pages */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Layout>
+      } />
+    </Routes>
+  )
+}
+
+export default AppRouter
