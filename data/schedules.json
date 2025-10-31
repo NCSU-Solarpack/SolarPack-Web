@@ -1,0 +1,182 @@
+{
+  "teams": [
+    {"id": "director", "name": "Project Director", "color": "#6366f1"},
+    {"id": "technical-director", "name": "Technical Director", "color": "#8b5cf6"},
+    {"id": "aerodynamics", "name": "Aerodynamics", "color": "#06b6d4"},
+    {"id": "high-voltage", "name": "High Voltage", "color": "#ef4444"},
+    {"id": "low-voltage", "name": "Low Voltage Systems", "color": "#f59e0b"},
+    {"id": "architecture", "name": "Architecture Structures", "color": "#10b981"},
+    {"id": "vehicle-dynamics", "name": "Vehicle Dynamics", "color": "#f97316"},
+    {"id": "business", "name": "Business", "color": "#84cc16"}
+  ],
+  "projects": [
+    {
+      "id": 1,
+      "title": "Aeroshell Development",
+      "description": "Complete aeroshell design, testing, and manufacturing",
+      "team": "aerodynamics",
+      "priority": "high",
+      "status": "in-progress",
+      "startDate": "2024-10-01",
+      "dueDate": "2025-02-15",
+      "estimatedHours": 240,
+      "actualHours": 85,
+      "progress": 35,
+      "assignedTo": "Maghen Lahoud",
+      "tasks": [
+        {
+          "id": 101,
+          "title": "Wind Tunnel Testing Phase 1",
+          "description": "Initial wind tunnel testing and data collection",
+          "startDate": "2024-11-01",
+          "dueDate": "2024-11-15",
+          "estimatedHours": 40,
+          "actualHours": 15,
+          "status": "in-progress",
+          "priority": "high",
+          "assignedTo": "Maghen Lahoud",
+          "progress": 37
+        },
+        {
+          "id": 102,
+          "title": "CAD Model Refinement",
+          "description": "Refine aeroshell CAD model based on test results",
+          "startDate": "2024-11-16",
+          "dueDate": "2024-12-01",
+          "estimatedHours": 60,
+          "actualHours": 0,
+          "status": "pending",
+          "priority": "medium",
+          "assignedTo": "Team Member",
+          "progress": 0
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Battery Management System",
+      "description": "Design and implement comprehensive battery management system",
+      "team": "high-voltage",
+      "priority": "critical",
+      "status": "in-progress",
+      "startDate": "2024-09-15",
+      "dueDate": "2024-12-20",
+      "estimatedHours": 320,
+      "actualHours": 145,
+      "progress": 45,
+      "assignedTo": "Nathan Hambleton",
+      "tasks": [
+        {
+          "id": 201,
+          "title": "Cell Selection and Testing",
+          "description": "Select optimal battery cells and conduct performance testing",
+          "startDate": "2024-09-15",
+          "dueDate": "2024-10-15",
+          "estimatedHours": 80,
+          "actualHours": 85,
+          "status": "completed",
+          "priority": "critical",
+          "assignedTo": "Nathan Hambleton",
+          "progress": 100
+        },
+        {
+          "id": 202,
+          "title": "BMS Circuit Design",
+          "description": "Design battery management system circuitry",
+          "startDate": "2024-10-16",
+          "dueDate": "2024-11-30",
+          "estimatedHours": 120,
+          "actualHours": 60,
+          "status": "in-progress",
+          "priority": "high",
+          "assignedTo": "Nathan Hambleton",
+          "progress": 50
+        },
+        {
+          "id": 203,
+          "title": "Safety Testing Protocol",
+          "description": "Develop and execute comprehensive safety testing",
+          "startDate": "2024-12-01",
+          "dueDate": "2024-12-20",
+          "estimatedHours": 120,
+          "actualHours": 0,
+          "status": "pending",
+          "priority": "critical",
+          "assignedTo": "Team Member",
+          "progress": 0
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Solar Panel Integration",
+      "description": "Integrate solar panels with vehicle electrical system",
+      "team": "low-voltage",
+      "priority": "high",
+      "status": "planning",
+      "startDate": "2024-11-15",
+      "dueDate": "2025-01-31",
+      "estimatedHours": 180,
+      "actualHours": 0,
+      "progress": 0,
+      "assignedTo": "Team Lead",
+      "tasks": [
+        {
+          "id": 301,
+          "title": "Panel Selection Research",
+          "description": "Research and select optimal solar panel configuration",
+          "startDate": "2024-11-15",
+          "dueDate": "2024-12-01",
+          "estimatedHours": 40,
+          "actualHours": 0,
+          "status": "pending",
+          "priority": "medium",
+          "assignedTo": "Team Member",
+          "progress": 0
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": 1,
+      "title": "Race Strategy Meeting",
+      "description": "Quarterly strategy meeting for race preparation",
+      "team": "director",
+      "date": "2024-11-05",
+      "startTime": "14:00",
+      "endTime": "16:00",
+      "type": "meeting",
+      "priority": "high",
+      "attendees": ["All Team Leads"],
+      "location": "Conference Room A"
+    },
+    {
+      "id": 2,
+      "title": "Wind Tunnel Session",
+      "description": "Scheduled wind tunnel testing session",
+      "team": "aerodynamics",
+      "date": "2024-11-08",
+      "startTime": "09:00",
+      "endTime": "17:00",
+      "type": "testing",
+      "priority": "critical",
+      "attendees": ["Maghen Lahoud", "Aero Team"],
+      "location": "Wind Tunnel Facility"
+    },
+    {
+      "id": 3,
+      "title": "Sponsor Presentation",
+      "description": "Present project progress to sponsors",
+      "team": "business",
+      "date": "2024-11-12",
+      "startTime": "15:00",
+      "endTime": "16:30",
+      "type": "presentation",
+      "priority": "high",
+      "attendees": ["Business Team", "Project Director"],
+      "location": "Auditorium"
+    }
+  ],
+  "lastUpdated": "2024-10-31T00:00:00Z"
+}
