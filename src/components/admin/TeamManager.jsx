@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { authService } from '../../utils/auth';
 import { githubService } from '../../utils/github';
+import { loadDataWithCacheBust, refreshDataAfterSave } from '../../utils/dataLoader';
 
 const TeamManager = () => {
   const [teamData, setTeamData] = useState({ teamMembers: [], lastUpdated: '' });
@@ -12,10 +13,9 @@ const TeamManager = () => {
     loadTeamData();
   }, []);
 
-  const loadTeamData = async () => {
+  const loadTeamData = async (bustCache = false) => {
     try {
-      const response = await fetch('/data/team.json');
-      const data = await response.json();
+      const data = await loadDataWithCacheBust('/data/team.json', bustCache);
       setTeamData(data);
     } catch (error) {
       console.error('Error loading team data:', error);
@@ -92,18 +92,42 @@ const TeamManager = () => {
   const saveToGitHub = async (data) => {
     if (!githubService.hasToken()) {
       console.warn('No GitHub token available. Changes saved locally only.');
+      alert('No GitHub token available. Changes are saved locally but not synced to GitHub. Please configure your GitHub token in Settings.');
       return;
     }
 
     try {
+      console.log('Attempting to save team data to GitHub...');
       await githubService.saveTeamData(data);
       console.log('Team data saved to GitHub successfully');
       
       // Optional: trigger a rebuild
       await githubService.triggerRebuild();
+      
+      // Show success message
+      alert('Team data saved to GitHub successfully!');
+      
+      // Automatically refresh the data from the server to get the latest version
+      refreshDataAfterSave(loadTeamData);
+      
     } catch (error) {
       console.error('Error saving to GitHub:', error);
-      alert('Failed to save changes to GitHub. Please check your connection and try again.');
+      
+      // More specific error message based on the error
+      let errorMessage = 'Failed to save changes to GitHub. ';
+      if (error.message.includes('401')) {
+        errorMessage += 'Authentication failed - please check your GitHub token permissions.';
+      } else if (error.message.includes('403')) {
+        errorMessage += 'Permission denied - your token may not have write access to this repository.';
+      } else if (error.message.includes('404')) {
+        errorMessage += 'Repository or file not found - please check your repository configuration.';
+      } else if (error.message.includes('422')) {
+        errorMessage += 'Invalid request - the file may have been modified by someone else. Please refresh and try again.';
+      } else {
+        errorMessage += `Error: ${error.message}`;
+      }
+      
+      alert(errorMessage);
     }
   };
 
@@ -130,7 +154,12 @@ const TeamManager = () => {
           margin: 0;
         }
 
-        .add-member-btn {
+        .header-buttons {
+          display: flex;
+          gap: 1rem;
+        }
+
+        .add-member-btn, .refresh-btn {
           background: var(--accent);
           color: white;
           border: none;
@@ -142,6 +171,15 @@ const TeamManager = () => {
           align-items: center;
           gap: 0.5rem;
           transition: background 0.3s ease;
+        }
+
+        .refresh-btn {
+          background: #007acc;
+        }
+
+        .refresh-btn:hover {
+          background: #005fa3;
+          transform: translateY(-1px);
         }
 
         .add-member-btn:hover {
@@ -369,12 +407,17 @@ const TeamManager = () => {
 
       <div className="team-manager-header">
         <h2 className="team-manager-title">Team Management</h2>
-        {canEdit && (
-          <button className="add-member-btn" onClick={handleAddMember}>
-            <span>+</span>
-            Add Member
+        <div className="header-buttons">
+          <button className="refresh-btn" onClick={() => loadTeamData(true)} title="Refresh data from server">
+            🔄 Refresh
           </button>
-        )}
+          {canEdit && (
+            <button className="add-member-btn" onClick={handleAddMember}>
+              <span>+</span>
+              Add Member
+            </button>
+          )}
+        </div>
       </div>
 
       {!canEdit && (

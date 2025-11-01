@@ -65,13 +65,16 @@ class GitHubService {
     try {
       const response = await fetch(url, {
         headers: {
-          'Authorization': `token ${this.token}`,
-          'Accept': 'application/vnd.github.v3+json'
+          'Authorization': `Bearer ${this.token}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'X-GitHub-Api-Version': '2022-11-28'
         }
       });
 
       if (!response.ok) {
-        throw new Error(`GitHub API error: ${response.status}`);
+        const errorData = await response.text();
+        console.error('GitHub API error getting SHA:', response.status, errorData);
+        throw new Error(`GitHub API error: ${response.status} - ${errorData}`);
       }
 
       const data = await response.json();
@@ -87,32 +90,55 @@ class GitHubService {
     if (!this.token) throw new Error('No GitHub token available');
 
     try {
+      console.log('Updating file:', path);
+      console.log('Using token:', this.token ? `${this.token.substring(0, 8)}...` : 'No token');
+      
       // First, get the current file SHA
       const sha = await this.getFileSHA(path);
+      console.log('Got SHA:', sha);
       
-      // Encode content as base64
-      const encodedContent = btoa(JSON.stringify(content, null, 2));
+      // Encode content as base64 (Unicode-safe)
+      const jsonString = JSON.stringify(content, null, 2);
+      
+      // Use TextEncoder for proper Unicode handling
+      const encoder = new TextEncoder();
+      const uint8Array = encoder.encode(jsonString);
+      
+      // Convert Uint8Array to base64
+      let binaryString = '';
+      uint8Array.forEach(byte => {
+        binaryString += String.fromCharCode(byte);
+      });
+      const encodedContent = btoa(binaryString);
       
       const url = `${this.baseUrl}/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${path}`;
+      
+      const requestBody = {
+        message: message || `Update ${path}`,
+        content: encodedContent,
+        sha: sha,
+        branch: GITHUB_CONFIG.branch
+      };
+      
+      console.log('Request body:', requestBody);
       
       const response = await fetch(url, {
         method: 'PUT',
         headers: {
-          'Authorization': `token ${this.token}`,
+          'Authorization': `Bearer ${this.token}`,
           'Accept': 'application/vnd.github.v3+json',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-GitHub-Api-Version': '2022-11-28'
         },
-        body: JSON.stringify({
-          message: message || `Update ${path}`,
-          content: encodedContent,
-          sha: sha,
-          branch: GITHUB_CONFIG.branch
-        })
+        body: JSON.stringify(requestBody)
       });
 
+      console.log('Update response status:', response.status);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`GitHub API error: ${response.status} - ${errorData.message}`);
+        const errorData = await response.text();
+        console.error('GitHub API error updating file:', response.status, errorData);
+        throw new Error(`GitHub API error: ${response.status} - ${errorData}`);
       }
 
       const result = await response.json();
