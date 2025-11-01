@@ -10,17 +10,15 @@ const GITHUB_CONFIG = {
 class GitHubService {
   constructor() {
     // Priority order for token:
-    // 1. Hardcoded token (works for everyone)
-    // 2. Environment variable (local development)
-    // 3. localStorage (user input)
-    this.token = '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' || import.meta.env.VITE_GITHUB_TOKEN || null;
+    // 1. Environment variable (secure, local development)
+    // 2. localStorage (user input)
+    this.token = import.meta.env.VITE_GITHUB_TOKEN || null;
     this.baseUrl = 'https://api.github.com';
     
     console.log('GitHub Service initialized');
-    console.log('Hardcoded token available:', this.token ? 'Yes' : 'No');
     console.log('Environment token available:', import.meta.env.VITE_GITHUB_TOKEN ? 'Yes' : 'No');
     
-    // Load token on initialization (will use hardcoded if available)
+    // Load token on initialization
     this.loadToken();
   }
 
@@ -30,14 +28,8 @@ class GitHubService {
     localStorage.setItem('github_token', token);
   }
 
-  // Load token with priority: hardcoded > env var > localStorage
+  // Load token with priority: env var > localStorage
   loadToken() {
-    // Use hardcoded token if available
-    if (this.token && this.token.startsWith('ghp_')) {
-      console.log('Using hardcoded token');
-      return this.token;
-    }
-    
     // Use environment variable if available
     if (import.meta.env.VITE_GITHUB_TOKEN) {
       this.token = import.meta.env.VITE_GITHUB_TOKEN;

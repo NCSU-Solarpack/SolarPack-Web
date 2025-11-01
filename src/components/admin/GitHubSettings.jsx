@@ -19,17 +19,12 @@ const GitHubSettings = () => {
     const loadedToken = githubService.loadToken();
     
     if (loadedToken) {
-      // Check if it's the hardcoded token
-      if (loadedToken.startsWith('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')) {
-        setTokenSource('hardcoded');
-        setToken('[Hardcoded Token - Built-in]');
-      }
       // Check if it's from environment variable
-      else if (import.meta.env.VITE_GITHUB_TOKEN) {
+      if (import.meta.env.VITE_GITHUB_TOKEN) {
         setTokenSource('environment');
         setToken('[Environment Variable]');
       }
-      // Check if it's from localStorage
+      // Otherwise it's from localStorage
       else {
         setTokenSource('localstorage');
         setToken('*'.repeat(20));
@@ -500,12 +495,6 @@ const GitHubSettings = () => {
         <div className="token-info">
           <div className="token-source">
             <strong>Source:</strong> 
-            {tokenSource === 'hardcoded' && (
-              <span className="status-badge status-success">
-                <CheckCircle size={16} />
-                Hardcoded (Built-in)
-              </span>
-            )}
             {tokenSource === 'environment' && (
               <span className="status-badge status-success">
                 <CheckCircle size={16} />
@@ -572,9 +561,8 @@ const GitHubSettings = () => {
         </div>
       )}
 
-      {/* Manual Token Entry (only show if no hardcoded token) */}
-      {tokenSource !== 'hardcoded' && (
-        <div className="manual-token-section">
+      {/* Manual Token Entry */}
+      <div className="manual-token-section">
           <h4>Manual Token Entry</h4>
           <p className="section-description">
             Enter a GitHub Personal Access Token if you want to override the current configuration.
@@ -611,7 +599,6 @@ const GitHubSettings = () => {
             )}
           </div>
         </div>
-      )}
 
       <div className="help-section">
         <div className="help-title">How to Create a GitHub Personal Access Token:</div>
