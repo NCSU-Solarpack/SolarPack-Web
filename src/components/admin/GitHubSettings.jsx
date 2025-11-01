@@ -1,35 +1,59 @@
 import { useState, useEffect } from 'react';
 import { githubService } from '../../utils/github';
+import { CheckCircle, XCircle, AlertCircle, RefreshCw, Eye, EyeOff } from 'lucide-react';
 
 const GitHubSettings = () => {
   const [token, setToken] = useState('');
   const [connectionStatus, setConnectionStatus] = useState(null);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [showToken, setShowToken] = useState(false);
+  const [tokenSource, setTokenSource] = useState('none');
 
   useEffect(() => {
-    const savedToken = githubService.loadToken();
-    if (savedToken) {
-      // Check if token is from environment variable
-      const isFromEnv = import.meta.env.VITE_GITHUB_TOKEN;
-      setToken(isFromEnv ? '[Environment Variable]' : '*'.repeat(20)); // Mask the saved token
-      testConnection();
-    }
+    checkTokenSource();
+    // Automatically test connection on load
+    testConnection();
   }, []);
 
+  const checkTokenSource = () => {
+    const loadedToken = githubService.loadToken();
+    
+    if (loadedToken) {
+      // Check if it's the hardcoded token
+      if (loadedToken.startsWith('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')) {
+        setTokenSource('hardcoded');
+        setToken('[Hardcoded Token - Built-in]');
+      }
+      // Check if it's from environment variable
+      else if (import.meta.env.VITE_GITHUB_TOKEN) {
+        setTokenSource('environment');
+        setToken('[Environment Variable]');
+      }
+      // Check if it's from localStorage
+      else {
+        setTokenSource('localstorage');
+        setToken('*'.repeat(20));
+      }
+    } else {
+      setTokenSource('none');
+      setToken('');
+    }
+  };
+
   const handleSaveToken = () => {
-    if (!token || token.startsWith('*')) {
+    if (!token || token.startsWith('*') || token.startsWith('[')) {
       alert('Please enter a valid GitHub token');
       return;
     }
 
     githubService.setToken(token);
+    checkTokenSource();
     testConnection();
   };
 
   const handleClearToken = () => {
     githubService.clearToken();
-    setToken('');
+    checkTokenSource();
     setConnectionStatus(null);
   };
 
@@ -124,6 +148,170 @@ const GitHubSettings = () => {
 
         .action-buttons {
           display: flex;
+          gap: 0.75rem;
+          margin-top: 1rem;
+        }
+
+        .save-btn, .test-btn, .clear-btn {
+          padding: 0.75rem 1.5rem;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 500;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          transition: all 0.3s ease;
+        }
+
+        .save-btn {
+          background: var(--accent);
+          color: white;
+        }
+
+        .save-btn:hover {
+          background: #c71821;
+          transform: translateY(-1px);
+        }
+
+        .test-btn {
+          background: #0066cc;
+          color: white;
+        }
+
+        .test-btn:hover:not(:disabled) {
+          background: #0052a3;
+          transform: translateY(-1px);
+        }
+
+        .test-btn:disabled {
+          background: #666;
+          cursor: not-allowed;
+        }
+
+        .clear-btn {
+          background: #666;
+          color: white;
+        }
+
+        .clear-btn:hover {
+          background: #777;
+        }
+
+        /* New Token Status Styles */
+        .token-status {
+          background: rgba(0, 123, 255, 0.1);
+          border: 1px solid rgba(0, 123, 255, 0.3);
+          border-radius: 8px;
+          padding: 1.5rem;
+          margin-bottom: 2rem;
+        }
+
+        .status-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1rem;
+        }
+
+        .status-header h4 {
+          margin: 0;
+          color: var(--text);
+          font-size: 1.1rem;
+        }
+
+        .test-btn-small {
+          background: #0066cc;
+          color: white;
+          border: none;
+          padding: 0.5rem 1rem;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 0.85rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          transition: all 0.3s ease;
+        }
+
+        .test-btn-small:hover:not(:disabled) {
+          background: #0052a3;
+        }
+
+        .test-btn-small:disabled {
+          background: #666;
+          cursor: not-allowed;
+        }
+
+        .spinning {
+          animation: spin 1s linear infinite;
+        }
+
+        .token-info {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .token-source, .token-display {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .status-badge {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.25rem 0.75rem;
+          border-radius: 20px;
+          font-size: 0.85rem;
+          font-weight: 500;
+        }
+
+        .status-success {
+          background: rgba(40, 167, 69, 0.2);
+          color: #28a745;
+          border: 1px solid rgba(40, 167, 69, 0.3);
+        }
+
+        .status-warning {
+          background: rgba(255, 193, 7, 0.2);
+          color: #ffc107;
+          border: 1px solid rgba(255, 193, 7, 0.3);
+        }
+
+        .status-error {
+          background: rgba(220, 53, 69, 0.2);
+          color: #dc3545;
+          border: 1px solid rgba(220, 53, 69, 0.3);
+        }
+
+        .token-value {
+          background: rgba(255, 255, 255, 0.1);
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          font-family: monospace;
+          font-size: 0.85rem;
+        }
+
+        .manual-token-section {
+          border-top: 1px solid #333;
+          padding-top: 2rem;
+          margin-top: 2rem;
+        }
+
+        .manual-token-section h4 {
+          margin: 0 0 0.5rem 0;
+          color: var(--text);
+          font-size: 1.1rem;
+        }
+
+        .section-description {
+          color: var(--subtxt);
+          margin-bottom: 1.5rem;
+          font-size: 0.9rem;
+        }
           gap: 1rem;
           margin-bottom: 2rem;
         }
@@ -282,76 +470,146 @@ const GitHubSettings = () => {
       <h3 className="settings-title">GitHub Integration Settings</h3>
       
       <p className="settings-description">
-        Configure GitHub integration to allow the admin interface to automatically update content files 
-        in your repository. This enables seamless content management without manual file editing.
+        GitHub integration allows the admin interface to automatically update content files 
+        in your repository. Current token status is shown below.
       </p>
 
-      <div className="form-group">
-        <label className="form-label">GitHub Personal Access Token</label>
-        <div className="token-input-group">
-          <input
-            type={showToken ? 'text' : 'password'}
-            className="form-input"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-          />
+      {/* Token Status Section */}
+      <div className="token-status">
+        <div className="status-header">
+          <h4>Token Status</h4>
           <button 
-            className="toggle-btn"
-            onClick={() => setShowToken(!showToken)}
+            className="test-btn-small" 
+            onClick={testConnection}
+            disabled={isTestingConnection}
           >
-            {showToken ? 'Hide' : 'Show'}
+            {isTestingConnection ? (
+              <>
+                <RefreshCw size={14} className="spinning" />
+                Testing...
+              </>
+            ) : (
+              <>
+                <RefreshCw size={14} />
+                Test Connection
+              </>
+            )}
           </button>
+        </div>
+        
+        <div className="token-info">
+          <div className="token-source">
+            <strong>Source:</strong> 
+            {tokenSource === 'hardcoded' && (
+              <span className="status-badge status-success">
+                <CheckCircle size={16} />
+                Hardcoded (Built-in)
+              </span>
+            )}
+            {tokenSource === 'environment' && (
+              <span className="status-badge status-success">
+                <CheckCircle size={16} />
+                Environment Variable
+              </span>
+            )}
+            {tokenSource === 'localstorage' && (
+              <span className="status-badge status-warning">
+                <AlertCircle size={16} />
+                User Input (Local)
+              </span>
+            )}
+            {tokenSource === 'none' && (
+              <span className="status-badge status-error">
+                <XCircle size={16} />
+                No Token Available
+              </span>
+            )}
+          </div>
+          
+          <div className="token-display">
+            <strong>Token:</strong> 
+            <code className="token-value">{token || 'Not configured'}</code>
+          </div>
         </div>
       </div>
 
-      <div className="action-buttons">
-        <button className="save-btn" onClick={handleSaveToken}>
-          Save Token
-        </button>
-        <button 
-          className="test-btn" 
-          onClick={testConnection}
-          disabled={isTestingConnection || !githubService.hasToken()}
-        >
-          {isTestingConnection ? (
-            <>
-              <div className="loading-spinner"></div>
-              Testing...
-            </>
-          ) : (
-            'Test Connection'
-          )}
-        </button>
-        {githubService.hasToken() && (
-          <button className="clear-btn" onClick={handleClearToken}>
-            Clear Token
-          </button>
-        )}
-      </div>
-
+      {/* Connection Status */}
       {connectionStatus && (
         <div className={`status-card ${connectionStatus.success ? 'status-success' : 'status-error'}`}>
           <div className="status-title">
-            {connectionStatus.success ? '✅ Connection Successful' : '❌ Connection Failed'}
+            {connectionStatus.success ? (
+              <>
+                <CheckCircle size={20} />
+                Connection Successful
+              </>
+            ) : (
+              <>
+                <XCircle size={20} />
+                Connection Failed
+              </>
+            )}
           </div>
           {connectionStatus.success ? (
             <div className="status-details">
-              Connected to repository: <strong>{connectionStatus.owner}/{connectionStatus.repo}</strong>
+              <p><strong>Repository:</strong> {connectionStatus.owner}/{connectionStatus.repo}</p>
+              <p><strong>Branch:</strong> {connectionStatus.branch || 'main'}</p>
               <div className="permissions">
                 <span className={`permission ${connectionStatus.permissions.push ? 'permission-granted' : 'permission-denied'}`}>
-                  Push: {connectionStatus.permissions.push ? 'Granted' : 'Denied'}
+                  {connectionStatus.permissions.push ? <CheckCircle size={14} /> : <XCircle size={14} />}
+                  Push Access
                 </span>
                 <span className={`permission ${connectionStatus.permissions.admin ? 'permission-granted' : 'permission-denied'}`}>
-                  Admin: {connectionStatus.permissions.admin ? 'Granted' : 'Denied'}
+                  {connectionStatus.permissions.admin ? <CheckCircle size={14} /> : <XCircle size={14} />}
+                  Admin Access
                 </span>
               </div>
             </div>
           ) : (
             <div className="status-details">
-              Error: {connectionStatus.error}
+              <p><strong>Error:</strong> {connectionStatus.error}</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Manual Token Entry (only show if no hardcoded token) */}
+      {tokenSource !== 'hardcoded' && (
+        <div className="manual-token-section">
+          <h4>Manual Token Entry</h4>
+          <p className="section-description">
+            Enter a GitHub Personal Access Token if you want to override the current configuration.
+          </p>
+          
+          <div className="form-group">
+            <label className="form-label">GitHub Personal Access Token</label>
+            <div className="token-input-group">
+              <input
+                type={showToken ? 'text' : 'password'}
+                className="form-input"
+                value={tokenSource === 'none' ? token : ''}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              />
+              <button 
+                className="toggle-btn"
+                onClick={() => setShowToken(!showToken)}
+              >
+                {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
+                {showToken ? 'Hide' : 'Show'}
+              </button>
+            </div>
+          </div>
+
+          <div className="action-buttons">
+            <button className="save-btn" onClick={handleSaveToken}>
+              Save Token
+            </button>
+            {tokenSource === 'localstorage' && (
+              <button className="clear-btn" onClick={handleClearToken}>
+                Clear Token
+              </button>
+            )}
+          </div>
         </div>
       )}
 

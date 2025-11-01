@@ -13,8 +13,12 @@ class GitHubService {
     // 1. Hardcoded token (works for everyone)
     // 2. Environment variable (local development)
     // 3. localStorage (user input)
-    this.token = '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' || import.meta.env.VITE_GITHUB_TOKEN || null;
+    this.token = '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' || import.meta.env.VITE_GITHUB_TOKEN || null;
     this.baseUrl = 'https://api.github.com';
+    
+    console.log('GitHub Service initialized');
+    console.log('Hardcoded token available:', this.token ? 'Yes' : 'No');
+    console.log('Environment token available:', import.meta.env.VITE_GITHUB_TOKEN ? 'Yes' : 'No');
     
     // Load token on initialization (will use hardcoded if available)
     this.loadToken();
@@ -30,18 +34,21 @@ class GitHubService {
   loadToken() {
     // Use hardcoded token if available
     if (this.token && this.token.startsWith('ghp_')) {
+      console.log('Using hardcoded token');
       return this.token;
     }
     
     // Use environment variable if available
     if (import.meta.env.VITE_GITHUB_TOKEN) {
       this.token = import.meta.env.VITE_GITHUB_TOKEN;
+      console.log('Using environment token');
       return this.token;
     }
     
     // Fall back to localStorage
     if (!this.token) {
       this.token = localStorage.getItem('github_token');
+      console.log('Using localStorage token:', this.token ? 'Found' : 'Not found');
     }
     return this.token;
   }
@@ -174,15 +181,23 @@ class GitHubService {
     try {
       const url = `${this.baseUrl}/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}`;
       
+      console.log('Testing connection to:', url);
+      console.log('Using token:', this.token ? `${this.token.substring(0, 8)}...` : 'No token');
+      
       const response = await fetch(url, {
         headers: {
-          'Authorization': `token ${this.token}`,
-          'Accept': 'application/vnd.github.v3+json'
+          'Authorization': `Bearer ${this.token}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'X-GitHub-Api-Version': '2022-11-28'
         }
       });
 
+      console.log('Response status:', response.status);
+
       if (!response.ok) {
-        throw new Error(`GitHub API error: ${response.status}`);
+        const errorText = await response.text();
+        console.error('GitHub API error:', errorText);
+        throw new Error(`GitHub API error: ${response.status} - ${errorText}`);
       }
 
       const repo = await response.json();
@@ -190,12 +205,14 @@ class GitHubService {
         success: true,
         repo: repo.name,
         owner: repo.owner.login,
+        branch: repo.default_branch,
         permissions: {
           push: repo.permissions?.push || false,
           admin: repo.permissions?.admin || false
         }
       };
     } catch (error) {
+      console.error('Connection test failed:', error);
       return {
         success: false,
         error: error.message
