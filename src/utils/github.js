@@ -9,8 +9,15 @@ const GITHUB_CONFIG = {
 
 class GitHubService {
   constructor() {
-    this.token = null;
+    // Priority order for token:
+    // 1. Environment variable (most secure for production)
+    // 2. Hardcoded token (for quick setup)
+    // 3. localStorage (user input)
+    this.token = import.meta.env.VITE_GITHUB_TOKEN || null;
     this.baseUrl = 'https://api.github.com';
+    
+    // Load token on initialization (will use env var if available)
+    this.loadToken();
   }
 
   // Set the GitHub token (you'll need to provide this in the admin interface)
@@ -19,9 +26,18 @@ class GitHubService {
     localStorage.setItem('github_token', token);
   }
 
-  // Load token from localStorage
+  // Load token with priority: env var > localStorage
   loadToken() {
-    this.token = localStorage.getItem('github_token');
+    // Use environment variable if available
+    if (import.meta.env.VITE_GITHUB_TOKEN) {
+      this.token = import.meta.env.VITE_GITHUB_TOKEN;
+      return this.token;
+    }
+    
+    // Fall back to localStorage
+    if (!this.token) {
+      this.token = localStorage.getItem('github_token');
+    }
     return this.token;
   }
 

@@ -10,7 +10,9 @@ const GitHubSettings = () => {
   useEffect(() => {
     const savedToken = githubService.loadToken();
     if (savedToken) {
-      setToken('*'.repeat(20)); // Mask the saved token
+      // Check if token is from environment variable
+      const isFromEnv = import.meta.env.VITE_GITHUB_TOKEN;
+      setToken(isFromEnv ? '[Environment Variable]' : '*'.repeat(20)); // Mask the saved token
       testConnection();
     }
   }, []);
