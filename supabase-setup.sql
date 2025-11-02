@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS alumni (
   id BIGSERIAL PRIMARY KEY,
   semester TEXT NOT NULL,
   leadership JSONB DEFAULT '[]'::jsonb,
+  "order" INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -56,6 +57,9 @@ CREATE POLICY "Allow public read access" ON alumni
 DROP POLICY IF EXISTS "Allow all modifications" ON alumni;
 CREATE POLICY "Allow all modifications" ON alumni
   FOR ALL USING (true);
+
+-- Ensure 'order' column exists for drag-and-drop sorting
+ALTER TABLE alumni ADD COLUMN IF NOT EXISTS "order" INTEGER DEFAULT 0;
 
 -- ==========================================
 -- SPONSORS TABLE

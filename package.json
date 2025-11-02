@@ -9,7 +9,8 @@
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "deploy": "npm run build && gh-pages -d dist",
-    "migrate-images": "node migrate-team-images.js"
+    "migrate-images": "node migrate-team-images.js",
+    "migrate-alumni": "node migrate-alumni-to-supabase.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.78.0",
@@ -22,6 +23,7 @@
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
     "@vitejs/plugin-react": "^4.1.1",
+    "dotenv": "^16.6.1",
     "eslint": "^8.53.0",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",

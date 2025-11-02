@@ -1,63 +1,65 @@
 import { useEffect, useState } from 'react'
+import { supabaseService } from '../utils/supabase'
 
 const Alumni = () => {
   const [alumniData, setAlumniData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     document.title = 'SolarPack · Alumni'
-
-    const load = async () => {
-      try {
-        const cacheBuster = `?_t=${Date.now()}&_cb=${Math.random()}`;
-        const url = `/data/alumni.json${cacheBuster}`;
-        
-        const res = await fetch(url, {
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-          }
-        });
-        
-        if (res.status === 304) {
-          const cached = sessionStorage.getItem('json:/data/alumni.json');
-          if (cached) {
-            const data = JSON.parse(cached);
-            setAlumniData(data.alumniData || []);
-            return;
-          }
-          throw new Error('HTTP 304 with no cached copy');
-        }
-        
-        if (res.ok) {
-          const data = await res.json();
-          sessionStorage.setItem('json:/data/alumni.json', JSON.stringify(data));
-          setAlumniData(data.alumniData || []);
-        } else {
-          setAlumniData([]);
-        }
-      } catch (e) {
-        console.error('Error loading alumni.json', e);
-        const cached = sessionStorage.getItem('json:/data/alumni.json');
-        if (cached) {
-          const data = JSON.parse(cached);
-          setAlumniData(data.alumniData || []);
-        } else {
-          setAlumniData([]);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
+    loadAlumniData();
   }, [])
 
-  // Split alumni data into two columns
-  const firstColumn = alumniData.slice(0, Math.ceil(alumniData.length / 2))
-  const secondColumn = alumniData.slice(Math.ceil(alumniData.length / 2))
+  const loadAlumniData = async () => {
+    try {
+      const data = await supabaseService.getAlumni();
+      setAlumniData(data.alumniData || []);
+      console.log('✓ Loaded alumni data from Supabase:', data.alumniData.length, 'semesters');
+    } catch (err) {
+      console.error('Error loading alumni data from Supabase:', err);
+      setError(err.message);
+      setAlumniData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Distribute in strict reading order across two columns:
+  // newest at top-left (index 0), second at top-right (index 1),
+  // then 3rd left, 4th right, etc.
+  const leftColumn = [];
+  const rightColumn = [];
+  for (let i = 0; i < alumniData.length; i += 2) {
+    const left = alumniData[i];
+    const right = alumniData[i + 1];
+    if (left) leftColumn.push(left);
+    if (right) rightColumn.push(right);
+  }
+
+  if (loading) {
+    return (
+      <div style={{ 
+        textAlign: 'center', 
+        padding: '4rem', 
+        color: 'var(--subtxt)' 
+      }}>
+        Loading alumni data...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ 
+        textAlign: 'center', 
+        padding: '4rem', 
+        color: '#dc3545' 
+      }}>
+        Error loading alumni data: {error}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -186,7 +188,7 @@ const Alumni = () => {
       <div className="alumni-by-year">
         <div className="alumni-columns">
           <div>
-            {firstColumn.map((semester, index) => (
+            {leftColumn.map((semester, index) => (
               <section key={index} className="alumni-section">
                 <h2>{semester.semester}</h2>
                 <ul>
@@ -200,7 +202,7 @@ const Alumni = () => {
             ))}
           </div>
           <div>
-            {secondColumn.map((semester, index) => (
+            {rightColumn.map((semester, index) => (
               <section key={index} className="alumni-section">
                 <h2>{semester.semester}</h2>
                 <ul>

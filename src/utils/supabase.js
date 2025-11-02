@@ -180,11 +180,11 @@ class SupabaseService {
     const { data, error } = await this.client
       .from('alumni')
       .select('*')
-      .order('semester', { ascending: false });
+      .order('order', { ascending: false });
     
     if (error) throw error;
     return {
-      alumniData: data || [],
+      alumniData: Array.isArray(data) ? data : [],
       lastUpdated: new Date().toISOString()
     };
   }
@@ -204,13 +204,77 @@ class SupabaseService {
 
   async deleteAlumniSemester(id) {
     if (!this.client) throw new Error('Supabase not configured');
-    
+    const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
+    if (!Number.isFinite(numericId)) throw new Error('Invalid id for deletion');
     const { error } = await this.client
       .from('alumni')
       .delete()
-      .eq('id', id);
-    
+      .eq('id', numericId);
     if (error) throw error;
+  }
+
+  /**
+   * Safely delete an alumni semester by id, or by semester name if id is missing.
+   * @param {{id?: number, semester?: string}} target
+   */
+  async deleteAlumniSemesterSafe(target) {
+    if (!this.client) throw new Error('Supabase not configured');
+    if (!target || ((typeof target.id !== 'number' && typeof target.id !== 'string') && !target.semester)) {
+      throw new Error('Invalid delete target');
+    }
+
+    let idToDelete = target.id;
+    if (typeof idToDelete === 'string') {
+      const n = parseInt(idToDelete, 10);
+      if (Number.isFinite(n)) idToDelete = n;
+    }
+
+    if (typeof idToDelete !== 'number') {
+      // Fallback: resolve by semester name (assumed unique like "Fall 2025")
+      const { data, error } = await this.client
+        .from('alumni')
+        .select('id')
+        .eq('semester', target.semester)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data?.id) throw new Error('Semester not found');
+      idToDelete = data.id;
+    }
+
+    const { error: delError } = await this.client
+      .from('alumni')
+      .delete()
+      .eq('id', idToDelete);
+
+    if (delError) throw delError;
+  }
+
+  /**
+   * Batch update order of alumni semesters
+   * @param {Array<{id:number, order:number}>} orderedItems
+   */
+  async saveAlumniOrder(orderedItems) {
+    if (!this.client) throw new Error('Supabase not configured');
+    if (!Array.isArray(orderedItems) || orderedItems.length === 0) return;
+
+    // Only update rows that have a valid id
+    const valid = orderedItems.filter(it => typeof it.id === 'number' && !Number.isNaN(it.id));
+    if (valid.length === 0) return;
+
+    // Perform updates individually to avoid inserting rows missing NOT NULL fields
+    const updates = valid.map(({ id, order }) =>
+      this.client
+        .from('alumni')
+        .update({ order })
+        .eq('id', id)
+    );
+
+    const results = await Promise.all(updates);
+    const firstError = results.find(r => r.error)?.error;
+    if (firstError) throw firstError;
   }
 
   // ===== SPONSOR DATA =====

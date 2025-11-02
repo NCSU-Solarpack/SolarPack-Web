@@ -25,8 +25,9 @@ const Alert = ({ isOpen, onClose, onConfirm, title, message, type = 'info', conf
   const handleConfirm = () => {
     if (onConfirm) {
       onConfirm();
+    } else {
+      onClose();
     }
-    onClose();
   };
 
   const handleCancel = () => {

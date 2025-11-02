@@ -1,135 +1,250 @@
 import { useState, useEffect } from 'react';
 import { authService } from '../../utils/auth';
-// import { githubService } from '../../utils/github'; // Removed - transitioning to Supabase
-import { Plus, Edit2, Trash2, Save, X, User } from 'lucide-react';
+import { supabaseService } from '../../utils/supabase';
+import { useSupabaseSyncStatus } from '../../hooks/useSupabaseSyncStatus';
+import SyncStatusBadge from '../SyncStatusBadge';
+import { useAlert } from '../../contexts/AlertContext';
+import { Plus, Edit2, Trash2, Save, X, GripVertical } from 'lucide-react';
 
 const AlumniManager = () => {
   const [alumniData, setAlumniData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingIndex, setEditingIndex] = useState(null);
-  const [editingLeadershipIndex, setEditingLeadershipIndex] = useState(null);
+  const [editingSemester, setEditingSemester] = useState(null);
   const [newSemester, setNewSemester] = useState({ semester: '', leadership: [] });
   const [showAddSemester, setShowAddSemester] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
+
+  // Custom alert hook from context
+  const { showError, showConfirm } = useAlert();
+
+  // Real-time sync status
+  const { status, lastSync, startSaving, finishSaving, acknowledgeNewData, setDisplayedData } = useSupabaseSyncStatus(
+    () => supabaseService.getAlumni(),
+    2000 // Check every 2 seconds
+  );
 
   useEffect(() => {
     loadAlumniData();
   }, []);
 
+  // Auto-refresh alumni data if new data is detected by sync status
+  useEffect(() => {
+    // Only auto-refresh if you want instant updates, otherwise rely on manual refresh
+    // if (status === 'new-data') {
+    //   handleRefreshData();
+    // }
+  }, [status]);
+
+  // Manual refresh handler for SyncStatusBadge
+  const handleRefreshData = async () => {
+    await loadAlumniData();
+    acknowledgeNewData(); // Reset status to 'synced'
+  };
+
   const loadAlumniData = async () => {
+    console.log('Loading alumni data from Supabase...');
+    setLoading(true);
     try {
-      setLoading(true);
-      // Try to load from existing file first
-      try {
-        const cacheBuster = `?_t=${Date.now()}&_cb=${Math.random()}`;
-        const url = `/data/alumni.json${cacheBuster}`;
-        
-        const response = await fetch(url, {
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-          }
-        });
-        
-        if (response.status === 304) {
-          const cached = sessionStorage.getItem('json:/data/alumni.json');
-          if (cached) {
-            const data = JSON.parse(cached);
-            setAlumniData(data.alumniData || []);
-            return;
-          }
-          throw new Error('HTTP 304 with no cached copy');
-        }
-        
-        if (response.ok) {
-          const data = await response.json();
-          sessionStorage.setItem('json:/data/alumni.json', JSON.stringify(data));
-          setAlumniData(data.alumniData || []);
-        } else {
-          // If file doesn't exist, use default structure
-          setAlumniData([]);
-        }
-      } catch (error) {
-        // If file doesn't exist, start with empty array
-        const cached = sessionStorage.getItem('json:/data/alumni.json');
-        if (cached) {
-          const data = JSON.parse(cached);
-          setAlumniData(data.alumniData || []);
-        } else {
-          setAlumniData([]);
-        }
+      const data = await supabaseService.getAlumni();
+      console.log('Loaded alumni data:', data);
+      
+      if (!data || !data.alumniData) {
+        console.error('Invalid data structure received:', data);
+        throw new Error('Invalid alumni data structure');
       }
+      
+      console.log(`✓ Successfully loaded ${data.alumniData.length} alumni semesters from Supabase`);
+      setAlumniData(data.alumniData);
+      setDisplayedData(data); // Ensure sync status hook is updated
     } catch (error) {
       console.error('Error loading alumni data:', error);
+      await showError(`Failed to load alumni data: ${error.message}`, 'Load Error');
       setAlumniData([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const saveAlumniData = async () => {
-    if (!authService.hasPermission('edit_content')) {
-      alert('You do not have permission to edit alumni data');
+  const handleEditSemester = (semester, index) => {
+    setEditingSemester({ ...semester });
+    setEditingIndex(index);
+  };
+
+  const handleSaveSemester = async () => {
+    if (!editingSemester.semester.trim()) {
+      await showError('Please enter a semester name.', 'Missing Required Field');
       return;
     }
+
+    setEditingIndex(null);
+    const semesterToSave = { ...editingSemester };
+    setEditingSemester(null);
+    
+    startSaving(); // Update status to 'saving'
 
     try {
-      setIsSubmitting(true);
-      const dataToSave = { alumniData };
-      // TODO: Save to Supabase database
-      console.log('Saving alumni data:', dataToSave);
-      alert('✓ Alumni data saved locally! (Supabase integration pending)');
+      // Save to Supabase
+      await supabaseService.saveAlumniSemester(semesterToSave);
+      // Reload data from Supabase
+      await loadAlumniData();
+      setDisplayedData({ alumniData }); // Update sync status after save
+      console.log('✓ Alumni semester saved successfully');
     } catch (error) {
-      console.error('Error saving alumni data:', error);
-      alert('Error saving alumni data: ' + error.message);
+      console.error('Error saving alumni semester:', error);
+      await showError(`Failed to save: ${error.message}`, 'Save Error');
     } finally {
-      setIsSubmitting(false);
+      finishSaving(); // Update status back to 'synced'
     }
   };
 
-  const addSemester = () => {
+  // ===== Drag & Drop for semesters =====
+  const handleDragStart = (index) => (e) => {
+    if (editingIndex !== null) return; // disable while editing
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnter = (index) => (e) => {
+    if (editingIndex !== null || draggedIndex === null) return;
+    setDragOverIndex(index);
+  };
+
+  const handleDragOver = (e) => {
+    if (editingIndex !== null || draggedIndex === null) return;
+    e.preventDefault();
+  };
+
+  const handleDrop = async (e) => {
+    if (editingIndex !== null || draggedIndex === null || dragOverIndex === null) return;
+    e.preventDefault();
+
+    const reordered = [...alumniData];
+    const [moved] = reordered.splice(draggedIndex, 1);
+    reordered.splice(dragOverIndex, 0, moved);
+
+    // Re-compute order values so TOP has the LARGEST number
+    const total = reordered.length;
+    const withOrder = reordered.map((item, idx) => ({ ...item, order: total - idx }));
+    setAlumniData(withOrder);
+
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+
+    // Persist order to Supabase
+    try {
+      startSaving();
+      const toSave = withOrder.map((s) => ({ id: s.id, order: s.order })).filter(item => typeof item.id === 'number' && !Number.isNaN(item.id));
+      await supabaseService.saveAlumniOrder(toSave);
+      setDisplayedData({ alumniData: withOrder }); // Update sync status after reorder
+    } catch (error) {
+      console.error('Failed to save new alumni order:', error);
+      await showError(`Failed to save new order: ${error.message}`, 'Save Order Error');
+    } finally {
+      finishSaving();
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingIndex(null);
+    setEditingSemester(null);
+  };
+
+  const handleAddSemester = async () => {
     if (!newSemester.semester.trim()) {
-      alert('Please enter a semester name');
+      await showError('Please enter a semester name.', 'Missing Required Field');
       return;
     }
 
-    const updatedData = [...alumniData, { ...newSemester, leadership: newSemester.leadership || [] }];
-    setAlumniData(updatedData);
-    setNewSemester({ semester: '', leadership: [] });
     setShowAddSemester(false);
-  };
+    // Assign order to put new semester at the bottom
+    const currentMax = alumniData.length > 0 ? Math.max(...alumniData.map(s => typeof s.order === 'number' ? s.order : 0)) : 0;
+    const semesterToSave = { ...newSemester, leadership: newSemester.leadership || [], order: currentMax + 1 };
+    setNewSemester({ semester: '', leadership: [] });
+    
+    startSaving(); // Update status to 'saving'
 
-  const deleteSemester = (index) => {
-    if (confirm('Are you sure you want to delete this semester?')) {
-      const updatedData = alumniData.filter((_, i) => i !== index);
-      setAlumniData(updatedData);
+    try {
+      // Save to Supabase
+      await supabaseService.saveAlumniSemester(semesterToSave);
+      // Reload data from Supabase
+      await loadAlumniData();
+      setDisplayedData({ alumniData }); // Update sync status after add
+      console.log('✓ Alumni semester added successfully');
+    } catch (error) {
+      console.error('Error adding alumni semester:', error);
+      await showError(`Failed to add semester: ${error.message}`, 'Save Error');
+    } finally {
+      finishSaving(); // Update status back to 'synced'
     }
   };
 
-  const updateSemester = (index, field, value) => {
-    const updatedData = [...alumniData];
-    updatedData[index][field] = value;
-    setAlumniData(updatedData);
+  const handleDeleteSemester = async (semesterId, semesterName) => {
+    const confirmed = await showConfirm(
+      `This action cannot be undone. The semester "${semesterName}" and all its leadership data will be permanently deleted.`,
+      'Delete Alumni Semester?',
+      'Delete',
+      'Cancel'
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+
+    startSaving(); // Update status to 'saving'
+
+    try {
+      // Prefer delete by id; fallback by semester name if id is missing
+      const idOrString = typeof semesterId === 'number' ? semesterId : (semesterId ?? null);
+      await supabaseService.deleteAlumniSemesterSafe({ id: idOrString, semester: semesterName });
+      const updated = alumniData.filter(s => s.id !== semesterId);
+      setAlumniData(updated);
+      await loadAlumniData();
+      setDisplayedData({ alumniData: updated }); // Update sync status after delete
+      console.log('✓ Alumni semester deleted successfully');
+    } catch (error) {
+      console.error('Error deleting alumni semester:', error);
+      await showError(`Failed to delete: ${error.message}`, 'Delete Error');
+    } finally {
+      finishSaving(); // Update status back to 'synced'
+    }
   };
 
-  const addLeadership = (semesterIndex) => {
-    const updatedData = [...alumniData];
-    updatedData[semesterIndex].leadership.push({ role: '', name: '' });
-    setAlumniData(updatedData);
+  const updateEditingSemester = (field, value) => {
+    setEditingSemester({ ...editingSemester, [field]: value });
   };
 
-  const updateLeadership = (semesterIndex, leadershipIndex, field, value) => {
-    const updatedData = [...alumniData];
-    updatedData[semesterIndex].leadership[leadershipIndex][field] = value;
-    setAlumniData(updatedData);
+  const addLeadershipToEditing = () => {
+    const updatedLeadership = [...(editingSemester.leadership || []), { role: '', name: '' }];
+    setEditingSemester({ ...editingSemester, leadership: updatedLeadership });
   };
 
-  const deleteLeadership = (semesterIndex, leadershipIndex) => {
-    const updatedData = [...alumniData];
-    updatedData[semesterIndex].leadership.splice(leadershipIndex, 1);
-    setAlumniData(updatedData);
+  const updateLeadershipInEditing = (leadershipIndex, field, value) => {
+    const updatedLeadership = [...editingSemester.leadership];
+    updatedLeadership[leadershipIndex][field] = value;
+    setEditingSemester({ ...editingSemester, leadership: updatedLeadership });
+  };
+
+  const deleteLeadershipFromEditing = (leadershipIndex) => {
+    const updatedLeadership = editingSemester.leadership.filter((_, i) => i !== leadershipIndex);
+    setEditingSemester({ ...editingSemester, leadership: updatedLeadership });
+  };
+
+  const addLeadershipToNew = () => {
+    const updatedLeadership = [...(newSemester.leadership || []), { role: '', name: '' }];
+    setNewSemester({ ...newSemester, leadership: updatedLeadership });
+  };
+
+  const updateLeadershipInNew = (leadershipIndex, field, value) => {
+    const updatedLeadership = [...newSemester.leadership];
+    updatedLeadership[leadershipIndex][field] = value;
+    setNewSemester({ ...newSemester, leadership: updatedLeadership });
+  };
+
+  const deleteLeadershipFromNew = (leadershipIndex) => {
+    const updatedLeadership = newSemester.leadership.filter((_, i) => i !== leadershipIndex);
+    setNewSemester({ ...newSemester, leadership: updatedLeadership });
   };
 
   if (loading) {
@@ -145,8 +260,9 @@ const AlumniManager = () => {
     <div className="alumni-manager">
       <style>{`
         .alumni-manager {
-          max-width: 1200px;
+          max-width: 1100px;
           margin: 0 auto;
+          padding: 0 1rem;
         }
 
         .alumni-header {
@@ -205,8 +321,8 @@ const AlumniManager = () => {
           background: var(--surface);
           padding: 1.5rem;
           border-radius: var(--radius);
-          margin-bottom: 1.5rem;
           box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          transition: box-shadow .2s ease, transform .1s ease, border-color .2s ease;
         }
 
         .semester-header {
@@ -214,6 +330,15 @@ const AlumniManager = () => {
           justify-content: space-between;
           align-items: center;
           margin-bottom: 1rem;
+          gap: 0.75rem;
+        }
+
+        .semester-title-row {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          min-width: 0; /* allows children to shrink for ellipsis */
+          flex: 1;
         }
 
         .semester-title {
@@ -221,11 +346,15 @@ const AlumniManager = () => {
           font-weight: bold;
           color: var(--text);
           margin: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .semester-actions {
           display: flex;
           gap: 0.5rem;
+          padding-left: 0.5rem; /* breathing room between title/input and actions */
         }
 
         .btn-small {
@@ -293,6 +422,24 @@ const AlumniManager = () => {
         .leadership-role-name {
           color: var(--text);
           font-size: 0.95rem;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        /* Grid layout for semesters */
+        .semesters-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 1rem;
+          align-items: start;
+        }
+
+        /* Drag visual */
+        .semester-card.drag-over {
+          outline: 2px dashed var(--accent);
+          outline-offset: -6px;
+          transform: scale(0.995);
         }
 
         .leadership-role-name .role {
@@ -365,21 +512,18 @@ const AlumniManager = () => {
 
       <div className="alumni-header">
         <h2 className="alumni-title">Alumni Management</h2>
-        <div className="action-buttons">
+        <div className="action-buttons" style={{ alignItems: 'center' }}>
+          <SyncStatusBadge 
+            status={status} 
+            lastSync={lastSync}
+            onRefresh={handleRefreshData}
+          />
           <button 
             className="btn" 
             onClick={() => setShowAddSemester(!showAddSemester)}
           >
             <Plus size={18} />
             Add Semester
-          </button>
-          <button 
-            className="btn" 
-            onClick={saveAlumniData}
-            disabled={isSubmitting}
-          >
-            <Save size={18} />
-            {isSubmitting ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </div>
@@ -396,10 +540,47 @@ const AlumniManager = () => {
               placeholder="e.g., Fall 2025"
             />
           </div>
-          <div className="action-buttons">
-            <button className="btn" onClick={addSemester}>
-              <Plus size={18} />
-              Add Semester
+          
+          <div className="leadership-list">
+            <h4 style={{ color: 'var(--text)', marginBottom: '1rem' }}>Leadership</h4>
+            {newSemester.leadership?.map((leader, leaderIndex) => (
+              <div key={leaderIndex} className="leadership-item">
+                <input
+                  type="text"
+                  className="form-input"
+                  value={leader.role}
+                  onChange={(e) => updateLeadershipInNew(leaderIndex, 'role', e.target.value)}
+                  placeholder="Role (e.g., Project Director)"
+                />
+                <input
+                  type="text"
+                  className="form-input"
+                  value={leader.name}
+                  onChange={(e) => updateLeadershipInNew(leaderIndex, 'name', e.target.value)}
+                  placeholder="Name"
+                />
+                <button 
+                  className="btn btn-small btn-secondary"
+                  onClick={() => deleteLeadershipFromNew(leaderIndex)}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))}
+            <button 
+              className="btn btn-small"
+              onClick={addLeadershipToNew}
+              style={{ marginTop: '0.5rem' }}
+            >
+              <Plus size={16} />
+              Add Leadership Role
+            </button>
+          </div>
+
+          <div className="action-buttons" style={{ marginTop: '1rem' }}>
+            <button className="btn" onClick={handleAddSemester}>
+              <Save size={18} />
+              Save Semester
             </button>
             <button 
               className="btn btn-secondary" 
@@ -422,42 +603,64 @@ const AlumniManager = () => {
           <p>Start by adding your first semester of alumni data.</p>
         </div>
       ) : (
-        alumniData.map((semester, semesterIndex) => (
-          <div key={semesterIndex} className="semester-card">
+        <div className="semesters-grid" onDragOver={handleDragOver} onDrop={handleDrop}>
+        {alumniData.map((semester, semesterIndex) => (
+          <div
+            key={semester.id || semesterIndex}
+            className={`semester-card${dragOverIndex === semesterIndex ? ' drag-over' : ''}`}
+            draggable={editingIndex === null}
+            onDragStart={handleDragStart(semesterIndex)}
+            onDragEnter={handleDragEnter(semesterIndex)}
+          >
             <div className="semester-header">
               {editingIndex === semesterIndex ? (
                 <input
                   type="text"
                   className="form-input"
-                  value={semester.semester}
-                  onChange={(e) => updateSemester(semesterIndex, 'semester', e.target.value)}
-                  style={{ maxWidth: '300px' }}
+                  value={editingSemester.semester}
+                  onChange={(e) => updateEditingSemester('semester', e.target.value)}
+                  style={{ maxWidth: '420px' }}
                 />
               ) : (
-                <h3 className="semester-title">{semester.semester}</h3>
+                <div className="semester-title-row">
+                  <span title="Drag to reorder" style={{ cursor: 'grab', color: 'var(--subtxt)' }}>
+                    <GripVertical size={18} />
+                  </span>
+                  <h3 className="semester-title">{semester.semester}</h3>
+                </div>
               )}
               <div className="semester-actions">
                 {editingIndex === semesterIndex ? (
-                  <button 
-                    className="btn btn-small"
-                    onClick={() => setEditingIndex(null)}
-                  >
-                    <Save size={16} />
-                  </button>
+                  <>
+                    <button 
+                      className="btn btn-small"
+                      onClick={handleSaveSemester}
+                    >
+                      <Save size={16} />
+                    </button>
+                    <button 
+                      className="btn btn-small btn-secondary"
+                      onClick={handleCancelEdit}
+                    >
+                      <X size={16} />
+                    </button>
+                  </>
                 ) : (
-                  <button 
-                    className="btn btn-small"
-                    onClick={() => setEditingIndex(semesterIndex)}
-                  >
-                    <Edit2 size={16} />
-                  </button>
+                  <>
+                    <button 
+                      className="btn btn-small"
+                      onClick={() => handleEditSemester(semester, semesterIndex)}
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button 
+                      className="btn btn-small btn-secondary"
+                      onClick={() => handleDeleteSemester(semester.id, semester.semester)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </>
                 )}
-                <button 
-                  className="btn btn-small btn-secondary"
-                  onClick={() => deleteSemester(semesterIndex)}
-                >
-                  <Trash2 size={16} />
-                </button>
               </div>
             </div>
 
@@ -466,25 +669,25 @@ const AlumniManager = () => {
               {editingIndex === semesterIndex ? (
                 // Edit mode - show editable inputs
                 <>
-                  {semester.leadership?.map((leader, leaderIndex) => (
+                  {editingSemester.leadership?.map((leader, leaderIndex) => (
                     <div key={leaderIndex} className="leadership-item">
                       <input
                         type="text"
                         className="form-input"
                         value={leader.role}
-                        onChange={(e) => updateLeadership(semesterIndex, leaderIndex, 'role', e.target.value)}
+                        onChange={(e) => updateLeadershipInEditing(leaderIndex, 'role', e.target.value)}
                         placeholder="Role (e.g., Project Director)"
                       />
                       <input
                         type="text"
                         className="form-input"
                         value={leader.name}
-                        onChange={(e) => updateLeadership(semesterIndex, leaderIndex, 'name', e.target.value)}
+                        onChange={(e) => updateLeadershipInEditing(leaderIndex, 'name', e.target.value)}
                         placeholder="Name"
                       />
                       <button 
                         className="btn btn-small btn-secondary"
-                        onClick={() => deleteLeadership(semesterIndex, leaderIndex)}
+                        onClick={() => deleteLeadershipFromEditing(leaderIndex)}
                       >
                         <Trash2 size={16} />
                       </button>
@@ -492,7 +695,7 @@ const AlumniManager = () => {
                   ))}
                   <button 
                     className="btn btn-small"
-                    onClick={() => addLeadership(semesterIndex)}
+                    onClick={addLeadershipToEditing}
                   >
                     <Plus size={16} />
                     Add Leadership Role
@@ -510,7 +713,8 @@ const AlumniManager = () => {
               )}
             </div>
           </div>
-        ))
+        ))}
+        </div>
       )}
     </div>
   );

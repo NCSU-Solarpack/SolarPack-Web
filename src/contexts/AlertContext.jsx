@@ -23,13 +23,13 @@ export const AlertProvider = ({ children }) => {
     });
   }, [currentAlert]);
 
-  const closeAlert = useCallback(() => {
+  const closeAlert = useCallback((confirmed = false) => {
     if (currentAlert?.resolve) {
       // Resolve with appropriate value
-      if (currentAlert.type === 'confirm' && !currentAlert.confirmed) {
-        currentAlert.resolve(false);
+      if (currentAlert.type === 'confirm') {
+        currentAlert.resolve(confirmed);
       } else {
-        currentAlert.resolve(currentAlert.confirmed || true);
+        currentAlert.resolve(true);
       }
     }
     
@@ -46,11 +46,8 @@ export const AlertProvider = ({ children }) => {
   }, [currentAlert]);
 
   const handleConfirm = useCallback(() => {
-    if (currentAlert) {
-      setCurrentAlert(prev => ({ ...prev, confirmed: true }));
-    }
-    closeAlert();
-  }, [currentAlert, closeAlert]);
+    closeAlert(true);
+  }, [closeAlert]);
 
   const showError = useCallback((message, title = 'Error') => {
     return showAlert({ title, message, type: 'error' });
