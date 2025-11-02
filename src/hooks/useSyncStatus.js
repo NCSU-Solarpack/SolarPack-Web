@@ -33,15 +33,24 @@ export const useSyncStatus = (dataUrl, lastUpdated, checkInterval = 1000) => {
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache',
-          'Expires': '0',
-          'If-None-Match': '*'
+          'Expires': '0'
         }
       });
       
       clearTimeout(timeoutId);
       
-      if (!response.ok) {
+      // 304 Not Modified is actually OK - it means data hasn't changed
+      if (!response.ok && response.status !== 304) {
         throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
+      }
+      
+      // If 304, the data hasn't changed on the server, so we're up to date
+      if (response.status === 304) {
+        console.log('Server returned 304 - data unchanged');
+        setLastCheck(Date.now());
+        setErrorDetails(null);
+        setStatus('up-to-date');
+        return;
       }
       
       const data = await response.json();
@@ -99,8 +108,26 @@ export const useSyncStatus = (dataUrl, lastUpdated, checkInterval = 1000) => {
         errorDetail.userMessage = 'Network connection failed';
         errorDetail.suggestion = 'Check your internet connection and firewall settings';
       } else if (error.message.includes('HTTP error')) {
+        // Parse the status code for better messages
+        const statusMatch = error.message.match(/status: (\d+)/);
+        const statusCode = statusMatch ? parseInt(statusMatch[1]) : null;
+        
+        if (statusCode === 404) {
+          errorDetail.userMessage = 'Data file not found (404)';
+          errorDetail.suggestion = 'The team.json file may not exist yet. Try adding team members in the admin panel first.';
+        } else if (statusCode === 403) {
+          errorDetail.userMessage = 'Access denied (403)';
+          errorDetail.suggestion = 'You may not have permission to access this file. Check your GitHub token permissions.';
+        } else if (statusCode === 500 || statusCode >= 500) {
+          errorDetail.userMessage = `Server error (${statusCode})`;
+          errorDetail.suggestion = 'The server is experiencing issues. Please try again later.';
+        } else {
+          errorDetail.userMessage = error.message;
+          errorDetail.suggestion = 'An unexpected HTTP error occurred. Check the browser console for more details.';
+        }
+      } else {
         errorDetail.userMessage = error.message;
-        errorDetail.suggestion = 'The server returned an error. Check if the file exists.';
+        errorDetail.suggestion = 'An unexpected error occurred. Check the browser console for more details.';
       }
       
       setErrorDetails(errorDetail);
