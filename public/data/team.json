@@ -32,7 +32,7 @@
     },
     {
       "id": 4,
-      "name": "Nathan E Hambleton",
+      "name": "Nathan Hambleton",
       "role": "High Voltage Lead",
       "image": "/images/headshots/nathan_hambleton.jpg",
       "bio": "As High Voltage Lead, I'm responsible for the car's main power and propulsion systems—the 3‑phase motor, inverter, battery pack, and protection systems. I am a senior in electrical engineering and this is my 4th year in the club. I started out in vehicle dynamics but have since transitioned to high voltage systems. I will also jump in on low‑voltage, building firmware, controls, and interfaces, and I help out with our website and app code when needed.",
@@ -91,5 +91,5 @@
       "order": 9
     }
   ],
-  "lastUpdated": "2025-11-02T19:30:34.194Z"
+  "lastUpdated": "2025-11-02T19:34:03.701Z"
 }
