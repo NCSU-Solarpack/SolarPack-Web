@@ -165,31 +165,13 @@ class GitHubService {
     return this.updateFile('public/data/content.json', contentData, 'Update announcements and events via admin interface');
   }
 
-  // Trigger a rebuild by creating an empty commit (optional)
+  // Trigger a rebuild (DEPRECATED - no longer needed with GitHub raw content)
+  // Data files are now served directly from GitHub, so no build is required
   async triggerRebuild() {
-    if (!this.token) throw new Error('No GitHub token available');
-
-    try {
-      const url = `${this.baseUrl}/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/dispatches`;
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Authorization': `token ${this.token}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          event_type: 'rebuild'
-        })
-      });
-
-      if (!response.ok) {
-        console.warn('Could not trigger rebuild, but file was updated');
-      }
-    } catch (error) {
-      console.warn('Could not trigger rebuild:', error);
-    }
+    // Skip triggering rebuild for data-only changes
+    // The workflow now ignores public/data/** changes
+    console.log('Skipping rebuild - data is served from GitHub raw content');
+    return Promise.resolve();
   }
 
   // Test the connection

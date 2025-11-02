@@ -20,9 +20,16 @@ Admin Edit → GitHub Commit → Workflow Trigger → Vite Build → Deploy to P
 ### After (1-3 seconds):
 ```
 Admin Edit → GitHub Commit → GitHub Raw CDN Updates → User Sees Update
-                              ↑
-                         Takes 1-3 seconds
+            ↑                 ↑
+         Instant          Takes 1-3 seconds
+         
+NOTE: Workflow no longer triggers for JSON data changes!
 ```
+
+### Key Optimizations:
+1. **Data served from GitHub raw CDN** - No build needed
+2. **Workflow ignores `public/data/**`** - No deployment triggered
+3. **`triggerRebuild()` disabled** - Skips unnecessary API calls
 
 ---
 
@@ -84,13 +91,18 @@ useGitHubRaw: false  // In DATA_CONFIG object
 
 ### Verify It's Working:
 1. Make an admin edit (e.g., update a team member)
-2. Open browser DevTools → Network tab
-3. Look for requests to `raw.githubusercontent.com`
-4. Updates should appear in 1-3 seconds
+2. Check GitHub Actions - **workflow should NOT trigger** for JSON-only changes
+3. Open browser DevTools → Network tab
+4. Look for requests to `raw.githubusercontent.com`
+5. Updates should appear in 1-3 seconds
 
 ### Check URLs:
 - **GitHub Raw**: `https://raw.githubusercontent.com/NCSU-Solarpack/SolarPack-Web/main/public/data/team.json`
 - **Local/Pages**: `https://solarpacknc.com/data/team.json`
+
+### Important Note:
+After pushing this workflow change, **one final build will run** to deploy the updated workflow file.
+After that, JSON data changes will NOT trigger builds anymore!
 
 ---
 

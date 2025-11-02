@@ -4,11 +4,14 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'public/data/**'
+      # Exclude JSON data files - they're served directly from GitHub raw content
+      # Only build when actual code/structure changes
       - 'src/**'
       - 'package.json'
       - 'vite.config.js'
       - 'index.html'
+      - 'public/**'
+      - '!public/data/**'  # Ignore changes to data files
       
   workflow_dispatch:
   
