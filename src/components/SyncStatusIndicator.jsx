@@ -11,8 +11,11 @@ const SyncStatusIndicator = ({
   const {
     status,
     lastCheck,
+    errorDetails,
     refresh
   } = useSyncStatus(dataUrl, lastUpdated, checkInterval);
+  
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   // Override status when saving externally
   const currentStatus = isSaving ? 'saving' : status;
@@ -86,7 +89,51 @@ const SyncStatusIndicator = ({
     return `${Math.floor(diff / 3600000)}h ago`;
   };
 
+  const handleInfoClick = (e) => {
+    e.stopPropagation();
+    setShowErrorDetails(!showErrorDetails);
+  };
+
   return (
+    <>
+      {showErrorDetails && errorDetails && (
+        <div className="error-details-modal" onClick={() => setShowErrorDetails(false)}>
+          <div className="error-details-content" onClick={(e) => e.stopPropagation()}>
+            <div className="error-details-header">
+              <h3>🔍 Error Details</h3>
+              <button className="close-btn" onClick={() => setShowErrorDetails(false)}>×</button>
+            </div>
+            <div className="error-details-body">
+              <div className="error-field">
+                <strong>Error Type:</strong>
+                <span className="error-type">{errorDetails.type}</span>
+              </div>
+              <div className="error-field">
+                <strong>Message:</strong>
+                <span>{errorDetails.userMessage || errorDetails.message}</span>
+              </div>
+              <div className="error-field">
+                <strong>Data URL:</strong>
+                <code>{errorDetails.url}</code>
+              </div>
+              <div className="error-field">
+                <strong>Timestamp:</strong>
+                <span>{new Date(errorDetails.timestamp).toLocaleString()}</span>
+              </div>
+              {errorDetails.suggestion && (
+                <div className="error-suggestion">
+                  <strong>💡 Suggestion:</strong>
+                  <p>{errorDetails.suggestion}</p>
+                </div>
+              )}
+              <div className="error-technical">
+                <strong>Technical Details:</strong>
+                <pre>{JSON.stringify(errorDetails, null, 2)}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     <div 
       className={`sync-status-indicator ${isClickable ? 'clickable' : ''}`}
       onClick={handleClick}
@@ -155,6 +202,191 @@ const SyncStatusIndicator = ({
             opacity: 0.7;
           }
         }
+        
+        .error-details-modal {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 10000;
+          animation: fadeIn 0.2s ease;
+        }
+        
+        .error-details-content {
+          background: var(--surface, #1e1e1e);
+          border-radius: 12px;
+          padding: 0;
+          max-width: 600px;
+          width: 90%;
+          max-height: 80vh;
+          overflow: hidden;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+          animation: slideUp 0.3s ease;
+        }
+        
+        .error-details-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 1.5rem;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(244, 67, 54, 0.1);
+        }
+        
+        .error-details-header h3 {
+          margin: 0;
+          color: #F44336;
+          font-size: 1.25rem;
+        }
+        
+        .close-btn {
+          background: none;
+          border: none;
+          color: var(--text, #fff);
+          font-size: 2rem;
+          cursor: pointer;
+          padding: 0;
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 4px;
+          transition: background 0.2s ease;
+        }
+        
+        .close-btn:hover {
+          background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .error-details-body {
+          padding: 1.5rem;
+          overflow-y: auto;
+          max-height: calc(80vh - 80px);
+        }
+        
+        .error-field {
+          margin-bottom: 1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+        
+        .error-field strong {
+          color: var(--accent, #cc0000);
+          font-size: 0.85rem;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        
+        .error-field span,
+        .error-field code {
+          color: var(--text, #fff);
+          font-size: 0.95rem;
+        }
+        
+        .error-field code {
+          background: rgba(0, 0, 0, 0.3);
+          padding: 0.5rem;
+          border-radius: 4px;
+          font-family: 'Courier New', monospace;
+          word-break: break-all;
+        }
+        
+        .error-type {
+          display: inline-block;
+          padding: 0.25rem 0.75rem;
+          border-radius: 4px;
+          background: rgba(244, 67, 54, 0.2);
+          color: #F44336;
+          font-weight: 600;
+          text-transform: uppercase;
+          font-size: 0.8rem;
+        }
+        
+        .error-suggestion {
+          margin-top: 1.5rem;
+          padding: 1rem;
+          background: rgba(76, 175, 80, 0.1);
+          border-left: 3px solid #4CAF50;
+          border-radius: 4px;
+        }
+        
+        .error-suggestion strong {
+          color: #4CAF50;
+          display: block;
+          margin-bottom: 0.5rem;
+        }
+        
+        .error-suggestion p {
+          margin: 0;
+          color: var(--text, #fff);
+          line-height: 1.5;
+        }
+        
+        .error-technical {
+          margin-top: 1.5rem;
+          padding: 1rem;
+          background: rgba(0, 0, 0, 0.3);
+          border-radius: 4px;
+        }
+        
+        .error-technical strong {
+          color: var(--subtxt, #999);
+          display: block;
+          margin-bottom: 0.5rem;
+          font-size: 0.85rem;
+        }
+        
+        .error-technical pre {
+          margin: 0;
+          color: var(--subtxt, #999);
+          font-size: 0.8rem;
+          overflow-x: auto;
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
+        
+        .info-btn {
+          background: none;
+          border: none;
+          color: inherit;
+          font-size: 1rem;
+          cursor: pointer;
+          padding: 0 4px;
+          margin-left: 4px;
+          opacity: 0.7;
+          transition: opacity 0.2s ease;
+        }
+        
+        .info-btn:hover {
+          opacity: 1;
+        }
+        
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        
+        @keyframes slideUp {
+          from {
+            transform: translateY(20px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
       `}</style>
       
       <span 
@@ -169,7 +401,17 @@ const SyncStatusIndicator = ({
       >
         {currentConfig.text}
       </span>
+      {currentStatus === 'error' && errorDetails && (
+        <button 
+          className="info-btn"
+          onClick={handleInfoClick}
+          title="View error details"
+        >
+          ℹ️
+        </button>
+      )}
     </div>
+    </>
   );
 };
 

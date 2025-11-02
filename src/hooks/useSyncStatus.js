@@ -12,6 +12,7 @@ export const useSyncStatus = (dataUrl, lastUpdated, checkInterval = 1000) => {
   const [lastCheck, setLastCheck] = useState(Date.now());
   const [serverLastUpdated, setServerLastUpdated] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [errorDetails, setErrorDetails] = useState(null);
   const intervalRef = useRef(null);
   const checkTimeoutRef = useRef(null);
 
@@ -47,7 +48,7 @@ export const useSyncStatus = (dataUrl, lastUpdated, checkInterval = 1000) => {
       const currentServerTime = data.lastUpdated;
       
       console.log('Sync check successful:', {
-        fullPath: fullPath + cacheBuster,
+        fullPath: dataUrl + cacheBuster,
         currentServerTime,
         lastUpdated,
         serverLastUpdated,
@@ -55,6 +56,7 @@ export const useSyncStatus = (dataUrl, lastUpdated, checkInterval = 1000) => {
       });
       
       setLastCheck(Date.now());
+      setErrorDetails(null); // Clear any previous errors
       
       // Compare with what we have locally
       if (serverLastUpdated === null) {
@@ -77,9 +79,31 @@ export const useSyncStatus = (dataUrl, lastUpdated, checkInterval = 1000) => {
       
     } catch (error) {
       console.error('Error checking for changes:', error);
+      
+      // Store detailed error information
+      const errorDetail = {
+        message: error.message,
+        name: error.name,
+        timestamp: new Date().toISOString(),
+        url: dataUrl,
+        type: error.name === 'AbortError' ? 'timeout' : 
+              error.message.includes('Failed to fetch') ? 'network' :
+              error.message.includes('HTTP error') ? 'http' : 'unknown'
+      };
+      
       if (error.name === 'AbortError') {
         console.log('Request timed out');
+        errorDetail.userMessage = 'Request timed out after 10 seconds';
+        errorDetail.suggestion = 'Check your network connection or try again later';
+      } else if (error.message.includes('Failed to fetch')) {
+        errorDetail.userMessage = 'Network connection failed';
+        errorDetail.suggestion = 'Check your internet connection and firewall settings';
+      } else if (error.message.includes('HTTP error')) {
+        errorDetail.userMessage = error.message;
+        errorDetail.suggestion = 'The server returned an error. Check if the file exists.';
       }
+      
+      setErrorDetails(errorDetail);
       setStatus('error');
     }
   };
@@ -136,6 +160,7 @@ export const useSyncStatus = (dataUrl, lastUpdated, checkInterval = 1000) => {
     status: isSaving ? 'saving' : status,
     lastCheck,
     isSaving,
+    errorDetails,
     startSaving,
     stopSaving,
     refresh,
