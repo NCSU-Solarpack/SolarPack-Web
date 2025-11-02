@@ -47,7 +47,7 @@ export const loadDataWithCacheBust = async (url, bustCache = false) => {
   // If configured to use GitHub API, fetch via Contents API for instant updates
   if (DATA_SOURCE_CONFIG.useGitHubRaw === false && DATA_SOURCE_CONFIG.useGitHubApi) {
     try {
-      const apiUrl = `https://api.github.com/repos/${DATA_SOURCE_CONFIG.owner}/${DATA_SOURCE_CONFIG.repo}/contents${DATA_SOURCE_CONFIG.dataPath}${url}?ref=${DATA_SOURCE_CONFIG.branch}`;
+      const apiUrl = `https://api.github.com/repos/${DATA_SOURCE_CONFIG.owner}/${DATA_SOURCE_CONFIG.repo}/contents/${DATA_SOURCE_CONFIG.dataPath}${url}?ref=${DATA_SOURCE_CONFIG.branch}`;
       const etagKey = `etag:${originalUrl}`;
       const cachedEtag = sessionStorage.getItem(etagKey);
 
