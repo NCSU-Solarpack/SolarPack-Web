@@ -1,21 +1,31 @@
 import { useState, useEffect } from 'react';
 import { authService } from '../../utils/auth';
 import { githubService } from '../../utils/github';
-import { loadDataWithCacheBust, refreshDataAfterSave } from '../../utils/dataLoader';
+import { loadDataWithCacheBust, refreshDataAfterSave, clearAllCaches } from '../../utils/dataLoader';
+import SyncStatusIndicator from '../SyncStatusIndicator';
+import useSyncStatus from '../../hooks/useSyncStatus';
 
 const TeamManager = () => {
   const [teamData, setTeamData] = useState({ teamMembers: [], lastUpdated: '' });
   const [isEditing, setIsEditing] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Use the sync status hook
+  const { startSaving, stopSaving, isSaving } = useSyncStatus('/data/team.json', teamData.lastUpdated);
 
   useEffect(() => {
     loadTeamData();
   }, []);
 
-  const loadTeamData = async (bustCache = false) => {
+  const loadTeamData = async () => {
+    console.log('Loading team data from GitHub...');
+    setIsLoading(true);
     try {
-      const data = await loadDataWithCacheBust('/data/team.json', bustCache);
+      // Always clear cache to ensure fresh data from GitHub
+      await clearAllCaches();
+      const data = await loadDataWithCacheBust('/data/team.json', true);
+      console.log('Loaded team data:', data);
       setTeamData(data);
     } catch (error) {
       console.error('Error loading team data:', error);
@@ -67,11 +77,11 @@ const TeamManager = () => {
       lastUpdated: new Date().toISOString()
     };
 
-    setTeamData(updatedData);
+    // Close the modal immediately
     setIsEditing(false);
     setEditingMember(null);
 
-    // Here you would save to GitHub API (we'll implement this next)
+    // Save to GitHub and wait for deployment before updating local state
     saveToGitHub(updatedData);
   };
 
@@ -84,9 +94,78 @@ const TeamManager = () => {
         lastUpdated: new Date().toISOString()
       };
 
-      setTeamData(updatedData);
+      // Save to GitHub and wait for deployment before updating local state
       saveToGitHub(updatedData);
     }
+  };
+
+  const pollForDeployment = async (expectedLastUpdated, maxAttempts = 30, delayMs = 2000) => {
+    console.log('Polling GitHub Pages for deployment...', { expectedLastUpdated });
+    
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        console.log(`Polling attempt ${attempt}/${maxAttempts}...`);
+        
+        // Fetch from GitHub Pages to check if changes are deployed
+        const githubUrl = 'https://ncsu-solarpack.github.io/SolarPack-Web/data/team.json';
+        const cacheBuster = `?_t=${Date.now()}&_cb=${Math.random()}&_poll=${attempt}`;
+        
+        let deployedData;
+        
+        try {
+          // Try direct fetch
+          const response = await fetch(githubUrl + cacheBuster, {
+            cache: 'no-store',
+            mode: 'cors',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'Expires': '0'
+            }
+          });
+          
+          if (response.ok) {
+            deployedData = await response.json();
+          } else {
+            throw new Error('Direct fetch failed');
+          }
+        } catch (directError) {
+          // Try CORS proxy
+          console.log('Direct fetch failed, trying proxy...');
+          const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(githubUrl + cacheBuster)}`;
+          const proxyResponse = await fetch(proxyUrl, { cache: 'no-store' });
+          
+          if (proxyResponse.ok) {
+            const proxyData = await proxyResponse.json();
+            deployedData = JSON.parse(proxyData.contents);
+          } else {
+            throw new Error('Proxy fetch also failed');
+          }
+        }
+        
+        // Check if the deployed data matches what we expect
+        if (deployedData.lastUpdated === expectedLastUpdated) {
+          console.log('✓ Changes successfully deployed to GitHub Pages!');
+          return deployedData;
+        }
+        
+        console.log(`Deployed version: ${deployedData.lastUpdated}, Expected: ${expectedLastUpdated}`);
+        
+        // Wait before next attempt
+        if (attempt < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+        
+      } catch (error) {
+        console.error(`Polling attempt ${attempt} failed:`, error);
+        
+        if (attempt < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+    }
+    
+    throw new Error('Deployment verification timed out. Changes may still be deploying.');
   };
 
   const saveToGitHub = async (data) => {
@@ -96,19 +175,26 @@ const TeamManager = () => {
       return;
     }
 
+    startSaving();
     try {
       console.log('Attempting to save team data to GitHub...');
+      
+      // Save to GitHub API
       await githubService.saveTeamData(data);
-      console.log('Team data saved to GitHub successfully');
+      console.log('Team data committed to GitHub repository');
       
-      // Optional: trigger a rebuild
+      // Trigger a rebuild to deploy changes
       await githubService.triggerRebuild();
+      console.log('GitHub Pages rebuild triggered');
       
-      // Show success message
-      alert('Team data saved to GitHub successfully!');
+      // Poll GitHub Pages until the changes are deployed
+      const deployedData = await pollForDeployment(data.lastUpdated);
       
-      // Automatically refresh the data from the server to get the latest version
-      refreshDataAfterSave(loadTeamData);
+      // Now update local state with the deployed data
+      console.log('Updating local state with deployed data');
+      setTeamData(deployedData);
+      
+      console.log('✓ Save complete! Everything is up to date.');
       
     } catch (error) {
       console.error('Error saving to GitHub:', error);
@@ -123,13 +209,22 @@ const TeamManager = () => {
         errorMessage += 'Repository or file not found - please check your repository configuration.';
       } else if (error.message.includes('422')) {
         errorMessage += 'Invalid request - the file may have been modified by someone else. Please refresh and try again.';
+      } else if (error.message.includes('timed out')) {
+        errorMessage += 'Changes saved but deployment verification timed out. Please refresh manually to see your changes.';
       } else {
         errorMessage += `Error: ${error.message}`;
       }
       
       alert(errorMessage);
+      
+      // Even if polling failed, try to reload data
+      await loadTeamData();
+    } finally {
+      stopSaving();
     }
   };
+
+
 
   const canEdit = authService.hasPermission('edit_team');
 
@@ -159,7 +254,7 @@ const TeamManager = () => {
           gap: 1rem;
         }
 
-        .add-member-btn, .refresh-btn {
+        .add-member-btn {
           background: var(--accent);
           color: white;
           border: none;
@@ -173,14 +268,7 @@ const TeamManager = () => {
           transition: background 0.3s ease;
         }
 
-        .refresh-btn {
-          background: #007acc;
-        }
 
-        .refresh-btn:hover {
-          background: #005fa3;
-          transform: translateY(-1px);
-        }
 
         .add-member-btn:hover {
           background: #c71821;
@@ -408,9 +496,12 @@ const TeamManager = () => {
       <div className="team-manager-header">
         <h2 className="team-manager-title">Team Management</h2>
         <div className="header-buttons">
-          <button className="refresh-btn" onClick={() => loadTeamData(true)} title="Refresh data from server">
-            🔄 Refresh
-          </button>
+          <SyncStatusIndicator 
+            dataUrl="/data/team.json"
+            onRefresh={loadTeamData}
+            lastUpdated={teamData.lastUpdated}
+            isSaving={isSaving}
+          />
           {canEdit && (
             <button className="add-member-btn" onClick={handleAddMember}>
               <span>+</span>
