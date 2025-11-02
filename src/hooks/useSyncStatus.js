@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
+import { DATA_SOURCE_CONFIG } from '../config/dataSource';
 
 /**
  * Custom hook for managing real-time sync status for admin components
- * @param {string} dataUrl - The URL to check for updates
+ * @param {string} dataUrl - The URL to check for updates (relative path like /data/team.json)
  * @param {string} lastUpdated - The last updated timestamp from local data
  * @param {number} checkInterval - How often to check for updates (ms)
  * @returns {object} Sync status and control functions
  */
-export const useSyncStatus = (dataUrl, lastUpdated, checkInterval = 1000) => {
+export const useSyncStatus = (dataUrl, lastUpdated, checkInterval = 2000) => {
   const [status, setStatus] = useState('up-to-date');
   const [lastCheck, setLastCheck] = useState(Date.now());
   const [serverLastUpdated, setServerLastUpdated] = useState(null);
@@ -25,16 +26,31 @@ export const useSyncStatus = (dataUrl, lastUpdated, checkInterval = 1000) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       
-      const cacheBuster = `?_t=${Date.now()}&_cb=${Math.random()}&_check=1`;
+      let fetchUrl;
+      const headers = {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      };
+
+      // Use GitHub API if configured - this gives us instant updates
+      if (DATA_SOURCE_CONFIG.useGitHubApi) {
+        // Convert relative path like /data/team.json to public/data/team.json
+        const filePath = dataUrl.startsWith('/') ? dataUrl.substring(1) : dataUrl;
+        fetchUrl = `https://api.github.com/repos/${DATA_SOURCE_CONFIG.owner}/${DATA_SOURCE_CONFIG.repo}/contents/${DATA_SOURCE_CONFIG.dataPath}/${filePath}?ref=${DATA_SOURCE_CONFIG.branch}&_t=${Date.now()}`;
+        headers['Accept'] = 'application/vnd.github.v3.raw';
+        console.log(`🔄 Polling GitHub API: ${fetchUrl}`);
+      } else {
+        // Fall back to relative/raw URL with cache busting
+        const cacheBuster = `?_t=${Date.now()}&_cb=${Math.random()}&_check=1`;
+        fetchUrl = dataUrl + cacheBuster;
+        console.log(`🔄 Polling URL: ${fetchUrl}`);
+      }
       
-      const response = await fetch(dataUrl + cacheBuster, {
+      const response = await fetch(fetchUrl, {
         cache: 'no-store',
         signal: controller.signal,
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
+        headers
       });
       
       clearTimeout(timeoutId);
@@ -53,11 +69,21 @@ export const useSyncStatus = (dataUrl, lastUpdated, checkInterval = 1000) => {
         return;
       }
       
-      const data = await response.json();
+      // Parse response based on source
+      let data;
+      if (DATA_SOURCE_CONFIG.useGitHubApi) {
+        // GitHub API with Accept: raw returns the file content as text
+        const text = await response.text();
+        data = JSON.parse(text);
+      } else {
+        data = await response.json();
+      }
+      
       const currentServerTime = data.lastUpdated;
       
       console.log('Sync check successful:', {
-        fullPath: dataUrl + cacheBuster,
+        source: DATA_SOURCE_CONFIG.useGitHubApi ? 'GitHub API' : 'URL',
+        fullPath: fetchUrl,
         currentServerTime,
         lastUpdated,
         serverLastUpdated,
