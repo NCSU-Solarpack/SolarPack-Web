@@ -35,6 +35,7 @@ export const useSyncStatus = (dataUrl, lastUpdated, checkInterval = 1000) => {
       // Get the full URL with base
       const baseUrl = getDataBaseUrl();
       const fullPath = `${baseUrl}${dataUrl}`;
+      const isProd = import.meta.env.PROD;
       
       // Fetch the current data from server to check lastUpdated with aggressive cache busting
       const controller = new AbortController();
@@ -43,33 +44,40 @@ export const useSyncStatus = (dataUrl, lastUpdated, checkInterval = 1000) => {
       const cacheBuster = `?_t=${Date.now()}&_cb=${Math.random()}&_check=1`;
       
       let response;
-      try {
-        response = await fetch(fullPath + cacheBuster, {
-          cache: 'no-store',
-          signal: controller.signal,
-          mode: 'cors',
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0',
-            'If-None-Match': '*'
-          }
-        });
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-        // If GitHub fetch fails, try local fallback
-        if (baseUrl) {
-          console.log('GitHub sync check failed, trying local fallback...');
-          response = await fetch(dataUrl + cacheBuster, {
+      
+      // In production, we can directly fetch from same domain (no CORS issues)
+      if (isProd || baseUrl === '') {
+        try {
+          response = await fetch(fullPath + cacheBuster, {
             cache: 'no-store',
             signal: controller.signal,
             headers: {
               'Cache-Control': 'no-cache, no-store, must-revalidate',
               'Pragma': 'no-cache',
-              'Expires': '0'
+              'Expires': '0',
+              'If-None-Match': '*'
             }
           });
-        } else {
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          throw fetchError;
+        }
+      } else {
+        // In development with external GitHub URL, might need CORS handling
+        try {
+          response = await fetch(fullPath + cacheBuster, {
+            cache: 'no-store',
+            signal: controller.signal,
+            mode: 'cors',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'Expires': '0',
+              'If-None-Match': '*'
+            }
+          });
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
           throw fetchError;
         }
       }

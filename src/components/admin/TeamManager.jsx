@@ -100,23 +100,21 @@ const TeamManager = () => {
   };
 
   const pollForDeployment = async (expectedLastUpdated, maxAttempts = 30, delayMs = 2000) => {
-    console.log('Polling GitHub Pages for deployment...', { expectedLastUpdated });
+    console.log('Polling for deployment...', { expectedLastUpdated });
+    
+    const isProd = import.meta.env.PROD;
     
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         console.log(`Polling attempt ${attempt}/${maxAttempts}...`);
         
-        // Fetch from GitHub Pages to check if changes are deployed
-        const githubUrl = 'https://ncsu-solarpack.github.io/SolarPack-Web/data/team.json';
         const cacheBuster = `?_t=${Date.now()}&_cb=${Math.random()}&_poll=${attempt}`;
-        
         let deployedData;
         
-        try {
-          // Try direct fetch
-          const response = await fetch(githubUrl + cacheBuster, {
+        // In production, fetch from same domain (relative path)
+        if (isProd) {
+          const response = await fetch(`/data/team.json${cacheBuster}`, {
             cache: 'no-store',
-            mode: 'cors',
             headers: {
               'Cache-Control': 'no-cache, no-store, must-revalidate',
               'Pragma': 'no-cache',
@@ -127,19 +125,41 @@ const TeamManager = () => {
           if (response.ok) {
             deployedData = await response.json();
           } else {
-            throw new Error('Direct fetch failed');
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           }
-        } catch (directError) {
-          // Try CORS proxy
-          console.log('Direct fetch failed, trying proxy...');
-          const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(githubUrl + cacheBuster)}`;
-          const proxyResponse = await fetch(proxyUrl, { cache: 'no-store' });
+        } else {
+          // In development, fetch from GitHub Pages URL
+          const githubUrl = 'https://ncsu-solarpack.github.io/SolarPack-Web/data/team.json';
           
-          if (proxyResponse.ok) {
-            const proxyData = await proxyResponse.json();
-            deployedData = JSON.parse(proxyData.contents);
-          } else {
-            throw new Error('Proxy fetch also failed');
+          try {
+            // Try direct fetch first
+            const response = await fetch(githubUrl + cacheBuster, {
+              cache: 'no-store',
+              mode: 'cors',
+              headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+              }
+            });
+            
+            if (response.ok) {
+              deployedData = await response.json();
+            } else {
+              throw new Error('Direct fetch failed');
+            }
+          } catch (directError) {
+            // Try CORS proxy
+            console.log('Direct fetch failed, trying proxy...');
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(githubUrl + cacheBuster)}`;
+            const proxyResponse = await fetch(proxyUrl, { cache: 'no-store' });
+            
+            if (proxyResponse.ok) {
+              const proxyData = await proxyResponse.json();
+              deployedData = JSON.parse(proxyData.contents);
+            } else {
+              throw new Error('Proxy fetch also failed');
+            }
           }
         }
         
