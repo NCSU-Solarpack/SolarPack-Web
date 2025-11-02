@@ -110,9 +110,10 @@ const TeamManager = () => {
     }
   };
 
-  const pollForDeployment = async (expectedLastUpdated, maxAttempts = 30, delayMs = 2000) => {
-    console.log('Polling for deployment...', { expectedLastUpdated });
+  const pollForDeployment = async (expectedLastUpdated, maxAttempts = 10, delayMs = 500) => {
+    console.log('Polling for updates (GitHub raw content)...', { expectedLastUpdated });
     
+    // When using GitHub raw content, updates are much faster (1-3 seconds typically)
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         console.log(`Polling attempt ${attempt}/${maxAttempts}...`);
@@ -136,11 +137,11 @@ const TeamManager = () => {
         
         // Check if the deployed data matches what we expect
         if (deployedData.lastUpdated === expectedLastUpdated) {
-          console.log('✓ Changes successfully deployed to GitHub Pages!');
+          console.log('✓ Changes successfully updated on GitHub!');
           return deployedData;
         }
         
-        console.log(`Deployed version: ${deployedData.lastUpdated}, Expected: ${expectedLastUpdated}`);
+        console.log(`Current version: ${deployedData.lastUpdated}, Expected: ${expectedLastUpdated}`);
         
         // Wait before next attempt
         if (attempt < maxAttempts) {
@@ -156,7 +157,7 @@ const TeamManager = () => {
       }
     }
     
-    throw new Error('Deployment verification timed out. Changes may still be deploying.');
+    throw new Error('Update verification timed out. Changes may still be processing.');
   };
 
   const saveToGitHub = async (data) => {

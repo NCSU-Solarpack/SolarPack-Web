@@ -31,18 +31,40 @@ export const clearAllCaches = async () => {
   }
 };
 
+// Configuration for data sources
+const DATA_CONFIG = {
+  // Use GitHub raw content for instant updates (no build/deploy wait)
+  // Falls back to local path if GitHub is unavailable
+  useGitHubRaw: true,
+  githubRawBase: 'https://raw.githubusercontent.com/NCSU-Solarpack/SolarPack-Web/main/public',
+  localBase: ''
+};
+
 // Get the base URL for data fetching
 const getDataBaseUrl = () => {
-  // Always use relative paths - works on deployed site
-  console.log('Using relative paths for data fetching');
-  return '';
+  // In production, use GitHub raw content for instant updates
+  // In development, use local files
+  const isDev = import.meta.env.DEV;
+  
+  if (isDev || !DATA_CONFIG.useGitHubRaw) {
+    console.log('Using local paths for data fetching');
+    return DATA_CONFIG.localBase;
+  }
+  
+  console.log('Using GitHub raw content for instant updates');
+  return DATA_CONFIG.githubRawBase;
 };
 
 export const loadDataWithCacheBust = async (url, bustCache = false) => {
+  const baseUrl = getDataBaseUrl();
+  const originalUrl = url; // Keep original for sessionStorage key
+  
   try {
     // Use a unique URL to avoid matching any stored HTTP cache entry
     const cacheBuster = bustCache ? `?_t=${Date.now()}&_cb=${Math.random()}` : '';
-    const fullUrl = `${url}${cacheBuster}`;
+    const fullUrl = `${baseUrl}${url}${cacheBuster}`;
+
+    console.log(`Fetching data from: ${fullUrl}`);
 
     // Always request fresh network bytes (no conditionals, no cache storage)
     const response = await fetch(fullUrl, {
@@ -56,7 +78,7 @@ export const loadDataWithCacheBust = async (url, bustCache = false) => {
 
     // If server replied 304, use last good data we saved
     if (response.status === 304) {
-      const cached = sessionStorage.getItem(`json:${url}`);
+      const cached = sessionStorage.getItem(`json:${originalUrl}`);
       if (cached) return JSON.parse(cached);
       throw new Error('HTTP 304 with no previously cached copy available');
     }
@@ -67,24 +89,58 @@ export const loadDataWithCacheBust = async (url, bustCache = false) => {
 
     const data = await response.json();
     // Remember last good version for 304 fallbacks
-    sessionStorage.setItem(`json:${url}`, JSON.stringify(data));
+    sessionStorage.setItem(`json:${originalUrl}`, JSON.stringify(data));
     return data;
   } catch (error) {
+    console.warn('Primary fetch failed, trying fallback...', error);
+    
+    // Try fallback to local path if GitHub raw fails
+    if (baseUrl === DATA_CONFIG.githubRawBase) {
+      try {
+        const cacheBuster = bustCache ? `?_t=${Date.now()}&_cb=${Math.random()}` : '';
+        const fallbackUrl = `${DATA_CONFIG.localBase}${url}${cacheBuster}`;
+        console.log(`Trying fallback: ${fallbackUrl}`);
+        
+        const response = await fetch(fallbackUrl, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          sessionStorage.setItem(`json:${originalUrl}`, JSON.stringify(data));
+          return data;
+        }
+      } catch (fallbackError) {
+        console.warn('Fallback also failed:', fallbackError);
+      }
+    }
+    
     // Last-chance fallback: if network fails, try our last saved copy
-    const cached = sessionStorage.getItem(`json:${url}`);
-    if (cached) return JSON.parse(cached);
+    const cached = sessionStorage.getItem(`json:${originalUrl}`);
+    if (cached) {
+      console.log('Using cached data as final fallback');
+      return JSON.parse(cached);
+    }
     throw new Error(`Failed to load data: ${error.message}`);
   }
 };
 
 // Generic function to refresh data after GitHub save
 export const refreshDataAfterSave = (loadFunction, delay = null) => {
+  // When using GitHub raw content, updates are near-instant (1-2 seconds)
   // In development, refresh immediately since we're serving local files
-  // In production, wait a bit for deployment to complete
   const isDev = import.meta.env.DEV;
-  const refreshDelay = delay !== null ? delay : (isDev ? 500 : 3000);
   
-  console.log(`Scheduling data refresh in ${refreshDelay}ms (${isDev ? 'dev' : 'prod'} mode)...`);
+  // Much shorter delay when using GitHub raw content
+  const defaultDelay = isDev ? 500 : (DATA_CONFIG.useGitHubRaw ? 1500 : 3000);
+  const refreshDelay = delay !== null ? delay : defaultDelay;
+  
+  console.log(`Scheduling data refresh in ${refreshDelay}ms (${isDev ? 'dev' : DATA_CONFIG.useGitHubRaw ? 'GitHub raw' : 'Pages'} mode)...`);
   setTimeout(() => {
     console.log('Refreshing data from server...');
     loadFunction(true); // Force cache bust
