@@ -12,13 +12,25 @@ const Team = () => {
 
   const loadTeamData = async () => {
     try {
+      console.log('Fetching team data from /data/team.json');
       const response = await fetch('/data/team.json');
+      console.log('Response status:', response.status, response.statusText);
+      
       if (!response.ok) {
-        throw new Error('Failed to load team data');
+        throw new Error(`Failed to load team data: ${response.status} ${response.statusText}`);
       }
+      
       const data = await response.json();
+      console.log('Team data loaded:', data);
+      
+      if (!data || !data.teamMembers) {
+        console.error('Invalid data structure:', data);
+        throw new Error('Invalid team data structure - missing teamMembers array');
+      }
+      
       // Sort by order field
       const sortedMembers = data.teamMembers.sort((a, b) => (a.order || 0) - (b.order || 0));
+      console.log('Setting team members:', sortedMembers.length, 'members');
       setTeamMembers(sortedMembers);
     } catch (err) {
       console.error('Error loading team data:', err);
@@ -129,16 +141,29 @@ const Team = () => {
       `}</style>
 
       <h1>Meet the Team</h1>
-      <div className="team-grid">
-        {teamMembers.map((member, index) => (
-          <div key={index} className="member-card">
-            <img src={member.image} alt={member.name} className="member-img" />
-            <div className="member-name">{member.name}</div>
-            <div className="member-role">{member.role}</div>
-            <p className="member-bio">{member.bio}</p>
-          </div>
-        ))}
-      </div>
+      {teamMembers.length === 0 ? (
+        <div style={{ 
+          textAlign: 'center', 
+          padding: '4rem', 
+          color: 'var(--subtxt)' 
+        }}>
+          <p>No team members found.</p>
+          <p style={{ fontSize: '0.9rem', marginTop: '1rem' }}>
+            Check the browser console for more details.
+          </p>
+        </div>
+      ) : (
+        <div className="team-grid">
+          {teamMembers.map((member, index) => (
+            <div key={index} className="member-card">
+              <img src={member.image} alt={member.name} className="member-img" />
+              <div className="member-name">{member.name}</div>
+              <div className="member-role">{member.role}</div>
+              <p className="member-bio">{member.bio}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </>
   )
 }

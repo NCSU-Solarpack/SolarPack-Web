@@ -26,9 +26,20 @@ const TeamManager = () => {
       await clearAllCaches();
       const data = await loadDataWithCacheBust('/data/team.json', true);
       console.log('Loaded team data:', data);
+      
+      // Ensure we have valid data structure
+      if (!data || !data.teamMembers) {
+        console.error('Invalid data structure received:', data);
+        throw new Error('Invalid team data structure - missing teamMembers array');
+      }
+      
+      console.log(`Successfully loaded ${data.teamMembers.length} team members`);
       setTeamData(data);
     } catch (error) {
       console.error('Error loading team data:', error);
+      alert(`Failed to load team data: ${error.message}\n\nPlease check the browser console for more details.`);
+      // Set empty data structure so the page doesn't crash
+      setTeamData({ teamMembers: [], lastUpdated: '' });
     } finally {
       setIsLoading(false);
     }
@@ -253,6 +264,15 @@ const TeamManager = () => {
         .add-member-btn:hover {
           background: #c71821;
           transform: translateY(-1px);
+        }
+
+        .no-data-message {
+          text-align: center;
+          padding: 4rem 2rem;
+          background: var(--surface);
+          border-radius: var(--radius);
+          border: 2px dashed rgba(255, 255, 255, 0.2);
+          color: var(--text);
         }
 
         .team-grid {
@@ -497,8 +517,21 @@ const TeamManager = () => {
         </div>
       )}
 
-      <div className="team-grid">
-        {teamData.teamMembers.map(member => (
+      {teamData.teamMembers.length === 0 ? (
+        <div className="no-data-message">
+          <p style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>No team members found</p>
+          <p style={{ color: 'var(--subtxt)', marginBottom: '1rem' }}>
+            The team data file is empty or couldn't be loaded.
+          </p>
+          {canEdit && (
+            <button onClick={handleAddMember} className="add-member-btn">
+              Add Your First Team Member
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="team-grid">
+          {teamData.teamMembers.map(member => (
           <div key={member.id} className="member-card">
             <div className="member-header">
               <img 
@@ -527,7 +560,8 @@ const TeamManager = () => {
             )}
           </div>
         ))}
-      </div>
+        </div>
+      )}
 
       {isEditing && editingMember && (
         <div className="modal-overlay" onClick={() => setIsEditing(false)}>
