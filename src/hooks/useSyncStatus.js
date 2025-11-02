@@ -1,17 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 
-// Get the base URL for data fetching
-const getDataBaseUrl = () => {
-  const useGitHub = import.meta.env.VITE_USE_GITHUB_DATA === 'true';
-  const githubUrl = import.meta.env.VITE_GITHUB_PAGES_URL;
-  
-  if (useGitHub && githubUrl) {
-    return githubUrl;
-  }
-  
-  return '';
-};
-
 /**
  * Custom hook for managing real-time sync status for admin components
  * @param {string} dataUrl - The URL to check for updates
@@ -32,55 +20,22 @@ export const useSyncStatus = (dataUrl, lastUpdated, checkInterval = 1000) => {
     try {
       // Don't set status to 'checking' - keep the current status to avoid UI flashing
       
-      // Get the full URL with base
-      const baseUrl = getDataBaseUrl();
-      const fullPath = `${baseUrl}${dataUrl}`;
-      const isProd = import.meta.env.PROD;
-      
       // Fetch the current data from server to check lastUpdated with aggressive cache busting
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // Increased timeout to 10 seconds
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
       
       const cacheBuster = `?_t=${Date.now()}&_cb=${Math.random()}&_check=1`;
       
-      let response;
-      
-      // In production, we can directly fetch from same domain (no CORS issues)
-      if (isProd || baseUrl === '') {
-        try {
-          response = await fetch(fullPath + cacheBuster, {
-            cache: 'no-store',
-            signal: controller.signal,
-            headers: {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache',
-              'Expires': '0',
-              'If-None-Match': '*'
-            }
-          });
-        } catch (fetchError) {
-          clearTimeout(timeoutId);
-          throw fetchError;
+      const response = await fetch(dataUrl + cacheBuster, {
+        cache: 'no-store',
+        signal: controller.signal,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'If-None-Match': '*'
         }
-      } else {
-        // In development with external GitHub URL, might need CORS handling
-        try {
-          response = await fetch(fullPath + cacheBuster, {
-            cache: 'no-store',
-            signal: controller.signal,
-            mode: 'cors',
-            headers: {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache',
-              'Expires': '0',
-              'If-None-Match': '*'
-            }
-          });
-        } catch (fetchError) {
-          clearTimeout(timeoutId);
-          throw fetchError;
-        }
-      }
+      });
       
       clearTimeout(timeoutId);
       
