@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { authService } from '../../utils/auth';
 import { githubService } from '../../utils/github';
 import { loadDataWithCacheBust, refreshDataAfterSave, clearAllCaches } from '../../utils/dataLoader';
+import { getTimingConfig } from '../../config/dataSource';
 import SyncStatusIndicator from '../SyncStatusIndicator';
 import useSyncStatus from '../../hooks/useSyncStatus';
 
@@ -110,10 +111,16 @@ const TeamManager = () => {
     }
   };
 
-  const pollForDeployment = async (expectedLastUpdated, maxAttempts = 10, delayMs = 500) => {
+  const pollForDeployment = async (expectedLastUpdated) => {
     console.log('Polling for updates...', { expectedLastUpdated });
     
-    // When using GitHub raw content, updates are much faster (1-3 seconds typically)
+    // Get timing config based on current data source mode
+    const timing = getTimingConfig();
+    const maxAttempts = timing.polling.maxAttempts;
+    const delayMs = timing.polling.delayMs;
+    
+    console.log(`Using timing config: ${maxAttempts} attempts, ${delayMs}ms delay`);
+    
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         console.log(`Polling attempt ${attempt}/${maxAttempts}...`);

@@ -48,6 +48,8 @@ export const loadDataWithCacheBust = async (url, bustCache = false) => {
   if (DATA_SOURCE_CONFIG.useGitHubRaw === false && DATA_SOURCE_CONFIG.useGitHubApi) {
     try {
       const apiUrl = `https://api.github.com/repos/${DATA_SOURCE_CONFIG.owner}/${DATA_SOURCE_CONFIG.repo}/contents/${DATA_SOURCE_CONFIG.dataPath}${url}?ref=${DATA_SOURCE_CONFIG.branch}`;
+      console.log(`🚀 Fetching from GitHub API: ${apiUrl}`);
+      
       const etagKey = `etag:${originalUrl}`;
       const cachedEtag = sessionStorage.getItem(etagKey);
 
@@ -74,6 +76,7 @@ export const loadDataWithCacheBust = async (url, bustCache = false) => {
       // Accept: raw returns the file body as text
       const text = await response.text();
       const data = JSON.parse(text);
+      console.log(`✓ GitHub API returned fresh data (lastUpdated: ${data.lastUpdated || 'N/A'})`);
       sessionStorage.setItem(`json:${originalUrl}`, JSON.stringify(data));
       const etag = response.headers.get('etag');
       if (etag) sessionStorage.setItem(etagKey, etag);

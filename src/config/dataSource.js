@@ -28,8 +28,8 @@ export const DATA_SOURCE_CONFIG = {
     // Polling configuration for verifying updates
     polling: {
       githubApi: {
-        maxAttempts: 6,
-        delayMs: 500
+        maxAttempts: 20,     // Try 20 times
+        delayMs: 500         // Wait 500ms between attempts (total ~10 seconds)
       },
       githubRaw: {
         maxAttempts: 10,     // Try 10 times
