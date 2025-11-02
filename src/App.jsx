@@ -8,7 +8,6 @@ import Donate from './pages/Donate'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import Sponsors from './pages/Sponsors'
 import Team from './pages/Team'
-import Schedules from './pages/Schedules'
 import NotFound from './pages/NotFound'
 import Admin from './components/Admin'
 import { AlertProvider } from './contexts/AlertContext'
@@ -32,7 +31,6 @@ function AppRouter() {
             <Route path="/donate" element={<Donate />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/sponsors" element={<Sponsors />} />
-            <Route path="/schedules" element={<Schedules />} />
             <Route path="/team" element={<Team />} />
             {/* Catch-all route for 404 pages */}
             <Route path="*" element={<NotFound />} />

@@ -129,7 +129,7 @@ const Header = () => {
     return false
   }
 
-  const baseNavItems = [
+  const navItems = [
     { path: '/', label: 'Home' },
     { path: '/app', label: 'App' },
     { path: '/team', label: 'Team' },
@@ -138,15 +138,6 @@ const Header = () => {
     { path: '/donate', label: 'Donate' },
     { path: '/contact', label: 'Contact' }
   ]
-
-  // Add schedules tab only if authenticated
-  const navItems = isAuthenticated 
-    ? [
-        ...baseNavItems.slice(0, 5), // Home through Sponsors
-        { path: '/schedules', label: 'Schedules' },
-        ...baseNavItems.slice(5) // Donate and Contact
-      ]
-    : baseNavItems
 
   return (
     <>

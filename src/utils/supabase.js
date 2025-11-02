@@ -285,11 +285,33 @@ class SupabaseService {
     const { data, error } = await this.client
       .from('sponsors')
       .select('*')
-      .order('tier', { ascending: true });
+      .order('order', { ascending: true });
     
     if (error) throw error;
+    
+    // Group sponsors by tier for the UI
+    const tierMap = {};
+    (data || []).forEach(sponsor => {
+      if (!tierMap[sponsor.tier]) {
+        tierMap[sponsor.tier] = [];
+      }
+      tierMap[sponsor.tier].push({
+        id: sponsor.id,
+        name: sponsor.name,
+        logo: sponsor.logo,
+        website: sponsor.website,
+        order: sponsor.order
+      });
+    });
+    
+    // Convert to array format expected by UI
+    const sponsorTiers = Object.keys(tierMap).map(tier => ({
+      tier,
+      sponsors: tierMap[tier]
+    }));
+    
     return {
-      sponsorTiers: data || [],
+      sponsorTiers,
       lastUpdated: new Date().toISOString()
     };
   }
@@ -297,23 +319,120 @@ class SupabaseService {
   async saveSponsor(sponsor) {
     if (!this.client) throw new Error('Supabase not configured');
     
-    const { data, error } = await this.client
-      .from('sponsors')
-      .upsert(sponsor)
-      .select()
-      .single();
-    
-    if (error) throw error;
-    return data;
+    // If sponsor has an id, update; otherwise insert
+    if (sponsor.id) {
+      const { data, error } = await this.client
+        .from('sponsors')
+        .upsert(sponsor)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } else {
+      const { data, error } = await this.client
+        .from('sponsors')
+        .insert(sponsor)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    }
   }
 
   async deleteSponsor(id) {
     if (!this.client) throw new Error('Supabase not configured');
     
+    // First, get the sponsor to find their logo URL
+    const { data: sponsor } = await this.client
+      .from('sponsors')
+      .select('logo')
+      .eq('id', id)
+      .single();
+    
+    // Delete the logo from storage if it exists and is a Supabase URL
+    if (sponsor?.logo && sponsor.logo.includes('supabase')) {
+      try {
+        await this.deleteSponsorLogo(sponsor.logo);
+      } catch (error) {
+        console.warn('Failed to delete logo from storage:', error);
+      }
+    }
+    
     const { error } = await this.client
       .from('sponsors')
       .delete()
       .eq('id', id);
+    
+    if (error) throw error;
+  }
+
+  /**
+   * Upload a sponsor logo to Supabase Storage
+   * @param {File} file - The logo image file to upload
+   * @param {string} sponsorId - The sponsor's ID (used for unique filename)
+   * @returns {Promise<string>} - The public URL of the uploaded logo
+   */
+  async uploadSponsorLogo(file, sponsorId) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
+    if (!validTypes.includes(file.type)) {
+      throw new Error('Invalid file type. Please upload a JPEG, PNG, WebP, SVG, or GIF image.');
+    }
+    
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      throw new Error('File size too large. Maximum size is 5MB.');
+    }
+    
+    // Create a unique filename with timestamp to avoid caching issues
+    const fileExt = file.name.split('.').pop();
+    const timestamp = Date.now();
+    const fileName = `${sponsorId}-${timestamp}.${fileExt}`;
+    const filePath = `sponsor-logos/${fileName}`;
+    
+    // Upload the file
+    const { data, error } = await this.client.storage
+      .from('sponsor-logos')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+    
+    if (error) throw error;
+    
+    // Get the public URL
+    const { data: { publicUrl } } = this.client.storage
+      .from('sponsor-logos')
+      .getPublicUrl(filePath);
+    
+    return publicUrl;
+  }
+
+  /**
+   * Delete a sponsor logo from Supabase Storage
+   * @param {string} logoUrl - The public URL of the logo to delete
+   */
+  async deleteSponsorLogo(logoUrl) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    // Extract the file path from the URL
+    // URL format: https://[project].supabase.co/storage/v1/object/public/sponsor-logos/sponsor-logos/filename.jpg
+    const urlParts = logoUrl.split('/sponsor-logos/');
+    if (urlParts.length < 2) {
+      console.warn('Invalid logo URL format:', logoUrl);
+      return;
+    }
+    
+    const filePath = urlParts[1];
+    
+    const { error } = await this.client.storage
+      .from('sponsor-logos')
+      .remove([filePath]);
     
     if (error) throw error;
   }

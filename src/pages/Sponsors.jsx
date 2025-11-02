@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { supabaseService } from '../utils/supabase'
 
 const Sponsors = () => {
   const [sponsorTiers, setSponsorTiers] = useState([]);
@@ -9,44 +10,12 @@ const Sponsors = () => {
 
     const load = async () => {
       try {
-        const cacheBuster = `?_t=${Date.now()}&_cb=${Math.random()}`;
-        const url = `/data/sponsors.json${cacheBuster}`;
-        
-        const res = await fetch(url, {
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-          }
-        });
-        
-        if (res.status === 304) {
-          const cached = sessionStorage.getItem('json:/data/sponsors.json');
-          if (cached) {
-            const data = JSON.parse(cached);
-            setSponsorTiers(data.sponsorTiers || []);
-            return;
-          }
-          throw new Error('HTTP 304 with no cached copy');
-        }
-        
-        if (res.ok) {
-          const data = await res.json();
-          sessionStorage.setItem('json:/data/sponsors.json', JSON.stringify(data));
-          setSponsorTiers(data.sponsorTiers || []);
-        } else {
-          setSponsorTiers([]);
-        }
+        // Load from Supabase
+        const data = await supabaseService.getSponsors();
+        setSponsorTiers(data.sponsorTiers || []);
       } catch (e) {
-        console.error('Error loading sponsors.json', e);
-        const cached = sessionStorage.getItem('json:/data/sponsors.json');
-        if (cached) {
-          const data = JSON.parse(cached);
-          setSponsorTiers(data.sponsorTiers || []);
-        } else {
-          setSponsorTiers([]);
-        }
+        console.error('Error loading sponsors from Supabase', e);
+        setSponsorTiers([]);
       } finally {
         setLoading(false);
       }
@@ -135,12 +104,28 @@ const Sponsors = () => {
             <div className="sponsor-logos">
               {tier.sponsors && tier.sponsors.length > 0 ? (
                 tier.sponsors.map((sponsor, sponsorIndex) => (
-                  <img 
-                    key={sponsorIndex}
-                    src={sponsor.image} 
-                    alt={sponsor.name} 
-                    title={sponsor.name} 
-                  />
+                  sponsor.website ? (
+                    <a 
+                      key={sponsorIndex}
+                      href={sponsor.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <img 
+                        src={sponsor.logo || sponsor.image} 
+                        alt={sponsor.name} 
+                        title={sponsor.name} 
+                      />
+                    </a>
+                  ) : (
+                    <img 
+                      key={sponsorIndex}
+                      src={sponsor.logo || sponsor.image} 
+                      alt={sponsor.name} 
+                      title={sponsor.name} 
+                    />
+                  )
                 ))
               ) : (
                 <span className="placeholder">

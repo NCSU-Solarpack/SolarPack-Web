@@ -8,9 +8,9 @@ const AUTH_LEVELS = {
 };
 
 const PERMISSIONS = {
-  [AUTH_LEVELS.MEMBER]: ['view_schedules', 'view_team', 'view_announcements'],
-  [AUTH_LEVELS.LEADER]: ['view_schedules', 'view_team', 'view_announcements', 'edit_schedules', 'submit_orders', 'edit_team'],
-  [AUTH_LEVELS.DIRECTOR]: ['view_schedules', 'view_team', 'view_announcements', 'edit_schedules', 'submit_orders', 'edit_team', 'edit_announcements', 'approve_orders', 'manage_users']
+  [AUTH_LEVELS.MEMBER]: ['view_schedules', 'view_team', 'view_announcements', 'view_sponsors', 'view_alumni'],
+  [AUTH_LEVELS.LEADER]: ['view_schedules', 'view_team', 'view_announcements', 'view_sponsors', 'view_alumni', 'edit_schedules', 'edit_team', 'edit_sponsors', 'edit_alumni', 'edit_orders', 'submit_orders'],
+  [AUTH_LEVELS.DIRECTOR]: ['view_schedules', 'view_team', 'view_announcements', 'view_sponsors', 'view_alumni', 'edit_schedules', 'edit_team', 'edit_sponsors', 'edit_alumni', 'edit_orders', 'edit_announcements', 'approve_orders', 'manage_users', 'submit_orders']
 };
 
 // Simple hash function for password verification

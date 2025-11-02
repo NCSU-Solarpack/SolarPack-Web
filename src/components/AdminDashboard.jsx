@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { authService } from '../utils/auth';
 import TeamManager from './admin/TeamManager';
 import ScheduleManager from './admin/ScheduleManager';
@@ -9,8 +10,23 @@ import OrderManager from './admin/OrderManager';
 import { BarChart3, Users, Calendar, Package, GraduationCap, Award } from 'lucide-react';
 
 const AdminDashboard = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
   const [userLevel, setUserLevel] = useState(authService.getLevel());
+
+  // Sync activeTab with URL parameter
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams]);
+
+  // Update URL when tab changes
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    setSearchParams({ tab: tabId });
+  };
 
   useEffect(() => {
     // Remove the global padding when admin dashboard is mounted
@@ -37,9 +53,9 @@ const AdminDashboard = ({ onLogout }) => {
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3, permission: 'view_schedules' },
-    { id: 'team', label: 'Team', icon: Users, permission: 'view_team' },
     { id: 'schedules', label: 'Schedules', icon: Calendar, permission: 'view_schedules' },
     { id: 'orders', label: 'Orders', icon: Package, permission: 'submit_orders' },
+    { id: 'team', label: 'Team', icon: Users, permission: 'view_team' },
     { id: 'alumni', label: 'Alumni', icon: GraduationCap, permission: 'edit_announcements' },
     { id: 'sponsors', label: 'Sponsors', icon: Award, permission: 'edit_announcements' }
     // Settings tab removed - GitHub integration no longer needed for data storage
@@ -207,7 +223,7 @@ const AdminDashboard = ({ onLogout }) => {
               <button
                 key={tab.id}
                 className={`nav-tab ${activeTab === tab.id ? 'active' : ''}`}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
               >
                 <IconComponent size={18} />
                 {tab.label}
