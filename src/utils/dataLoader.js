@@ -40,28 +40,25 @@ const getDataBaseUrl = () => {
 
 export const loadDataWithCacheBust = async (url, bustCache = false) => {
   try {
-    // Always add cache busting parameter to ensure fresh data
+    // Add cache busting parameter to get fresh data
     const cacheBuster = `?_t=${Date.now()}&_cb=${Math.random()}`;
     const fullUrl = `${url}${cacheBuster}`;
     
     console.log(`Fetching data: ${fullUrl}`);
     
-    const response = await fetch(fullUrl, {
-      cache: 'no-store',
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0',
-        'If-None-Match': '*'
-      }
-    });
+    // Use default caching - let the browser handle 304 properly
+    const response = await fetch(fullUrl);
     
+    console.log(`Response status: ${response.status} ${response.statusText}`);
+    
+    // With proper caching, the browser handles 304 internally and gives us the cached data
+    // So response.ok should be true even if the server returned 304
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     
     const data = await response.json();
-    console.log(`Data loaded successfully from ${fullUrl}`);
+    console.log(`Data loaded successfully from ${fullUrl}`, data);
     return data;
     
   } catch (error) {
