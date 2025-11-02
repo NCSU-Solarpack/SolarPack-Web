@@ -9,14 +9,11 @@ const GITHUB_CONFIG = {
 
 class GitHubService {
   constructor() {
-    // Priority order for token:
-    // 1. Environment variable (secure, local development)
-    // 2. localStorage (user input)
-    this.token = import.meta.env.VITE_GITHUB_TOKEN || null;
+    // Token is provided only by the admin at runtime (stored in localStorage)
+    this.token = null;
     this.baseUrl = 'https://api.github.com';
     
     console.log('GitHub Service initialized');
-    console.log('Environment token available:', import.meta.env.VITE_GITHUB_TOKEN ? 'Yes' : 'No');
     
     // Load token on initialization
     this.loadToken();
@@ -28,19 +25,11 @@ class GitHubService {
     localStorage.setItem('github_token', token);
   }
 
-  // Load token with priority: env var > localStorage
+  // Load token from localStorage only (never from build-time env)
   loadToken() {
-    // Use environment variable if available
-    if (import.meta.env.VITE_GITHUB_TOKEN) {
-      this.token = import.meta.env.VITE_GITHUB_TOKEN;
-      console.log('Using environment token');
-      return this.token;
-    }
-    
-    // Fall back to localStorage
     if (!this.token) {
       this.token = localStorage.getItem('github_token');
-      console.log('Using localStorage token:', this.token ? 'Found' : 'Not found');
+      console.log('Token source:', this.token ? 'localStorage' : 'none');
     }
     return this.token;
   }
@@ -91,7 +80,7 @@ class GitHubService {
 
     try {
       console.log('Updating file:', path);
-      console.log('Using token:', this.token ? `${this.token.substring(0, 8)}...` : 'No token');
+      // Do not log token
       
       // First, get the current file SHA
       const sha = await this.getFileSHA(path);

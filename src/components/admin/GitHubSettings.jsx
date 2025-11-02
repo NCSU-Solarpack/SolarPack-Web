@@ -19,16 +19,9 @@ const GitHubSettings = () => {
     const loadedToken = githubService.loadToken();
     
     if (loadedToken) {
-      // Check if it's from environment variable
-      if (import.meta.env.VITE_GITHUB_TOKEN) {
-        setTokenSource('environment');
-        setToken('[Environment Variable]');
-      }
-      // Otherwise it's from localStorage
-      else {
-        setTokenSource('localstorage');
-        setToken('*'.repeat(20));
-      }
+      // Token only comes from localStorage
+      setTokenSource('localstorage');
+      setToken('*'.repeat(20));
     } else {
       setTokenSource('none');
       setToken('');
