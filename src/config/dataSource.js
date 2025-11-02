@@ -1,85 +1,30 @@
-// Data source configuration
-// Toggle between GitHub raw content (fast updates) and GitHub Pages (slower but cached)
+// Simplified data source configuration for Supabase transition
+// GitHub Pages and GitHub Raw content fetching will be replaced with Supabase
 
 export const DATA_SOURCE_CONFIG = {
-  // Modes:
-  // - useGitHubApi: Fetch via GitHub Contents API (instant, best freshness)
-  // - useGitHubRaw: Fetch via raw.githubusercontent.com (fast, but CDN may lag)
-  // If both are false, app uses relative Pages URLs
-  useGitHubApi: true,
-  useGitHubRaw: false,
+  // Legacy GitHub fetching - will be replaced with Supabase
+  useSupabase: false, // TODO: Set to true once Supabase is configured
   
-  // GitHub repository details
-  owner: 'NCSU-Solarpack',
-  repo: 'SolarPack-Web',
-  branch: 'main',
-  dataPath: 'public',
-  
-  // Timing configuration
-  timing: {
-    // How long to wait before refreshing data after save
-    refreshDelay: {
-      development: 500,      // Local dev (instant)
-      githubApi: 1000,       // GitHub API (instant to ~1s)
-      githubRaw: 1500,       // GitHub raw content (1-3 seconds typical)
-      githubPages: 3000      // GitHub Pages deployment (30-60 seconds typical)
-    },
-    
-    // Polling configuration for verifying updates
-    polling: {
-      githubApi: {
-        maxAttempts: 20,     // Try 20 times
-        delayMs: 500         // Wait 500ms between attempts (total ~10 seconds)
-      },
-      githubRaw: {
-        maxAttempts: 10,     // Try 10 times
-        delayMs: 500         // Wait 500ms between attempts (total ~5 seconds)
-      },
-      githubPages: {
-        maxAttempts: 30,     // Try 30 times
-        delayMs: 2000        // Wait 2s between attempts (total ~60 seconds)
-      }
-    }
+  // Supabase configuration (to be filled in)
+  supabase: {
+    url: process.env.REACT_APP_SUPABASE_URL || '',
+    anonKey: process.env.REACT_APP_SUPABASE_ANON_KEY || ''
   }
 };
 
-// Get the base URL for data fetching
+// Get the base URL for data fetching (temporary - will use Supabase)
 export const getDataSourceUrl = () => {
-  if (DATA_SOURCE_CONFIG.useGitHubRaw) {
-    return `https://raw.githubusercontent.com/${DATA_SOURCE_CONFIG.owner}/${DATA_SOURCE_CONFIG.repo}/${DATA_SOURCE_CONFIG.branch}/${DATA_SOURCE_CONFIG.dataPath}`;
-  }
-  return ''; // Relative path for GitHub Pages
+  // For now, just use relative paths to public/data
+  return '';
 };
 
-// Get timing configuration
+// Simplified timing - no more deployment waiting
 export const getTimingConfig = () => {
-  const isDev = import.meta.env.DEV;
-  
-  if (isDev) {
-    return {
-      refreshDelay: DATA_SOURCE_CONFIG.timing.refreshDelay.development,
-      polling: DATA_SOURCE_CONFIG.timing.polling.githubApi
-    };
-  }
-  
-  if (DATA_SOURCE_CONFIG.useGitHubApi) {
-    return {
-      refreshDelay: DATA_SOURCE_CONFIG.timing.refreshDelay.githubApi,
-      polling: DATA_SOURCE_CONFIG.timing.polling.githubApi
-    };
-  }
-  
-  if (DATA_SOURCE_CONFIG.useGitHubRaw) {
-    return {
-      refreshDelay: DATA_SOURCE_CONFIG.timing.refreshDelay.githubRaw,
-      polling: DATA_SOURCE_CONFIG.timing.polling.githubRaw
-    };
-  }
-  
   return {
-    refreshDelay: DATA_SOURCE_CONFIG.timing.refreshDelay.githubPages,
-    polling: DATA_SOURCE_CONFIG.timing.polling.githubPages
+    refreshDelay: 500, // Supabase is instant
+    polling: {
+      maxAttempts: 1, // No polling needed
+      delayMs: 0
+    }
   };
 };
-
-export default DATA_SOURCE_CONFIG;

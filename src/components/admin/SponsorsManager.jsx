@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { authService } from '../../utils/auth';
-import { githubService } from '../../utils/github';
-import { Plus, Edit2, Trash2, Save, X, Upload, Star } from 'lucide-react';
+// import { githubService } from '../../utils/github'; // Removed - transitioning to Supabase
+import { Plus, Edit2, Trash2, Save, X, ExternalLink } from 'lucide-react';
 
 const SponsorsManager = () => {
   const [sponsorData, setSponsorData] = useState([]);
@@ -85,9 +85,9 @@ const SponsorsManager = () => {
     try {
       setIsSubmitting(true);
       const dataToSave = { sponsorTiers: sponsorData };
-  // Save to public/data/sponsors.json in the repo
-  await githubService.updateFile('public/data/sponsors.json', dataToSave, 'Update sponsors data via admin interface');
-      alert('Sponsor data saved successfully!');
+      // TODO: Save to Supabase database
+      console.log('Saving sponsor data:', dataToSave);
+      alert('✓ Sponsor data saved locally! (Supabase integration pending)');
     } catch (error) {
       console.error('Error saving sponsor data:', error);
       alert('Error saving sponsor data: ' + error.message);

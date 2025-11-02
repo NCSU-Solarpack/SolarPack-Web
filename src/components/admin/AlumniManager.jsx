@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { authService } from '../../utils/auth';
-import { githubService } from '../../utils/github';
+// import { githubService } from '../../utils/github'; // Removed - transitioning to Supabase
 import { Plus, Edit2, Trash2, Save, X, User } from 'lucide-react';
 
 const AlumniManager = () => {
@@ -78,9 +78,9 @@ const AlumniManager = () => {
     try {
       setIsSubmitting(true);
       const dataToSave = { alumniData };
-  // Save to public/data/alumni.json in the repo
-  await githubService.updateFile('public/data/alumni.json', dataToSave, 'Update alumni data via admin interface');
-      alert('Alumni data saved successfully!');
+      // TODO: Save to Supabase database
+      console.log('Saving alumni data:', dataToSave);
+      alert('✓ Alumni data saved locally! (Supabase integration pending)');
     } catch (error) {
       console.error('Error saving alumni data:', error);
       alert('Error saving alumni data: ' + error.message);

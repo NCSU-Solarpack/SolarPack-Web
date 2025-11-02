@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { authService } from '../../utils/auth';
-import { githubService } from '../../utils/github';
+// import { githubService } from '../../utils/github'; // Removed - transitioning to Supabase
 
 const ContentManager = () => {
   const [contentData, setContentData] = useState({ announcements: [], events: [], lastUpdated: '' });
@@ -91,7 +91,7 @@ const ContentManager = () => {
     setIsEditing(false);
     setEditingItem(null);
     
-    saveToGitHub(updatedData);
+    saveData(updatedData);
   };
 
   const handleDelete = (id, type) => {
@@ -107,7 +107,7 @@ const ContentManager = () => {
 
     updatedData.lastUpdated = new Date().toISOString();
     setContentData(updatedData);
-    saveToGitHub(updatedData);
+    saveData(updatedData);
   };
 
   const validateItem = (item) => {
@@ -125,21 +125,14 @@ const ContentManager = () => {
     return true;
   };
 
-  const saveToGitHub = async (data) => {
-    if (!githubService.hasToken()) {
-      console.warn('No GitHub token available. Changes saved locally only.');
-      return;
-    }
-
+  const saveData = async (data) => {
     try {
-      await githubService.saveContentData(data);
-      console.log('Content data saved to GitHub successfully');
-      
-      // Optional: trigger a rebuild
-      await githubService.triggerRebuild();
+      // TODO: Save to Supabase database
+      console.log('Saving content data:', data);
+      alert('✓ Content data saved locally! (Supabase integration pending)');
     } catch (error) {
-      console.error('Error saving to GitHub:', error);
-      alert('Failed to save changes to GitHub. Please check your connection and try again.');
+      console.error('Error saving content data:', error);
+      alert('Failed to save changes: ' + error.message);
     }
   };
 

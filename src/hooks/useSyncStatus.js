@@ -33,15 +33,28 @@ export const useSyncStatus = (dataUrl, lastUpdated, checkInterval = 2000) => {
         'Expires': '0'
       };
 
-      // Use GitHub API if configured - this gives us instant updates
-      if (DATA_SOURCE_CONFIG.useGitHubApi) {
-        // Convert relative path like /data/team.json to public/data/team.json
+      // Use GitHub raw URL if configured - this gives fast updates for public repos
+      if (DATA_SOURCE_CONFIG.useGitHubRaw) {
+        // Convert relative path like /data/team.json to the raw URL
+        const filePath = dataUrl.startsWith('/') ? dataUrl.substring(1) : dataUrl;
+        const cacheBuster = `?_t=${Date.now()}&_cb=${Math.random()}`;
+        fetchUrl = `https://raw.githubusercontent.com/${DATA_SOURCE_CONFIG.owner}/${DATA_SOURCE_CONFIG.repo}/${DATA_SOURCE_CONFIG.branch}/${DATA_SOURCE_CONFIG.dataPath}/${filePath}${cacheBuster}`;
+        console.log(`🔄 Polling GitHub Raw: ${fetchUrl}`);
+      } else if (DATA_SOURCE_CONFIG.useGitHubApi) {
+        // Use GitHub API - requires authentication for private repos
         const filePath = dataUrl.startsWith('/') ? dataUrl.substring(1) : dataUrl;
         fetchUrl = `https://api.github.com/repos/${DATA_SOURCE_CONFIG.owner}/${DATA_SOURCE_CONFIG.repo}/contents/${DATA_SOURCE_CONFIG.dataPath}/${filePath}?ref=${DATA_SOURCE_CONFIG.branch}&_t=${Date.now()}`;
         headers['Accept'] = 'application/vnd.github.v3.raw';
+        
+        // Add GitHub token if available for authentication
+        const token = localStorage.getItem('github_token');
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
         console.log(`🔄 Polling GitHub API: ${fetchUrl}`);
       } else {
-        // Fall back to relative/raw URL with cache busting
+        // Fall back to relative/Pages URL with cache busting
         const cacheBuster = `?_t=${Date.now()}&_cb=${Math.random()}&_check=1`;
         fetchUrl = dataUrl + cacheBuster;
         console.log(`🔄 Polling URL: ${fetchUrl}`);
@@ -69,20 +82,13 @@ export const useSyncStatus = (dataUrl, lastUpdated, checkInterval = 2000) => {
         return;
       }
       
-      // Parse response based on source
-      let data;
-      if (DATA_SOURCE_CONFIG.useGitHubApi) {
-        // GitHub API with Accept: raw returns the file content as text
-        const text = await response.text();
-        data = JSON.parse(text);
-      } else {
-        data = await response.json();
-      }
+      // Parse response - all sources return JSON
+      const data = await response.json();
       
       const currentServerTime = data.lastUpdated;
       
       console.log('Sync check successful:', {
-        source: DATA_SOURCE_CONFIG.useGitHubApi ? 'GitHub API' : 'URL',
+        source: DATA_SOURCE_CONFIG.useGitHubRaw ? 'GitHub Raw' : DATA_SOURCE_CONFIG.useGitHubApi ? 'GitHub API' : 'Pages',
         fullPath: fetchUrl,
         currentServerTime,
         lastUpdated,

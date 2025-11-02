@@ -5,8 +5,8 @@ import ScheduleManager from './admin/ScheduleManager';
 import AlumniManager from './admin/AlumniManager';
 import SponsorsManager from './admin/SponsorsManager';
 import OrderManager from './admin/OrderManager';
-import GitHubSettings from './admin/GitHubSettings';
-import { BarChart3, Users, Calendar, Package, GraduationCap, Award, Settings } from 'lucide-react';
+// import GitHubSettings from './admin/GitHubSettings'; // Removed - no longer using GitHub for data storage
+import { BarChart3, Users, Calendar, Package, GraduationCap, Award } from 'lucide-react';
 
 const AdminDashboard = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -41,8 +41,8 @@ const AdminDashboard = ({ onLogout }) => {
     { id: 'schedules', label: 'Schedules', icon: Calendar, permission: 'view_schedules' },
     { id: 'orders', label: 'Orders', icon: Package, permission: 'submit_orders' },
     { id: 'alumni', label: 'Alumni', icon: GraduationCap, permission: 'edit_announcements' },
-    { id: 'sponsors', label: 'Sponsors', icon: Award, permission: 'edit_announcements' },
-    { id: 'settings', label: 'Settings', icon: Settings, permission: 'manage_users' }
+    { id: 'sponsors', label: 'Sponsors', icon: Award, permission: 'edit_announcements' }
+    // Settings tab removed - GitHub integration no longer needed for data storage
   ];
 
   const availableTabs = tabs.filter(tab => authService.hasPermission(tab.permission));
@@ -59,8 +59,7 @@ const AdminDashboard = ({ onLogout }) => {
         return <AlumniManager />;
       case 'sponsors':
         return <SponsorsManager />;
-      case 'settings':
-        return <GitHubSettings />;
+      // Settings case removed - no longer needed
       default:
         return <DashboardOverview />;
     }

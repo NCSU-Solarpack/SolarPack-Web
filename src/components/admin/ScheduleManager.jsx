@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { authService } from '../../utils/auth';
-import { githubService } from '../../utils/github';
+// import { githubService } from '../../utils/github'; // Removed - transitioning to Supabase
 
 const ScheduleManager = () => {
   const [scheduleData, setScheduleData] = useState({ teams: [], projects: [], events: [], lastUpdated: '' });
@@ -128,7 +128,7 @@ const ScheduleManager = () => {
       updatedData.projects[projectIndex].tasks = updatedData.projects[projectIndex].tasks.filter(t => t.id !== taskId);
       updatedData.lastUpdated = new Date().toISOString();
       setScheduleData(updatedData);
-      saveToGitHub(updatedData);
+      saveData(updatedData);
     }
   };
 
@@ -216,7 +216,7 @@ const ScheduleManager = () => {
       
       updatedData.lastUpdated = new Date().toISOString();
       setScheduleData(updatedData);
-      await saveToGitHub(updatedData);
+      await saveData(updatedData);
       setIsEditing(false);
       setEditingItem(null);
     } catch (error) {
@@ -239,24 +239,20 @@ const ScheduleManager = () => {
       
       updatedData.lastUpdated = new Date().toISOString();
       setScheduleData(updatedData);
-      await saveToGitHub(updatedData);
+      await saveData(updatedData);
     } catch (error) {
       console.error('Error deleting item:', error);
       alert('Failed to delete item. Please try again.');
     }
   };
 
-  const saveToGitHub = async (data) => {
+  const saveData = async (data) => {
     try {
-      const content = JSON.stringify(data, null, 2);
-      await githubService.updateFile(
-        'public/data/schedules.json',
-        content,
-        `Update schedules data - ${new Date().toISOString()}`
-      );
-      await githubService.triggerRebuild();
+      // TODO: Save to Supabase database
+      console.log('Saving schedule data:', data);
+      alert('✓ Schedule data saved locally! (Supabase integration pending)');
     } catch (error) {
-      console.error('Error saving to GitHub:', error);
+      console.error('Error saving schedule data:', error);
       throw error;
     }
   };

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { loadDataWithCacheBust } from '../utils/dataLoader'
+import { supabaseService } from '../utils/supabase'
 
 const Team = () => {
   const [teamMembers, setTeamMembers] = useState([]);
@@ -13,10 +13,12 @@ const Team = () => {
 
   const loadTeamData = async () => {
     try {
-      const data = await loadDataWithCacheBust('/data/team.json', true);
+      const data = await supabaseService.getTeamMembers();
       const sorted = (data.teamMembers || []).sort((a, b) => (a.order || 0) - (b.order || 0));
       setTeamMembers(sorted);
+      console.log('✓ Loaded team data from Supabase:', sorted.length, 'members');
     } catch (err) {
+      console.error('Error loading team data from Supabase:', err);
       setError(err.message);
       setTeamMembers([]);
     } finally {

@@ -1,44 +1,38 @@
 import { useState, useEffect } from 'react';
 import { authService } from '../../utils/auth';
-import { supabaseService } from '../../utils/supabase';
-import { useSupabaseSyncStatus } from '../../hooks/useSupabaseSyncStatus';
-import SyncStatusBadge from '../SyncStatusBadge';
+import { loadDataWithCacheBust } from '../../utils/dataLoader';
 
 const TeamManager = () => {
   const [teamData, setTeamData] = useState({ teamMembers: [], lastUpdated: '' });
   const [isEditing, setIsEditing] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Real-time sync status
-  const { status, lastSync, startSaving, finishSaving, acknowledgeNewData, setDisplayedData } = useSupabaseSyncStatus(
-    () => supabaseService.getTeamMembers(),
-    2000 // Check every 2 seconds
-  );
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     loadTeamData();
   }, []);
 
   const loadTeamData = async () => {
-    console.log('Loading team data from Supabase...');
+    console.log('Loading team data...');
     setIsLoading(true);
     try {
-      const data = await supabaseService.getTeamMembers();
+      // TODO: Replace with Supabase fetch
+      const data = await loadDataWithCacheBust('/data/team.json', true);
       console.log('Loaded team data:', data);
       
+      // Ensure we have valid data structure
       if (!data || !data.teamMembers) {
         console.error('Invalid data structure received:', data);
-        throw new Error('Invalid team data structure');
+        throw new Error('Invalid team data structure - missing teamMembers array');
       }
       
-      console.log(`✓ Successfully loaded ${data.teamMembers.length} team members from Supabase`);
+      console.log(`Successfully loaded ${data.teamMembers.length} team members`);
       setTeamData(data);
-      // Tell the sync hook what data we're displaying
-      setDisplayedData(data);
     } catch (error) {
       console.error('Error loading team data:', error);
-      alert(`Failed to load team data: ${error.message}`);
+      alert(`Failed to load team data: ${error.message}\n\nPlease check the browser console for more details.`);
+      // Set empty data structure so the page doesn't crash
       setTeamData({ teamMembers: [], lastUpdated: '' });
     } finally {
       setIsLoading(false);
@@ -64,61 +58,151 @@ const TeamManager = () => {
     setIsEditing(true);
   };
 
-  const handleSaveMember = async () => {
+  const handleSaveMember = () => {
     if (!editingMember.name || !editingMember.role) {
       alert('Please fill in required fields (Name and Role)');
       return;
     }
 
+    const updatedMembers = [...teamData.teamMembers];
+    const existingIndex = updatedMembers.findIndex(m => m.id === editingMember.id);
+    
+    if (existingIndex >= 0) {
+      updatedMembers[existingIndex] = editingMember;
+    } else {
+      updatedMembers.push(editingMember);
+    }
+
+    // Sort by order
+    updatedMembers.sort((a, b) => a.order - b.order);
+
+    const updatedData = {
+      ...teamData,
+      teamMembers: updatedMembers,
+      lastUpdated: new Date().toISOString()
+    };
+
+    // Close the modal immediately
     setIsEditing(false);
     setEditingMember(null);
-    
-    startSaving(); // Update status to 'saving'
 
-    try {
-      // Save to Supabase
-      await supabaseService.saveTeamMember(editingMember);
-      
-      // Reload data from Supabase
-      await loadTeamData();
-      
-      console.log('✓ Team member saved successfully');
-    } catch (error) {
-      console.error('Error saving team member:', error);
-      alert('Failed to save: ' + error.message);
-    } finally {
-      finishSaving(); // Update status back to 'synced'
+    // Save to GitHub and wait for deployment before updating local state
+    saveToGitHub(updatedData);
+  };
+
+  const handleDeleteMember = (memberId) => {
+    if (confirm('Are you sure you want to delete this team member?')) {
+      const updatedMembers = teamData.teamMembers.filter(m => m.id !== memberId);
+      const updatedData = {
+        ...teamData,
+        teamMembers: updatedMembers,
+        lastUpdated: new Date().toISOString()
+      };
+
+      // Save to GitHub and wait for deployment before updating local state
+      saveToGitHub(updatedData);
     }
   };
 
-  const handleDeleteMember = async (memberId) => {
-    if (!confirm('Are you sure you want to delete this team member?')) {
+  const pollForDeployment = async (expectedLastUpdated) => {
+    console.log('Polling for updates...', { expectedLastUpdated });
+    
+    // Get timing config based on current data source mode
+    const timing = getTimingConfig();
+    const maxAttempts = timing.polling.maxAttempts;
+    const delayMs = timing.polling.delayMs;
+    
+    console.log(`Using timing config: ${maxAttempts} attempts, ${delayMs}ms delay`);
+    
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        console.log(`Polling attempt ${attempt}/${maxAttempts}...`);
+        
+        // Use the unified loader so we fetch from the configured source (API/Raw/Pages)
+        const deployedData = await loadDataWithCacheBust('/data/team.json', true);
+        
+        // Check if the deployed data matches what we expect
+        if (deployedData.lastUpdated === expectedLastUpdated) {
+          console.log('✓ Changes successfully updated on GitHub!');
+          return deployedData;
+        }
+        
+        console.log(`Current version: ${deployedData.lastUpdated}, Expected: ${expectedLastUpdated}`);
+        
+        // Wait before next attempt
+        if (attempt < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+        
+      } catch (error) {
+        console.error(`Polling attempt ${attempt} failed:`, error);
+        
+        if (attempt < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+    }
+    
+    throw new Error('Update verification timed out. Changes may still be processing.');
+  };
+
+  const saveToGitHub = async (data) => {
+    if (!githubService.hasToken()) {
+      console.warn('No GitHub token available. Changes saved locally only.');
+      alert('No GitHub token available. Changes are saved locally but not synced to GitHub. Please configure your GitHub token in Settings.');
       return;
     }
 
-    startSaving(); // Update status to 'saving'
-    
+    startSaving();
     try {
-      // Delete from Supabase
-      await supabaseService.deleteTeamMember(memberId);
+      console.log('Attempting to save team data to GitHub...');
       
-      // Reload data from Supabase
-      await loadTeamData();
+      // Save to GitHub API
+      await githubService.saveTeamData(data);
+      console.log('Team data committed to GitHub repository');
       
-      console.log('✓ Team member deleted successfully');
+      // Trigger a rebuild to deploy changes
+      await githubService.triggerRebuild();
+      console.log('GitHub Pages rebuild triggered');
+      
+      // Poll GitHub Pages until the changes are deployed
+      const deployedData = await pollForDeployment(data.lastUpdated);
+      
+      // Now update local state with the deployed data
+      console.log('Updating local state with deployed data');
+      setTeamData(deployedData);
+      
+      console.log('✓ Save complete! Everything is up to date.');
+      
     } catch (error) {
-      console.error('Error deleting team member:', error);
-      alert('Failed to delete: ' + error.message);
+      console.error('Error saving to GitHub:', error);
+      
+      // More specific error message based on the error
+      let errorMessage = 'Failed to save changes to GitHub. ';
+      if (error.message.includes('401')) {
+        errorMessage += 'Authentication failed - please check your GitHub token permissions.';
+      } else if (error.message.includes('403')) {
+        errorMessage += 'Permission denied - your token may not have write access to this repository.';
+      } else if (error.message.includes('404')) {
+        errorMessage += 'Repository or file not found - please check your repository configuration.';
+      } else if (error.message.includes('422')) {
+        errorMessage += 'Invalid request - the file may have been modified by someone else. Please refresh and try again.';
+      } else if (error.message.includes('timed out')) {
+        errorMessage += 'Changes saved but deployment verification timed out. Please refresh manually to see your changes.';
+      } else {
+        errorMessage += `Error: ${error.message}`;
+      }
+      
+      alert(errorMessage);
+      
+      // Even if polling failed, try to reload data
+      await loadTeamData();
     } finally {
-      finishSaving(); // Update status back to 'synced'
+      stopSaving();
     }
   };
 
-  // Handle refresh when new data is detected
-  const handleRefreshData = async () => {
-    await loadTeamData();
-    acknowledgeNewData(); // Reset status to 'synced'
-  };
+
 
   const canEdit = authService.hasPermission('edit_team');
 
@@ -146,7 +230,6 @@ const TeamManager = () => {
         .header-buttons {
           display: flex;
           gap: 1rem;
-          align-items: center;
         }
 
         .add-member-btn {
@@ -162,6 +245,8 @@ const TeamManager = () => {
           gap: 0.5rem;
           transition: background 0.3s ease;
         }
+
+
 
         .add-member-btn:hover {
           background: #c71821;
@@ -236,21 +321,12 @@ const TeamManager = () => {
         }
 
         .action-btn {
-          padding: 0.5rem;
+          padding: 0.5rem 1rem;
           border: none;
           border-radius: 4px;
           cursor: pointer;
+          font-size: 0.8rem;
           transition: all 0.3s ease;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 36px;
-          height: 36px;
-        }
-
-        .action-btn svg {
-          width: 18px;
-          height: 18px;
         }
 
         .edit-btn {
@@ -260,7 +336,7 @@ const TeamManager = () => {
 
         .edit-btn:hover {
           background: #c71821;
-          transform: translateY(-2px);
+          transform: translateY(-1px);
         }
 
         .delete-btn {
@@ -270,7 +346,7 @@ const TeamManager = () => {
 
         .delete-btn:hover {
           background: #b91c1c;
-          transform: translateY(-2px);
+          transform: translateY(-1px);
         }
 
         .modal-overlay {
@@ -407,10 +483,11 @@ const TeamManager = () => {
       <div className="team-manager-header">
         <h2 className="team-manager-title">Team Management</h2>
         <div className="header-buttons">
-          <SyncStatusBadge 
-            status={status} 
-            lastSync={lastSync}
-            onRefresh={handleRefreshData}
+          <SyncStatusIndicator 
+            dataUrl="/data/team.json"
+            onRefresh={loadTeamData}
+            lastUpdated={teamData.lastUpdated}
+            isSaving={isSaving}
           />
           {canEdit && (
             <button className="add-member-btn" onClick={handleAddMember}>
@@ -456,23 +533,15 @@ const TeamManager = () => {
               </div>
             </div>
             <p className="member-bio">
-              {member.bio && member.bio.length > 150 ? member.bio.substring(0, 150) + '...' : member.bio}
+              {member.bio.length > 150 ? member.bio.substring(0, 150) + '...' : member.bio}
             </p>
             {canEdit && (
               <div className="member-actions">
-                <button className="action-btn edit-btn" onClick={() => handleEditMember(member)} title="Edit member">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                  </svg>
+                <button className="action-btn edit-btn" onClick={() => handleEditMember(member)}>
+                  Edit
                 </button>
-                <button className="action-btn delete-btn" onClick={() => handleDeleteMember(member.id)} title="Delete member">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                    <line x1="10" y1="11" x2="10" y2="17"></line>
-                    <line x1="14" y1="11" x2="14" y2="17"></line>
-                  </svg>
+                <button className="action-btn delete-btn" onClick={() => handleDeleteMember(member.id)}>
+                  Delete
                 </button>
               </div>
             )}
