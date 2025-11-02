@@ -2,9 +2,12 @@
 // Toggle between GitHub raw content (fast updates) and GitHub Pages (slower but cached)
 
 export const DATA_SOURCE_CONFIG = {
-  // Set to true for instant updates (reads from GitHub raw content)
-  // Set to false for traditional deployment (reads from GitHub Pages after build)
-  useGitHubRaw: true,
+  // Modes:
+  // - useGitHubApi: Fetch via GitHub Contents API (instant, best freshness)
+  // - useGitHubRaw: Fetch via raw.githubusercontent.com (fast, but CDN may lag)
+  // If both are false, app uses relative Pages URLs
+  useGitHubApi: true,
+  useGitHubRaw: false,
   
   // GitHub repository details
   owner: 'NCSU-Solarpack',
@@ -17,12 +20,17 @@ export const DATA_SOURCE_CONFIG = {
     // How long to wait before refreshing data after save
     refreshDelay: {
       development: 500,      // Local dev (instant)
+      githubApi: 1000,       // GitHub API (instant to ~1s)
       githubRaw: 1500,       // GitHub raw content (1-3 seconds typical)
       githubPages: 3000      // GitHub Pages deployment (30-60 seconds typical)
     },
     
     // Polling configuration for verifying updates
     polling: {
+      githubApi: {
+        maxAttempts: 6,
+        delayMs: 500
+      },
       githubRaw: {
         maxAttempts: 10,     // Try 10 times
         delayMs: 500         // Wait 500ms between attempts (total ~5 seconds)
@@ -50,7 +58,14 @@ export const getTimingConfig = () => {
   if (isDev) {
     return {
       refreshDelay: DATA_SOURCE_CONFIG.timing.refreshDelay.development,
-      polling: DATA_SOURCE_CONFIG.timing.polling.githubRaw
+      polling: DATA_SOURCE_CONFIG.timing.polling.githubApi
+    };
+  }
+  
+  if (DATA_SOURCE_CONFIG.useGitHubApi) {
+    return {
+      refreshDelay: DATA_SOURCE_CONFIG.timing.refreshDelay.githubApi,
+      polling: DATA_SOURCE_CONFIG.timing.polling.githubApi
     };
   }
   

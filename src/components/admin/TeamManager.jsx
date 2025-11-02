@@ -111,29 +111,15 @@ const TeamManager = () => {
   };
 
   const pollForDeployment = async (expectedLastUpdated, maxAttempts = 10, delayMs = 500) => {
-    console.log('Polling for updates (GitHub raw content)...', { expectedLastUpdated });
+    console.log('Polling for updates...', { expectedLastUpdated });
     
     // When using GitHub raw content, updates are much faster (1-3 seconds typically)
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         console.log(`Polling attempt ${attempt}/${maxAttempts}...`);
         
-        const cacheBuster = `?_t=${Date.now()}&_cb=${Math.random()}&_poll=${attempt}`;
-        
-        const response = await fetch(`/data/team.json${cacheBuster}`, {
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0'
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        const deployedData = await response.json();
+        // Use the unified loader so we fetch from the configured source (API/Raw/Pages)
+        const deployedData = await loadDataWithCacheBust('/data/team.json', true);
         
         // Check if the deployed data matches what we expect
         if (deployedData.lastUpdated === expectedLastUpdated) {
