@@ -1,5 +1,9 @@
 -- SolarPack Web - Supabase Database Setup
--- Run these SQL commands in Supabase SQL Editor
+-- 
+-- STATUS: Already executed in production Supabase instance
+-- This file is kept for reference and disaster recovery
+--
+-- To run (if setting up a new Supabase project):
 -- Dashboard → SQL Editor → New Query → Paste & Run
 
 -- ==========================================

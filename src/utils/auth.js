@@ -9,7 +9,7 @@ const AUTH_LEVELS = {
 
 const PERMISSIONS = {
   [AUTH_LEVELS.MEMBER]: ['view_schedules', 'view_team', 'view_announcements'],
-  [AUTH_LEVELS.LEADER]: ['view_schedules', 'view_team', 'view_announcements', 'edit_schedules', 'submit_orders'],
+  [AUTH_LEVELS.LEADER]: ['view_schedules', 'view_team', 'view_announcements', 'edit_schedules', 'submit_orders', 'edit_team'],
   [AUTH_LEVELS.DIRECTOR]: ['view_schedules', 'view_team', 'view_announcements', 'edit_schedules', 'submit_orders', 'edit_team', 'edit_announcements', 'approve_orders', 'manage_users']
 };
 

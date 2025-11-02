@@ -79,10 +79,95 @@ class SupabaseService {
   async deleteTeamMember(id) {
     if (!this.client) throw new Error('Supabase not configured');
     
+    // First, get the member to find their image URL
+    const { data: member } = await this.client
+      .from('team_members')
+      .select('image')
+      .eq('id', id)
+      .single();
+    
+    // Delete the image from storage if it exists and is a Supabase URL
+    if (member?.image && member.image.includes('supabase')) {
+      try {
+        await this.deleteTeamMemberImage(member.image);
+      } catch (error) {
+        console.warn('Failed to delete image from storage:', error);
+      }
+    }
+    
     const { error } = await this.client
       .from('team_members')
       .delete()
       .eq('id', id);
+    
+    if (error) throw error;
+  }
+
+  /**
+   * Upload a team member image to Supabase Storage
+   * @param {File} file - The image file to upload
+   * @param {string} memberId - The team member's ID (used for unique filename)
+   * @returns {Promise<string>} - The public URL of the uploaded image
+   */
+  async uploadTeamMemberImage(file, memberId) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+      throw new Error('Invalid file type. Please upload a JPEG, PNG, WebP, or GIF image.');
+    }
+    
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      throw new Error('File size too large. Maximum size is 5MB.');
+    }
+    
+    // Create a unique filename with timestamp to avoid caching issues
+    const fileExt = file.name.split('.').pop();
+    const timestamp = Date.now();
+    const fileName = `${memberId}-${timestamp}.${fileExt}`;
+    const filePath = `team-headshots/${fileName}`;
+    
+    // Upload the file
+    const { data, error } = await this.client.storage
+      .from('team-images')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+    
+    if (error) throw error;
+    
+    // Get the public URL
+    const { data: { publicUrl } } = this.client.storage
+      .from('team-images')
+      .getPublicUrl(filePath);
+    
+    return publicUrl;
+  }
+
+  /**
+   * Delete a team member image from Supabase Storage
+   * @param {string} imageUrl - The public URL of the image to delete
+   */
+  async deleteTeamMemberImage(imageUrl) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    // Extract the file path from the URL
+    // URL format: https://[project].supabase.co/storage/v1/object/public/team-images/team-headshots/filename.jpg
+    const urlParts = imageUrl.split('/team-images/');
+    if (urlParts.length < 2) {
+      console.warn('Invalid image URL format:', imageUrl);
+      return;
+    }
+    
+    const filePath = urlParts[1];
+    
+    const { error } = await this.client.storage
+      .from('team-images')
+      .remove([filePath]);
     
     if (error) throw error;
   }

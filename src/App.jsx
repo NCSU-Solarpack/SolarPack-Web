@@ -11,10 +11,13 @@ import Team from './pages/Team'
 import Schedules from './pages/Schedules'
 import NotFound from './pages/NotFound'
 import Admin from './components/Admin'
+import { AlertProvider } from './contexts/AlertContext'
+
 //App Router with Layout wrapping regular pages and Admin page without layout
 function AppRouter() {
   return (
-    <Routes>
+    <AlertProvider>
+      <Routes>
       {/* Admin route without layout */}
       <Route path="/admin" element={<Admin />} />
       
@@ -37,6 +40,7 @@ function AppRouter() {
         </Layout>
       } />
     </Routes>
+    </AlertProvider>
   )
 }
 
