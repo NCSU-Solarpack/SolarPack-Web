@@ -12,30 +12,38 @@ const Team = () => {
 
   const loadTeamData = async () => {
     try {
-      console.log('Fetching team data from /data/team.json');
-      const response = await fetch('/data/team.json');
-      console.log('Response status:', response.status, response.statusText);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to load team data: ${response.status} ${response.statusText}`);
+      const cacheBuster = `?_t=${Date.now()}&_cb=${Math.random()}`;
+      const url = `/data/team.json${cacheBuster}`;
+
+      const resp = await fetch(url, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+
+      if (resp.status === 304) {
+        const cached = sessionStorage.getItem('json:/data/team.json');
+        if (cached) {
+          const data = JSON.parse(cached);
+          setTeamMembers((data.teamMembers || []).sort((a, b) => (a.order || 0) - (b.order || 0)));
+          return;
+        }
+        throw new Error('HTTP 304 with no cached copy');
       }
-      
-      const data = await response.json();
-      console.log('Team data loaded:', data);
-      
-      if (!data || !data.teamMembers) {
-        console.error('Invalid data structure:', data);
-        throw new Error('Invalid team data structure - missing teamMembers array');
+
+      if (!resp.ok) {
+        throw new Error(`Failed to load team data: ${resp.status} ${resp.statusText}`);
       }
-      
-      // Sort by order field
-      const sortedMembers = data.teamMembers.sort((a, b) => (a.order || 0) - (b.order || 0));
-      console.log('Setting team members:', sortedMembers.length, 'members');
-      setTeamMembers(sortedMembers);
+
+      const data = await resp.json();
+      sessionStorage.setItem('json:/data/team.json', JSON.stringify(data));
+      const sorted = (data.teamMembers || []).sort((a, b) => (a.order || 0) - (b.order || 0));
+      setTeamMembers(sorted);
     } catch (err) {
-      console.error('Error loading team data:', err);
       setError(err.message);
-      // Fallback to empty array if data fails to load
       setTeamMembers([]);
     } finally {
       setIsLoading(false);

@@ -21,9 +21,31 @@ const AlumniManager = () => {
       setLoading(true);
       // Try to load from existing file first
       try {
-        const response = await fetch('/data/alumni.json');
+        const cacheBuster = `?_t=${Date.now()}&_cb=${Math.random()}`;
+        const url = `/data/alumni.json${cacheBuster}`;
+        
+        const response = await fetch(url, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
+        
+        if (response.status === 304) {
+          const cached = sessionStorage.getItem('json:/data/alumni.json');
+          if (cached) {
+            const data = JSON.parse(cached);
+            setAlumniData(data.alumniData || []);
+            return;
+          }
+          throw new Error('HTTP 304 with no cached copy');
+        }
+        
         if (response.ok) {
           const data = await response.json();
+          sessionStorage.setItem('json:/data/alumni.json', JSON.stringify(data));
           setAlumniData(data.alumniData || []);
         } else {
           // If file doesn't exist, use default structure
@@ -31,7 +53,13 @@ const AlumniManager = () => {
         }
       } catch (error) {
         // If file doesn't exist, start with empty array
-        setAlumniData([]);
+        const cached = sessionStorage.getItem('json:/data/alumni.json');
+        if (cached) {
+          const data = JSON.parse(cached);
+          setAlumniData(data.alumniData || []);
+        } else {
+          setAlumniData([]);
+        }
       }
     } catch (error) {
       console.error('Error loading alumni data:', error);

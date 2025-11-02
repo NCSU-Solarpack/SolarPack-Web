@@ -16,11 +16,40 @@ const Schedules = () => {
 
   const loadScheduleData = async () => {
     try {
-      const response = await fetch('/data/schedules.json');
+      const cacheBuster = `?_t=${Date.now()}&_cb=${Math.random()}`;
+      const url = `/data/schedules.json${cacheBuster}`;
+      
+      const response = await fetch(url, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      
+      if (response.status === 304) {
+        const cached = sessionStorage.getItem('json:/data/schedules.json');
+        if (cached) {
+          setScheduleData(JSON.parse(cached));
+          return;
+        }
+        throw new Error('HTTP 304 with no cached copy');
+      }
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
+      sessionStorage.setItem('json:/data/schedules.json', JSON.stringify(data));
       setScheduleData(data);
     } catch (error) {
       console.error('Error loading schedule data:', error);
+      const cached = sessionStorage.getItem('json:/data/schedules.json');
+      if (cached) {
+        setScheduleData(JSON.parse(cached));
+      }
     } finally {
       setIsLoading(false);
     }

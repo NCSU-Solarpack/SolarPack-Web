@@ -9,16 +9,44 @@ const Sponsors = () => {
 
     const load = async () => {
       try {
-        const res = await fetch('/data/sponsors.json');
+        const cacheBuster = `?_t=${Date.now()}&_cb=${Math.random()}`;
+        const url = `/data/sponsors.json${cacheBuster}`;
+        
+        const res = await fetch(url, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
+        
+        if (res.status === 304) {
+          const cached = sessionStorage.getItem('json:/data/sponsors.json');
+          if (cached) {
+            const data = JSON.parse(cached);
+            setSponsorTiers(data.sponsorTiers || []);
+            return;
+          }
+          throw new Error('HTTP 304 with no cached copy');
+        }
+        
         if (res.ok) {
           const data = await res.json();
+          sessionStorage.setItem('json:/data/sponsors.json', JSON.stringify(data));
           setSponsorTiers(data.sponsorTiers || []);
         } else {
           setSponsorTiers([]);
         }
       } catch (e) {
         console.error('Error loading sponsors.json', e);
-        setSponsorTiers([]);
+        const cached = sessionStorage.getItem('json:/data/sponsors.json');
+        if (cached) {
+          const data = JSON.parse(cached);
+          setSponsorTiers(data.sponsorTiers || []);
+        } else {
+          setSponsorTiers([]);
+        }
       } finally {
         setLoading(false);
       }

@@ -40,29 +40,39 @@ const getDataBaseUrl = () => {
 
 export const loadDataWithCacheBust = async (url, bustCache = false) => {
   try {
-    // Add cache busting parameter to get fresh data
-    const cacheBuster = `?_t=${Date.now()}&_cb=${Math.random()}`;
+    // Use a unique URL to avoid matching any stored HTTP cache entry
+    const cacheBuster = bustCache ? `?_t=${Date.now()}&_cb=${Math.random()}` : '';
     const fullUrl = `${url}${cacheBuster}`;
-    
-    console.log(`Fetching data: ${fullUrl}`);
-    
-    // Use default caching - let the browser handle 304 properly
-    const response = await fetch(fullUrl);
-    
-    console.log(`Response status: ${response.status} ${response.statusText}`);
-    
-    // With proper caching, the browser handles 304 internally and gives us the cached data
-    // So response.ok should be true even if the server returned 304
+
+    // Always request fresh network bytes (no conditionals, no cache storage)
+    const response = await fetch(fullUrl, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
+
+    // If server replied 304, use last good data we saved
+    if (response.status === 304) {
+      const cached = sessionStorage.getItem(`json:${url}`);
+      if (cached) return JSON.parse(cached);
+      throw new Error('HTTP 304 with no previously cached copy available');
+    }
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-    
+
     const data = await response.json();
-    console.log(`Data loaded successfully from ${fullUrl}`, data);
+    // Remember last good version for 304 fallbacks
+    sessionStorage.setItem(`json:${url}`, JSON.stringify(data));
     return data;
-    
   } catch (error) {
-    console.error(`Error loading data from ${url}:`, error);
+    // Last-chance fallback: if network fails, try our last saved copy
+    const cached = sessionStorage.getItem(`json:${url}`);
+    if (cached) return JSON.parse(cached);
     throw new Error(`Failed to load data: ${error.message}`);
   }
 };
