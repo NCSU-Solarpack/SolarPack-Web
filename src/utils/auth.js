@@ -22,9 +22,9 @@ const hashPassword = (password, salt = 'solarpack2024') => {
 // Predefined password hashes (you'll want to change these)
 const PASSWORD_HASHES = {
   // Default passwords - CHANGE THESE!
-  [hashPassword('director')]: AUTH_LEVELS.DIRECTOR,
-  [hashPassword('leader')]: AUTH_LEVELS.LEADER,
-  [hashPassword('member')]: AUTH_LEVELS.MEMBER
+  [hashPassword('director@2025')]: AUTH_LEVELS.DIRECTOR,
+  [hashPassword('teamlead2025!')]: AUTH_LEVELS.LEADER,
+  [hashPassword('solarpack2025')]: AUTH_LEVELS.MEMBER
 };
 
 class AuthService {
