@@ -1,14 +1,9 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { authService } from '../../utils/auth';
-import { supabaseService } from '../../utils/supabase';
-import { useSupabaseSyncStatus } from '../../hooks/useSupabaseSyncStatus';
-import SyncStatusBadge from '../SyncStatusBadge';
-import { useAlert } from '../../contexts/AlertContext';
 
 const OrderManager = () => {
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const formScrollRef = useRef(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterTeam, setFilterTeam] = useState('all');
   const [showOrderForm, setShowOrderForm] = useState(false);
@@ -31,10 +26,12 @@ const OrderManager = () => {
       unitPrice: '',
       quantity: '',
       shippingCost: '',
-      totalCost: ''
+      taxes: '',
+      fees: ''
     },
     projectDetails: {
       purpose: '',
+      priority: 'medium',
       urgency: 'flexible',
       neededByDate: ''
     },
@@ -46,253 +43,124 @@ const OrderManager = () => {
     }
   });
 
-  // Custom alert hook from context
-  const { showError, showConfirm, showSuccess } = useAlert();
-
-  // Real-time sync status - increase interval when form is open to prevent scroll jumping
-  const { status, lastSync, startSaving, finishSaving, acknowledgeNewData, setDisplayedData } = useSupabaseSyncStatus(
-    () => supabaseService.getOrders(),
-    showOrderForm ? 10000 : 2000 // 10 seconds when form is open, 2 seconds otherwise
-  );
-
   useEffect(() => {
     loadOrders();
   }, []);
 
-  // Preserve scroll position in form when component re-renders
-  const scrollPositionRef = useRef(0);
-  
-  useEffect(() => {
-    const modalBody = formScrollRef.current;
-    if (!modalBody || !showOrderForm) return;
-
-    // Save scroll position before any update
-    const handleScroll = () => {
-      scrollPositionRef.current = modalBody.scrollTop;
-    };
-
-    modalBody.addEventListener('scroll', handleScroll);
-
-    // Restore scroll position after render
-    if (scrollPositionRef.current > 0) {
-      modalBody.scrollTop = scrollPositionRef.current;
-    }
-
-    return () => {
-      modalBody.removeEventListener('scroll', handleScroll);
-    };
-  }, [showOrderForm, status]); // Re-run when status changes (sync updates)
-
-  // Migrate old order structure to new single-director-approval structure
-  const migrateOrderStructure = (order) => {
-    // Check if order needs migration (has old structure)
-    if (!order.approvalWorkflow.directorApproval && 
-        (order.approvalWorkflow.technicalDirectorApproval || order.approvalWorkflow.projectDirectorPurchaseApproval)) {
-      
-      const techApproval = order.approvalWorkflow.technicalDirectorApproval;
-      const projApproval = order.approvalWorkflow.projectDirectorPurchaseApproval;
-      
-      // Migrate to new structure - use the more recent approval if both exist
-      let directorApproval = {
-        status: 'pending',
-        approvedBy: null,
-        approvalDate: null,
-        comments: '',
-        denialReason: ''
-      };
-
-      // If either approval is approved, use that one
-      if (projApproval?.status === 'approved' || projApproval?.status === 'denied') {
-        directorApproval = {
-          status: projApproval.status,
-          approvedBy: projApproval.approvedBy,
-          approvalDate: projApproval.approvalDate,
-          comments: projApproval.comments,
-          denialReason: projApproval.denialReason
-        };
-      } else if (techApproval?.status === 'approved' || techApproval?.status === 'denied') {
-        directorApproval = {
-          status: techApproval.status,
-          approvedBy: techApproval.approvedBy,
-          approvalDate: techApproval.approvalDate,
-          comments: techApproval.comments,
-          denialReason: techApproval.denialReason
-        };
-      }
-
-      // Migrate status as well
-      let migratedStatus = order.status;
-      if (order.status === 'pending_technical_approval' || order.status === 'pending_project_approval') {
-        migratedStatus = 'pending_approval';
-      }
-
-      return {
-        ...order,
-        status: migratedStatus,
-        approvalWorkflow: {
-          directorApproval
-        }
-      };
-    }
-
-    // Ensure directorApproval exists even if order is already in new format
-    if (!order.approvalWorkflow.directorApproval) {
-      return {
-        ...order,
-        approvalWorkflow: {
-          ...order.approvalWorkflow,
-          directorApproval: {
-            status: 'pending',
-            approvedBy: null,
-            approvalDate: null,
-            comments: '',
-            denialReason: ''
-          }
-        }
-      };
-    }
-
-    return order;
-  };
-
   const loadOrders = async () => {
-    console.log('Loading orders from Supabase...');
-    setIsLoading(true);
     try {
-      const data = await supabaseService.getOrders();
-      console.log('Loaded orders:', data);
-      
-      if (!data || !data.orders) {
-        console.error('Invalid data structure received:', data);
-        throw new Error('Invalid orders data structure');
-      }
-      
-      // Migrate old order structures to new format
-      const migratedOrders = data.orders.map(migrateOrderStructure);
-      
-      console.log(`✓ Successfully loaded ${migratedOrders.length} orders from Supabase`);
-      setOrders(migratedOrders);
-      // Tell the sync hook what data we're displaying
-      setDisplayedData({ ...data, orders: migratedOrders });
+      const response = await fetch('/data/orders.json');
+      const data = await response.json();
+      setOrders(data.orders || []);
     } catch (error) {
       console.error('Error loading orders:', error);
-      await showError(`Failed to load orders: ${error.message}`, 'Load Error');
-      setOrders([]);
     } finally {
       setIsLoading(false);
     }
   };
 
   const updateOrderStatus = async (orderId, statusUpdate) => {
-    startSaving();
-    
-    try {
-      // Find the order to update
-      const order = orders.find(o => o.id === orderId);
-      if (!order) {
-        throw new Error('Order not found');
-      }
+    const updatedOrders = orders.map(order => {
+      if (order.id === orderId) {
+        const now = new Date().toISOString();
+        let updatedOrder = { ...order, lastUpdated: now };
 
-      const now = new Date().toISOString();
-      let updatedOrder = { ...order, lastUpdated: now };
-
-      // Migrate old order structure to new structure if needed
-      if (!updatedOrder.approvalWorkflow.directorApproval) {
-        updatedOrder.approvalWorkflow.directorApproval = {
-          status: 'pending',
-          approvedBy: null,
-          approvalDate: null,
-          comments: '',
-          denialReason: ''
-        };
-      }
-
-      // Handle different types of status updates
-      // New workflow: Single director approval
-      // Status flow: pending_approval -> approved_for_purchase -> purchased -> delivered
-      if (statusUpdate.type === 'director_approval') {
-        updatedOrder.approvalWorkflow.directorApproval = {
-          ...updatedOrder.approvalWorkflow.directorApproval,
-          status: statusUpdate.approved ? 'approved' : 'denied',
-          approvedBy: statusUpdate.approvedBy,
-          approvalDate: now,
-          comments: statusUpdate.comments || '',
-          denialReason: statusUpdate.denialReason || ''
-        };
-        updatedOrder.status = statusUpdate.approved ? 'approved_for_purchase' : 'denied';
-        
-        // Set expected delivery date if approved (7 days from now by default)
-        if (statusUpdate.approved && !updatedOrder.deliveryInfo.expectedArrivalDate) {
-          const expectedDate = new Date();
-          expectedDate.setDate(expectedDate.getDate() + 7);
-          updatedOrder.deliveryInfo.expectedArrivalDate = expectedDate.toISOString();
+        // Handle different types of status updates
+        if (statusUpdate.type === 'technical_approval') {
+          updatedOrder.approvalWorkflow.technicalDirectorApproval = {
+            ...updatedOrder.approvalWorkflow.technicalDirectorApproval,
+            status: statusUpdate.approved ? 'approved' : 'denied',
+            approvedBy: statusUpdate.approvedBy,
+            approvalDate: now,
+            comments: statusUpdate.comments || '',
+            denialReason: statusUpdate.denialReason || ''
+          };
+          updatedOrder.status = statusUpdate.approved ? 'pending_project_approval' : 'denied';
+        } else if (statusUpdate.type === 'project_approval') {
+          updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval = {
+            ...updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval,
+            status: statusUpdate.approved ? 'approved' : 'denied',
+            approvedBy: statusUpdate.approvedBy,
+            approvalDate: now,
+            comments: statusUpdate.comments || '',
+            denialReason: statusUpdate.denialReason || ''
+          };
+          updatedOrder.status = statusUpdate.approved ? 'approved_for_purchase' : 'denied';
+        } else if (statusUpdate.type === 'purchase') {
+          updatedOrder.purchaseStatus = {
+            ...updatedOrder.purchaseStatus,
+            purchased: true,
+            purchaseDate: now,
+            purchaseOrderNumber: statusUpdate.purchaseOrderNumber || '',
+            actualCost: statusUpdate.actualCost || updatedOrder.costBreakdown.totalCost,
+            purchasedBy: statusUpdate.purchasedBy || ''
+          };
+          updatedOrder.status = 'purchased';
+        } else if (statusUpdate.type === 'delivery') {
+          updatedOrder.deliveryInfo = {
+            ...updatedOrder.deliveryInfo,
+            actualArrivalDate: now,
+            deliveredToSubteam: true,
+            deliveryConfirmedBy: statusUpdate.confirmedBy || '',
+            deliveryNotes: statusUpdate.notes || '',
+            trackingNumber: statusUpdate.trackingNumber || ''
+          };
+          updatedOrder.status = 'delivered';
+        } else if (statusUpdate.type === 'sponsorship_response') {
+          updatedOrder.sponsorshipInfo = {
+            ...updatedOrder.sponsorshipInfo,
+            sponsorshipSuccessful: statusUpdate.successful,
+            sponsorshipResponse: statusUpdate.response || '',
+            sponsorshipResponseDate: now
+          };
         }
-      } else if (statusUpdate.type === 'purchase') {
-        updatedOrder.purchaseStatus = {
-          ...updatedOrder.purchaseStatus,
-          purchased: true,
-          purchaseDate: now,
-          purchaseOrderNumber: statusUpdate.purchaseOrderNumber || '',
-          actualCost: statusUpdate.actualCost || updatedOrder.costBreakdown.totalCost,
-          purchasedBy: statusUpdate.purchasedBy || ''
-        };
-        updatedOrder.status = 'purchased';
-      } else if (statusUpdate.type === 'delivery') {
-        updatedOrder.deliveryInfo = {
-          ...updatedOrder.deliveryInfo,
-          actualArrivalDate: now,
-          deliveredToSubteam: true,
-          deliveryConfirmedBy: statusUpdate.confirmedBy || '',
-          deliveryNotes: statusUpdate.notes || '',
-          trackingNumber: statusUpdate.trackingNumber || ''
-        };
-        updatedOrder.status = 'delivered';
-      } else if (statusUpdate.type === 'sponsorship_response') {
-        updatedOrder.sponsorshipInfo = {
-          ...updatedOrder.sponsorshipInfo,
-          sponsorshipSuccessful: statusUpdate.successful,
-          sponsorshipResponse: statusUpdate.response || '',
-          sponsorshipResponseDate: now
-        };
-      }
 
-      // Save to Supabase
-      await supabaseService.updateOrder(orderId, updatedOrder);
-      
-      // Update local state
-      const updatedOrders = orders.map(o => o.id === orderId ? updatedOrder : o);
-      setOrders(updatedOrders);
-      
-      finishSaving();
-      await showSuccess('Order updated successfully');
-    } catch (error) {
-      console.error('Error updating order:', error);
-      finishSaving();
-      await showError(`Failed to update order: ${error.message}`, 'Update Error');
-    }
+        return updatedOrder;
+      }
+      return order;
+    });
+    
+    setOrders(updatedOrders);
+    
+    // Save to GitHub (placeholder)
+    console.log('Updating order:', orderId, statusUpdate);
+    // TODO: Implement GitHub API save
   };
 
   const submitNewOrder = async () => {
     const now = new Date().toISOString();
     const newOrder = {
+      id: `order-${Date.now()}`,
       submissionTimestamp: now,
       submissionDetails: orderFormData.submissionDetails,
       materialDetails: orderFormData.materialDetails,
       costBreakdown: {
+        ...orderFormData.costBreakdown,
         unitPrice: parseFloat(orderFormData.costBreakdown.unitPrice),
         quantity: parseInt(orderFormData.costBreakdown.quantity),
-        shippingCost: parseFloat(orderFormData.costBreakdown.shippingCost),
+        shippingCost: parseFloat(orderFormData.costBreakdown.shippingCost || 0),
+        taxes: parseFloat(orderFormData.costBreakdown.taxes || 0),
+        fees: parseFloat(orderFormData.costBreakdown.fees || 0),
         subtotal: parseFloat(orderFormData.costBreakdown.unitPrice) * parseInt(orderFormData.costBreakdown.quantity),
-        totalCost: parseFloat(orderFormData.costBreakdown.totalCost),
-        taxes: 0,
-        fees: 0
+        totalCost: (parseFloat(orderFormData.costBreakdown.unitPrice) * parseInt(orderFormData.costBreakdown.quantity)) +
+                   parseFloat(orderFormData.costBreakdown.shippingCost || 0) +
+                   parseFloat(orderFormData.costBreakdown.taxes || 0) +
+                   parseFloat(orderFormData.costBreakdown.fees || 0)
       },
       projectDetails: {
         ...orderFormData.projectDetails,
-        neededByDate: new Date(orderFormData.projectDetails.neededByDate).toISOString()
+        neededByDate: orderFormData.projectDetails.neededByDate ? 
+          new Date(orderFormData.projectDetails.neededByDate).toISOString() : null
       },
       approvalWorkflow: {
-        directorApproval: {
+        technicalDirectorApproval: {
+          status: 'pending',
+          approvedBy: null,
+          approvalDate: null,
+          comments: '',
+          denialReason: ''
+        },
+        projectDirectorPurchaseApproval: {
           status: 'pending',
           approvedBy: null,
           approvalDate: null,
@@ -341,49 +209,17 @@ const OrderManager = () => {
         refundAmount: null,
         refundProcessed: false
       },
-      status: 'pending_approval',
+      status: 'pending_technical_approval',
       lastUpdated: now,
       createdBy: orderFormData.submissionDetails.submitterEmail
     };
 
-    startSaving();
+    setOrders([...orders, newOrder]);
+    setShowOrderForm(false);
+    resetOrderForm();
     
-    try {
-      const savedOrder = await supabaseService.createOrder(newOrder);
-      setOrders([savedOrder, ...orders]);
-      setShowOrderForm(false);
-      resetOrderForm();
-      
-      finishSaving();
-      await showSuccess('Order submitted successfully');
-    } catch (error) {
-      console.error('Error creating order:', error);
-      finishSaving();
-      await showError(`Failed to submit order: ${error.message}`, 'Submit Error');
-    }
-  };
-
-  const deleteOrder = async (orderId) => {
-    const confirmed = await showConfirm(
-      'Are you sure you want to delete this order? This action cannot be undone.',
-      'Delete Order'
-    );
-    
-    if (!confirmed) return;
-
-    startSaving();
-    
-    try {
-      await supabaseService.deleteOrder(orderId);
-      setOrders(orders.filter(o => o.id !== orderId));
-      
-      finishSaving();
-      await showSuccess('Order deleted successfully');
-    } catch (error) {
-      console.error('Error deleting order:', error);
-      finishSaving();
-      await showError(`Failed to delete order: ${error.message}`, 'Delete Error');
-    }
+    // Save to GitHub (placeholder)
+    console.log('New order submitted:', newOrder);
   };
 
   const resetOrderForm = () => {
@@ -404,10 +240,12 @@ const OrderManager = () => {
         unitPrice: '',
         quantity: '',
         shippingCost: '',
-        totalCost: ''
+        taxes: '',
+        fees: ''
       },
       projectDetails: {
         purpose: '',
+        priority: 'medium',
         urgency: 'flexible',
         neededByDate: ''
       },
@@ -421,11 +259,10 @@ const OrderManager = () => {
   };
 
   const canApprove = authService.hasPermission('approve_orders');
-  const canView = authService.hasPermission('view_orders');
+  const canView = authService.hasPermission('submit_orders') || authService.hasPermission('view_schedules');
   const canSubmit = authService.hasPermission('submit_orders');
-  const isDirector = authService.hasPermission('approve_orders');
-  const isMember = authService.getLevel() === 'member';
-  const isLead = authService.getLevel() === 'leader';
+  const isTechnicalDirector = authService.hasPermission('technical_director');
+  const isProjectDirector = authService.hasPermission('project_director');
 
   const filteredOrders = orders.filter(order => {
     if (filterStatus !== 'all' && order.status !== filterStatus) return false;
@@ -435,7 +272,8 @@ const OrderManager = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'pending_approval': return '#fd7e14';
+      case 'pending_technical_approval': return '#fd7e14';
+      case 'pending_project_approval': return '#17a2b8';
       case 'approved_for_purchase': return '#007bff';
       case 'purchased': return '#6f42c1';
       case 'delivered': return '#28a745';
@@ -446,9 +284,10 @@ const OrderManager = () => {
 
   const getStatusText = (status) => {
     switch (status) {
-      case 'pending_approval': return 'Pending Director Approval';
-      case 'approved_for_purchase': return 'Approved - Ready to Purchase';
-      case 'purchased': return 'Purchased - In Transit';
+      case 'pending_technical_approval': return 'Pending Tech Approval';
+      case 'pending_project_approval': return 'Pending Project Approval';
+      case 'approved_for_purchase': return 'Approved for Purchase';
+      case 'purchased': return 'Purchased';
       case 'delivered': return 'Delivered';
       case 'denied': return 'Denied';
       default: return status;
@@ -466,12 +305,11 @@ const OrderManager = () => {
 
   const teams = [...new Set(orders.map(order => order.submissionDetails?.subteam).filter(Boolean))];
 
-  const OrderDetailModal = useMemo(() => {
-    return ({ order, onClose }) => {
-      if (!order) return null;
+  const OrderDetailModal = ({ order, onClose }) => {
+    if (!order) return null;
 
-      return (
-        <div className="modal-overlay" onClick={onClose}>
+    return (
+      <div className="modal-overlay" onClick={onClose}>
         <div className="modal-content" onClick={e => e.stopPropagation()}>
           <div className="modal-header">
             <h3>{order.materialDetails.materialName}</h3>
@@ -496,7 +334,7 @@ const OrderManager = () => {
                 <div><strong>Supplier:</strong> {order.materialDetails.supplier}</div>
                 <div><strong>Supplier Contact:</strong> {order.materialDetails.supplierContact}</div>
                 {order.materialDetails.materialLink && (
-                  <div><strong>Link: </strong> 
+                  <div><strong>Link:</strong> 
                     <a href={order.materialDetails.materialLink} target="_blank" rel="noopener noreferrer">
                       View Material
                     </a>
@@ -546,8 +384,11 @@ const OrderManager = () => {
             <div className="detail-section">
               <h4>Project Details</h4>
               <div className="detail-grid">
+                <div><strong>Priority:</strong> {order.projectDetails.priority}</div>
                 <div><strong>Urgency:</strong> {order.projectDetails.urgency}</div>
-                <div><strong>Needed by:</strong> {new Date(order.projectDetails.neededByDate).toLocaleDateString()}</div>
+                {order.projectDetails.neededByDate && (
+                  <div><strong>Needed by:</strong> {new Date(order.projectDetails.neededByDate).toLocaleDateString()}</div>
+                )}
               </div>
               <div className="purpose">
                 <strong>Purpose:</strong>
@@ -583,21 +424,27 @@ const OrderManager = () => {
               <h4>Approval Status</h4>
               <div className="approval-grid">
                 <div className="approval-item">
-                  <strong>Director Approval:</strong>
-                  <span className={`approval-status ${order.approvalWorkflow?.directorApproval?.status || 'pending'}`}>
-                    {order.approvalWorkflow?.directorApproval?.status || 'pending'}
+                  <strong>Technical Director:</strong>
+                  <span className={`approval-status ${order.approvalWorkflow.technicalDirectorApproval.status}`}>
+                    {order.approvalWorkflow.technicalDirectorApproval.status}
                   </span>
-                  {order.approvalWorkflow?.directorApproval?.approvedBy && (
-                    <p className="approval-meta">By: {order.approvalWorkflow.directorApproval.approvedBy}</p>
+                  {order.approvalWorkflow.technicalDirectorApproval.comments && (
+                    <p className="approval-comment">{order.approvalWorkflow.technicalDirectorApproval.comments}</p>
                   )}
-                  {order.approvalWorkflow?.directorApproval?.approvalDate && (
-                    <p className="approval-meta">Date: {new Date(order.approvalWorkflow.directorApproval.approvalDate).toLocaleString()}</p>
+                  {order.approvalWorkflow.technicalDirectorApproval.denialReason && (
+                    <p className="denial-reason">{order.approvalWorkflow.technicalDirectorApproval.denialReason}</p>
                   )}
-                  {order.approvalWorkflow?.directorApproval?.comments && (
-                    <p className="approval-comment">{order.approvalWorkflow.directorApproval.comments}</p>
+                </div>
+                <div className="approval-item">
+                  <strong>Project Director:</strong>
+                  <span className={`approval-status ${order.approvalWorkflow.projectDirectorPurchaseApproval.status}`}>
+                    {order.approvalWorkflow.projectDirectorPurchaseApproval.status}
+                  </span>
+                  {order.approvalWorkflow.projectDirectorPurchaseApproval.comments && (
+                    <p className="approval-comment">{order.approvalWorkflow.projectDirectorPurchaseApproval.comments}</p>
                   )}
-                  {order.approvalWorkflow?.directorApproval?.denialReason && (
-                    <p className="denial-reason">{order.approvalWorkflow.directorApproval.denialReason}</p>
+                  {order.approvalWorkflow.projectDirectorPurchaseApproval.denialReason && (
+                    <p className="denial-reason">{order.approvalWorkflow.projectDirectorPurchaseApproval.denialReason}</p>
                   )}
                 </div>
               </div>
@@ -633,109 +480,14 @@ const OrderManager = () => {
                 )}
               </div>
             )}
-
-            {/* Next Steps Section */}
-            {order.status === 'approved_for_purchase' && (
-              <div className="detail-section next-steps">
-                <h4>✓ Order Approved - Next Steps</h4>
-                <div className="next-steps-content">
-                  <p><strong>Expected Delivery Date:</strong> {order.deliveryInfo.expectedArrivalDate ? new Date(order.deliveryInfo.expectedArrivalDate).toLocaleDateString() : 'TBD'}</p>
-                  <p>This order has been approved and is ready for purchase. A director will process the purchase order soon.</p>
-                </div>
-              </div>
-            )}
-
-            {order.status === 'purchased' && (
-              <div className="detail-section next-steps">
-                <h4>📦 Order Purchased - In Transit</h4>
-                <div className="next-steps-content">
-                  <p><strong>Expected Delivery:</strong> {order.deliveryInfo.expectedArrivalDate ? new Date(order.deliveryInfo.expectedArrivalDate).toLocaleDateString() : 'TBD'}</p>
-                  <p>Your order has been purchased and is on its way. You'll be notified when it arrives.</p>
-                  {order.deliveryInfo.trackingNumber && (
-                    <p><strong>Tracking Number:</strong> {order.deliveryInfo.trackingNumber}</p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {order.status === 'denied' && (
-              <div className="detail-section next-steps denied">
-                <h4>✗ Order Denied</h4>
-                <div className="next-steps-content">
-                  <p>This order request has been denied. Please review the denial reason above and contact a director if you have questions.</p>
-                </div>
-              </div>
-            )}
-
-            {/* Director Approval Actions - Show for directors on pending orders (old and new statuses) */}
-            {isDirector && (order.status === 'pending_approval' || order.status === 'pending_technical_approval' || order.status === 'pending_project_approval') && (
-              <div className="detail-section approval-actions">
-                <h4>Director Actions</h4>
-                <div className="approval-form">
-                  <div className="form-group">
-                    <label>Comments / Denial Reason</label>
-                    <textarea 
-                      id={`approval-comments-${order.id}`}
-                      placeholder="Add comments for approval or reason for denial..."
-                      rows="3"
-                    />
-                  </div>
-                  <div className="approval-buttons">
-                    <button 
-                      className="btn-approve"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        const comments = document.getElementById(`approval-comments-${order.id}`).value;
-                        await updateOrderStatus(order.id, {
-                          type: 'director_approval',
-                          approved: true,
-                          approvedBy: authService.currentUser?.level || 'director',
-                          comments: comments || 'Approved by director'
-                        });
-                        setSelectedOrder(null);
-                      }}
-                    >
-                      ✓ Approve Order
-                    </button>
-                    <button 
-                      className="btn-deny"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        const comments = document.getElementById(`approval-comments-${order.id}`).value;
-                        if (!comments.trim()) {
-                          await showError('Please provide a reason for denial', 'Denial Reason Required');
-                          return;
-                        }
-                        const confirmed = await showConfirm(
-                          'Are you sure you want to deny this order? This action will notify the submitter.',
-                          'Confirm Denial'
-                        );
-                        if (!confirmed) return;
-                        
-                        await updateOrderStatus(order.id, {
-                          type: 'director_approval',
-                          approved: false,
-                          approvedBy: authService.currentUser?.level || 'director',
-                          denialReason: comments
-                        });
-                        setSelectedOrder(null);
-                      }}
-                    >
-                      ✗ Deny Order
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
-      );
-    };
-  }, [isDirector, updateOrderStatus, showError, showConfirm]);
+    );
+  };
 
-  const OrderForm = useMemo(() => {
-    return () => (
+  const OrderForm = () => {
+    return (
       <div className="modal-overlay" onClick={() => setShowOrderForm(false)}>
         <div className="modal-content large" onClick={e => e.stopPropagation()}>
           <div className="modal-header">
@@ -743,7 +495,7 @@ const OrderManager = () => {
             <button className="modal-close" onClick={() => setShowOrderForm(false)}>×</button>
           </div>
           
-          <div className="modal-body" ref={formScrollRef}>
+          <div className="modal-body">
             <form onSubmit={(e) => { e.preventDefault(); submitNewOrder(); }}>
               <div className="form-section">
                 <h4>Submission Details</h4>
@@ -762,19 +514,17 @@ const OrderManager = () => {
                       required
                     >
                       <option value="">Select Subteam</option>
+                      <option value="Mechanical">Mechanical</option>
+                      <option value="Electrical">Electrical</option>
+                      <option value="Software">Software</option>
                       <option value="Business">Business</option>
-                      <option value="Aerodynamics">Aerodynamics</option>
-                      <option value="Low Voltage">Low Voltage</option>
-                      <option value="Systems Architecture">Systems Architecture</option>
-                      <option value="High Voltage">High Voltage</option>
-                      <option value="Structures">Structures</option>
-                      <option value="Vehicle Dynamics">Vehicle Dynamics</option>
+                      <option value="Operations">Operations</option>
                     </select>
                   </div>
                   <div className="form-group">
                     <label>Your Name *</label>
                     <input 
-                      type="name"
+                      type="text"
                       value={orderFormData.submissionDetails.submitterName}
                       onChange={(e) => setOrderFormData({
                         ...orderFormData,
@@ -823,22 +573,7 @@ const OrderManager = () => {
                     />
                   </div>
                   <div className="form-group">
-                    <label>Material Link *</label>
-                    <input 
-                      type="url"
-                      value={orderFormData.materialDetails.materialLink}
-                      onChange={(e) => setOrderFormData({
-                        ...orderFormData,
-                        materialDetails: {
-                          ...orderFormData.materialDetails,
-                          materialLink: e.target.value
-                        }
-                      })}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Supplier</label>
+                    <label>Supplier *</label>
                     <input 
                       type="text"
                       value={orderFormData.materialDetails.supplier}
@@ -847,6 +582,35 @@ const OrderManager = () => {
                         materialDetails: {
                           ...orderFormData.materialDetails,
                           supplier: e.target.value
+                        }
+                      })}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Supplier Contact</label>
+                    <input 
+                      type="text"
+                      value={orderFormData.materialDetails.supplierContact}
+                      onChange={(e) => setOrderFormData({
+                        ...orderFormData,
+                        materialDetails: {
+                          ...orderFormData.materialDetails,
+                          supplierContact: e.target.value
+                        }
+                      })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Material Link</label>
+                    <input 
+                      type="url"
+                      value={orderFormData.materialDetails.materialLink}
+                      onChange={(e) => setOrderFormData({
+                        ...orderFormData,
+                        materialDetails: {
+                          ...orderFormData.materialDetails,
+                          materialLink: e.target.value
                         }
                       })}
                     />
@@ -874,11 +638,10 @@ const OrderManager = () => {
                 <h4>Cost Information</h4>
                 <div className="form-grid">
                   <div className="form-group">
-                    <label>Price of 1 item *</label>
+                    <label>Unit Price ($) *</label>
                     <input 
                       type="number"
                       step="0.01"
-                      min="0"
                       value={orderFormData.costBreakdown.unitPrice}
                       onChange={(e) => setOrderFormData({
                         ...orderFormData,
@@ -887,15 +650,13 @@ const OrderManager = () => {
                           unitPrice: e.target.value
                         }
                       })}
-                      placeholder="0.00"
                       required
                     />
                   </div>
                   <div className="form-group">
-                    <label>Quantity of items requested *</label>
+                    <label>Quantity *</label>
                     <input 
                       type="number"
-                      min="1"
                       value={orderFormData.costBreakdown.quantity}
                       onChange={(e) => setOrderFormData({
                         ...orderFormData,
@@ -904,16 +665,14 @@ const OrderManager = () => {
                           quantity: e.target.value
                         }
                       })}
-                      placeholder="1"
                       required
                     />
                   </div>
                   <div className="form-group">
-                    <label>Shipping cost *</label>
+                    <label>Shipping Cost ($)</label>
                     <input 
                       type="number"
                       step="0.01"
-                      min="0"
                       value={orderFormData.costBreakdown.shippingCost}
                       onChange={(e) => setOrderFormData({
                         ...orderFormData,
@@ -922,36 +681,48 @@ const OrderManager = () => {
                           shippingCost: e.target.value
                         }
                       })}
-                      placeholder="0.00"
-                      required
                     />
                   </div>
                   <div className="form-group">
-                    <label>Total cost of order after taxes or fees *</label>
+                    <label>Estimated Taxes ($)</label>
                     <input 
                       type="number"
                       step="0.01"
-                      min="0"
-                      value={orderFormData.costBreakdown.totalCost}
+                      value={orderFormData.costBreakdown.taxes}
                       onChange={(e) => setOrderFormData({
                         ...orderFormData,
                         costBreakdown: {
                           ...orderFormData.costBreakdown,
-                          totalCost: e.target.value
+                          taxes: e.target.value
                         }
                       })}
-                      placeholder="0.00"
-                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Additional Fees ($)</label>
+                    <input 
+                      type="number"
+                      step="0.01"
+                      value={orderFormData.costBreakdown.fees}
+                      onChange={(e) => setOrderFormData({
+                        ...orderFormData,
+                        costBreakdown: {
+                          ...orderFormData.costBreakdown,
+                          fees: e.target.value
+                        }
+                      })}
                     />
                   </div>
                 </div>
-                {orderFormData.costBreakdown.unitPrice && orderFormData.costBreakdown.quantity && orderFormData.costBreakdown.shippingCost && (
+                {orderFormData.costBreakdown.unitPrice && orderFormData.costBreakdown.quantity && (
                   <div className="cost-preview">
-                    <strong>Calculated Subtotal (Price × Quantity + Shipping): $
+                    <strong>Estimated Total: $
                       {(
                         (parseFloat(orderFormData.costBreakdown.unitPrice) || 0) * 
                         (parseInt(orderFormData.costBreakdown.quantity) || 0) +
-                        (parseFloat(orderFormData.costBreakdown.shippingCost) || 0)
+                        (parseFloat(orderFormData.costBreakdown.shippingCost) || 0) +
+                        (parseFloat(orderFormData.costBreakdown.taxes) || 0) +
+                        (parseFloat(orderFormData.costBreakdown.fees) || 0)
                       ).toFixed(2)}
                     </strong>
                   </div>
@@ -961,6 +732,24 @@ const OrderManager = () => {
               <div className="form-section">
                 <h4>Project Details</h4>
                 <div className="form-grid">
+                  <div className="form-group">
+                    <label>Priority *</label>
+                    <select 
+                      value={orderFormData.projectDetails.priority}
+                      onChange={(e) => setOrderFormData({
+                        ...orderFormData,
+                        projectDetails: {
+                          ...orderFormData.projectDetails,
+                          priority: e.target.value
+                        }
+                      })}
+                      required
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                    </select>
+                  </div>
                   <div className="form-group">
                     <label>Urgency *</label>
                     <select 
@@ -980,7 +769,7 @@ const OrderManager = () => {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label>Needed By Date *</label>
+                    <label>Needed By Date</label>
                     <input 
                       type="date"
                       value={orderFormData.projectDetails.neededByDate}
@@ -991,7 +780,6 @@ const OrderManager = () => {
                           neededByDate: e.target.value
                         }
                       })}
-                      required
                     />
                   </div>
                 </div>
@@ -1092,7 +880,7 @@ const OrderManager = () => {
         </div>
       </div>
     );
-  }, [orderFormData, showOrderForm]);
+  };
 
   if (isLoading) {
     return <div className="loading">Loading orders...</div>;
@@ -1121,12 +909,6 @@ const OrderManager = () => {
           font-size: 2rem;
           color: var(--text);
           margin: 0;
-        }
-
-        .header-actions {
-          display: flex;
-          gap: 10px;
-          align-items: center;
         }
 
         .btn-primary {
@@ -1558,100 +1340,6 @@ const OrderManager = () => {
           font-style: italic;
         }
 
-        .approval-meta {
-          margin: 0.25rem 0;
-          font-size: 0.8rem;
-          color: var(--subtxt);
-        }
-
-        /* Approval Actions */
-        .approval-actions {
-          background: rgba(220, 53, 69, 0.1);
-          border: 2px solid var(--accent);
-          padding: 1.5rem;
-          border-radius: 8px;
-        }
-
-        .approval-form {
-          margin-top: 1rem;
-        }
-
-        .approval-buttons {
-          display: flex;
-          gap: 1rem;
-          margin-top: 1rem;
-        }
-
-        .btn-approve, .btn-deny {
-          flex: 1;
-          padding: 1rem 2rem;
-          border: none;
-          border-radius: 6px;
-          font-weight: 600;
-          font-size: 1rem;
-          cursor: pointer;
-          transition: all 0.3s ease;
-        }
-
-        .btn-approve {
-          background: #28a745;
-          color: white;
-        }
-
-        .btn-approve:hover {
-          background: #218838;
-          transform: translateY(-2px);
-          box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
-        }
-
-        .btn-deny {
-          background: #dc3545;
-          color: white;
-        }
-
-        .btn-deny:hover {
-          background: #c82333;
-          transform: translateY(-2px);
-          box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
-        }
-
-        /* Next Steps Section */
-        .next-steps {
-          background: rgba(40, 167, 69, 0.1);
-          border-left: 4px solid #28a745;
-          padding: 1.5rem;
-          border-radius: 6px;
-        }
-
-        .next-steps.denied {
-          background: rgba(220, 53, 69, 0.1);
-          border-left-color: #dc3545;
-        }
-
-        .next-steps h4 {
-          margin: 0 0 1rem 0;
-          color: #28a745;
-        }
-
-        .next-steps.denied h4 {
-          color: #dc3545;
-        }
-
-        .next-steps-content p {
-          margin: 0.5rem 0;
-          color: var(--text);
-          line-height: 1.6;
-        }
-
-        .action-message {
-          background: rgba(253, 126, 20, 0.2);
-          padding: 0.75rem;
-          border-radius: 6px;
-          text-align: center;
-          color: var(--text);
-          font-weight: 500;
-        }
-
         /* Form Styles */
         .form-section {
           margin-bottom: 2rem;
@@ -1721,6 +1409,7 @@ const OrderManager = () => {
           justify-content: flex-end;
           margin-top: 2rem;
           padding-top: 1rem;
+          border-top: 1px solid #333;
         }
 
         @media (max-width: 768px) {
@@ -1773,29 +1462,26 @@ const OrderManager = () => {
 
       <div className="order-header">
         <h2 className="order-title">Order Management</h2>
-        <div className="header-actions">
-          <SyncStatusBadge status={status} lastSync={lastSync} onRefresh={loadOrders} />
-          {(isLead || isDirector) && (
-            <button className="btn-primary" onClick={() => setShowOrderForm(true)}>
-              + Submit New Order
-            </button>
-          )}
-        </div>
+        {canSubmit && (
+          <button className="btn-primary" onClick={() => setShowOrderForm(true)}>
+            + Submit New Order
+          </button>
+        )}
       </div>
 
       {/* Summary Statistics */}
       <div className="stats-summary">
         <div className="stat-card">
-          <div className="stat-number">{orders.filter(o => o.status === 'pending_approval').length}</div>
-          <div className="stat-label">Pending Approval</div>
+          <div className="stat-number">{orders.filter(o => o.status === 'pending_technical_approval').length}</div>
+          <div className="stat-label">Pending Tech Approval</div>
         </div>
         <div className="stat-card">
-          <div className="stat-number">{orders.filter(o => o.status === 'approved_for_purchase').length}</div>
-          <div className="stat-label">Ready to Purchase</div>
+          <div className="stat-number">{orders.filter(o => o.status === 'pending_project_approval').length}</div>
+          <div className="stat-label">Pending Project Approval</div>
         </div>
         <div className="stat-card">
           <div className="stat-number">{orders.filter(o => o.status === 'purchased').length}</div>
-          <div className="stat-label">In Transit</div>
+          <div className="stat-label">Purchased</div>
         </div>
         <div className="stat-card">
           <div className="stat-number">
@@ -1819,9 +1505,10 @@ const OrderManager = () => {
             onChange={(e) => setFilterStatus(e.target.value)}
           >
             <option value="all">All Statuses</option>
-            <option value="pending_approval">Pending Director Approval</option>
-            <option value="approved_for_purchase">Approved - Ready to Purchase</option>
-            <option value="purchased">Purchased - In Transit</option>
+            <option value="pending_technical_approval">Pending Tech Approval</option>
+            <option value="pending_project_approval">Pending Project Approval</option>
+            <option value="approved_for_purchase">Approved for Purchase</option>
+            <option value="purchased">Purchased</option>
             <option value="delivered">Delivered</option>
             <option value="denied">Denied</option>
           </select>
@@ -1870,6 +1557,12 @@ const OrderManager = () => {
                   >
                     {getStatusText(order.status)}
                   </span>
+                  <span 
+                    className="priority-badge" 
+                    style={{ backgroundColor: getPriorityColor(order.projectDetails.priority) }}
+                  >
+                    {order.projectDetails.priority} priority
+                  </span>
                 </div>
               </div>
 
@@ -1903,34 +1596,82 @@ const OrderManager = () => {
                 {order.projectDetails.purpose.length > 150 && '...'}
               </div>
 
-              {isDirector && (
+              {(canApprove || isTechnicalDirector || isProjectDirector) && (
                 <div className="order-actions" onClick={(e) => e.stopPropagation()}>
-                  {order.status === 'pending_approval' && (
-                    <div className="action-message">
-                      Click to view and approve/deny this order
-                    </div>
+                  {isTechnicalDirector && order.status === 'pending_technical_approval' && (
+                    <>
+                      <button 
+                        className="action-btn approve-btn"
+                        onClick={() => updateOrderStatus(order.id, {
+                          type: 'technical_approval',
+                          approved: true,
+                          approvedBy: 'tech.director@solarpack.com',
+                          comments: 'Approved by technical director'
+                        })}
+                      >
+                        ✓ Tech Approve
+                      </button>
+                      <button 
+                        className="action-btn reject-btn"
+                        onClick={() => updateOrderStatus(order.id, {
+                          type: 'technical_approval',
+                          approved: false,
+                          approvedBy: 'tech.director@solarpack.com',
+                          denialReason: 'Denied by technical director'
+                        })}
+                      >
+                        ✗ Tech Deny
+                      </button>
+                    </>
                   )}
 
-                  {order.status === 'approved_for_purchase' && (
+                  {isProjectDirector && order.status === 'pending_project_approval' && (
+                    <>
+                      <button 
+                        className="action-btn approve-btn"
+                        onClick={() => updateOrderStatus(order.id, {
+                          type: 'project_approval',
+                          approved: true,
+                          approvedBy: 'project.director@solarpack.com',
+                          comments: 'Purchase approved'
+                        })}
+                      >
+                        ✓ Purchase Approve
+                      </button>
+                      <button 
+                        className="action-btn reject-btn"
+                        onClick={() => updateOrderStatus(order.id, {
+                          type: 'project_approval',
+                          approved: false,
+                          approvedBy: 'project.director@solarpack.com',
+                          denialReason: 'Purchase denied'
+                        })}
+                      >
+                        ✗ Purchase Deny
+                      </button>
+                    </>
+                  )}
+
+                  {canApprove && order.status === 'approved_for_purchase' && (
                     <button 
                       className="action-btn mark-ordered-btn"
                       onClick={() => updateOrderStatus(order.id, {
                         type: 'purchase',
                         purchaseOrderNumber: `PO-${Date.now()}`,
                         actualCost: order.costBreakdown.totalCost,
-                        purchasedBy: authService.currentUser?.level || 'director'
+                        purchasedBy: 'purchasing@solarpack.com'
                       })}
                     >
                       📦 Mark as Purchased
                     </button>
                   )}
                   
-                  {order.status === 'purchased' && (
+                  {canApprove && order.status === 'purchased' && (
                     <button 
                       className="action-btn mark-delivered-btn"
                       onClick={() => updateOrderStatus(order.id, {
                         type: 'delivery',
-                        confirmedBy: authService.currentUser?.level || 'director',
+                        confirmedBy: 'warehouse@solarpack.com',
                         notes: 'Delivered to subteam'
                       })}
                     >
@@ -1945,13 +1686,15 @@ const OrderManager = () => {
       )}
 
       {/* Order Detail Modal */}
-      {selectedOrder && OrderDetailModal({
-        order: selectedOrder,
-        onClose: () => setSelectedOrder(null)
-      })}
+      {selectedOrder && (
+        <OrderDetailModal 
+          order={selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+        />
+      )}
 
       {/* Order Form Modal */}
-      {showOrderForm && OrderForm()}
+      {showOrderForm && <OrderForm />}
     </div>
   );
 };

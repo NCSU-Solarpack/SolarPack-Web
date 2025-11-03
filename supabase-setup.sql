@@ -120,12 +120,94 @@ CREATE POLICY "Allow all modifications" ON schedules
 -- ==========================================
 CREATE TABLE IF NOT EXISTS orders (
   id BIGSERIAL PRIMARY KEY,
-  item TEXT NOT NULL,
+  
+  -- Submission Details
+  submission_timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  subteam TEXT,
+  submitter_name TEXT,
+  submitter_email TEXT,
+  created_by TEXT,
+  
+  -- Material Details
+  material_name TEXT NOT NULL,
+  specifications TEXT,
+  material_link TEXT,
+  supplier TEXT,
+  supplier_contact TEXT,
+  
+  -- Cost Breakdown
+  unit_price DECIMAL(10, 2),
   quantity INTEGER DEFAULT 1,
-  priority TEXT,
-  status TEXT DEFAULT 'pending',
-  requested_by TEXT,
-  notes TEXT,
+  subtotal DECIMAL(10, 2),
+  shipping_cost DECIMAL(10, 2) DEFAULT 0,
+  taxes DECIMAL(10, 2) DEFAULT 0,
+  fees DECIMAL(10, 2) DEFAULT 0,
+  total_cost DECIMAL(10, 2),
+  
+  -- Project Details
+  purpose TEXT,
+  priority TEXT DEFAULT 'medium',
+  urgency TEXT DEFAULT 'flexible',
+  needed_by_date TIMESTAMP WITH TIME ZONE,
+  
+  -- Approval Workflow - Technical Director
+  tech_approval_status TEXT DEFAULT 'pending',
+  tech_approved_by TEXT,
+  tech_approval_date TIMESTAMP WITH TIME ZONE,
+  tech_comments TEXT,
+  tech_denial_reason TEXT,
+  
+  -- Approval Workflow - Project Director
+  project_approval_status TEXT DEFAULT 'pending',
+  project_approved_by TEXT,
+  project_approval_date TIMESTAMP WITH TIME ZONE,
+  project_comments TEXT,
+  project_denial_reason TEXT,
+  
+  -- Sponsorship Info
+  can_be_sponsored BOOLEAN DEFAULT false,
+  sponsor_contact_name TEXT,
+  sponsor_contact_email TEXT,
+  sponsor_company TEXT,
+  sponsorship_requested BOOLEAN DEFAULT false,
+  sponsorship_request_date TIMESTAMP WITH TIME ZONE,
+  sponsorship_successful BOOLEAN DEFAULT false,
+  sponsorship_response TEXT,
+  sponsorship_response_date TIMESTAMP WITH TIME ZONE,
+  
+  -- Purchase Status
+  purchased BOOLEAN DEFAULT false,
+  purchase_date TIMESTAMP WITH TIME ZONE,
+  purchase_order_number TEXT,
+  actual_cost DECIMAL(10, 2),
+  purchased_by TEXT,
+  
+  -- Delivery Info
+  expected_arrival_date TIMESTAMP WITH TIME ZONE,
+  actual_arrival_date TIMESTAMP WITH TIME ZONE,
+  delivered_to_subteam BOOLEAN DEFAULT false,
+  delivery_confirmed_by TEXT,
+  delivery_notes TEXT,
+  tracking_number TEXT,
+  
+  -- Documentation
+  receipt_uploaded BOOLEAN DEFAULT false,
+  receipt_file_name TEXT,
+  receipt_upload_date TIMESTAMP WITH TIME ZONE,
+  receipt_uploaded_by TEXT,
+  additional_documents JSONB DEFAULT '[]'::jsonb,
+  
+  -- Return Info
+  returned BOOLEAN DEFAULT false,
+  return_date TIMESTAMP WITH TIME ZONE,
+  return_reason TEXT,
+  return_authorized_by TEXT,
+  refund_amount DECIMAL(10, 2),
+  refund_processed BOOLEAN DEFAULT false,
+  
+  -- Status and Metadata
+  status TEXT DEFAULT 'pending_technical_approval',
+  last_updated TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

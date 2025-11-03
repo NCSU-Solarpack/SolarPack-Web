@@ -489,23 +489,49 @@ class SupabaseService {
       .order('created_at', { ascending: false });
     
     if (error) throw error;
+    
+    // Transform database format to application format
+    const transformedOrders = (data || []).map(order => this.transformOrderFromDB(order));
+    
     return {
-      orders: data || [],
+      orders: transformedOrders,
       lastUpdated: new Date().toISOString()
     };
   }
 
-  async saveOrder(order) {
+  async createOrder(orderData) {
     if (!this.client) throw new Error('Supabase not configured');
+    
+    // Transform application format to database format
+    const dbOrder = this.transformOrderToDB(orderData);
     
     const { data, error } = await this.client
       .from('orders')
-      .upsert(order)
+      .insert(dbOrder)
       .select()
       .single();
     
     if (error) throw error;
-    return data;
+    return this.transformOrderFromDB(data);
+  }
+
+  async updateOrder(id, orderData) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    // Transform application format to database format
+    const dbOrder = this.transformOrderToDB(orderData);
+    dbOrder.updated_at = new Date().toISOString();
+    dbOrder.last_updated = new Date().toISOString();
+    
+    const { data, error } = await this.client
+      .from('orders')
+      .update(dbOrder)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return this.transformOrderFromDB(data);
   }
 
   async deleteOrder(id) {
@@ -517,6 +543,205 @@ class SupabaseService {
       .eq('id', id);
     
     if (error) throw error;
+  }
+
+  // Transform order from database format to application format (nested objects)
+  transformOrderFromDB(dbOrder) {
+    if (!dbOrder) return null;
+    
+    return {
+      id: dbOrder.id,
+      submissionTimestamp: dbOrder.submission_timestamp,
+      submissionDetails: {
+        subteam: dbOrder.subteam,
+        submitterName: dbOrder.submitter_name,
+        submitterEmail: dbOrder.submitter_email
+      },
+      materialDetails: {
+        materialName: dbOrder.material_name,
+        specifications: dbOrder.specifications,
+        materialLink: dbOrder.material_link,
+        supplier: dbOrder.supplier,
+        supplierContact: dbOrder.supplier_contact
+      },
+      costBreakdown: {
+        unitPrice: parseFloat(dbOrder.unit_price || 0),
+        quantity: dbOrder.quantity || 1,
+        subtotal: parseFloat(dbOrder.subtotal || 0),
+        shippingCost: parseFloat(dbOrder.shipping_cost || 0),
+        taxes: parseFloat(dbOrder.taxes || 0),
+        fees: parseFloat(dbOrder.fees || 0),
+        totalCost: parseFloat(dbOrder.total_cost || 0)
+      },
+      projectDetails: {
+        purpose: dbOrder.purpose,
+        priority: dbOrder.priority || 'medium',
+        urgency: dbOrder.urgency || 'flexible',
+        neededByDate: dbOrder.needed_by_date
+      },
+      approvalWorkflow: {
+        technicalDirectorApproval: {
+          status: dbOrder.tech_approval_status || 'pending',
+          approvedBy: dbOrder.tech_approved_by,
+          approvalDate: dbOrder.tech_approval_date,
+          comments: dbOrder.tech_comments || '',
+          denialReason: dbOrder.tech_denial_reason || ''
+        },
+        projectDirectorPurchaseApproval: {
+          status: dbOrder.project_approval_status || 'pending',
+          approvedBy: dbOrder.project_approved_by,
+          approvalDate: dbOrder.project_approval_date,
+          comments: dbOrder.project_comments || '',
+          denialReason: dbOrder.project_denial_reason || ''
+        }
+      },
+      sponsorshipInfo: {
+        canBeSponsored: dbOrder.can_be_sponsored || false,
+        sponsorContactName: dbOrder.sponsor_contact_name,
+        sponsorContactEmail: dbOrder.sponsor_contact_email,
+        sponsorCompany: dbOrder.sponsor_company,
+        sponsorshipRequested: dbOrder.sponsorship_requested || false,
+        sponsorshipRequestDate: dbOrder.sponsorship_request_date,
+        sponsorshipSuccessful: dbOrder.sponsorship_successful || false,
+        sponsorshipResponse: dbOrder.sponsorship_response || '',
+        sponsorshipResponseDate: dbOrder.sponsorship_response_date
+      },
+      purchaseStatus: {
+        purchased: dbOrder.purchased || false,
+        purchaseDate: dbOrder.purchase_date,
+        purchaseOrderNumber: dbOrder.purchase_order_number || '',
+        actualCost: dbOrder.actual_cost ? parseFloat(dbOrder.actual_cost) : null,
+        purchasedBy: dbOrder.purchased_by || ''
+      },
+      deliveryInfo: {
+        expectedArrivalDate: dbOrder.expected_arrival_date,
+        actualArrivalDate: dbOrder.actual_arrival_date,
+        deliveredToSubteam: dbOrder.delivered_to_subteam || false,
+        deliveryConfirmedBy: dbOrder.delivery_confirmed_by || '',
+        deliveryNotes: dbOrder.delivery_notes || '',
+        trackingNumber: dbOrder.tracking_number || ''
+      },
+      documentation: {
+        receiptInvoice: {
+          uploaded: dbOrder.receipt_uploaded || false,
+          fileName: dbOrder.receipt_file_name || '',
+          uploadDate: dbOrder.receipt_upload_date,
+          uploadedBy: dbOrder.receipt_uploaded_by || ''
+        },
+        additionalDocuments: dbOrder.additional_documents || []
+      },
+      returnInfo: {
+        returned: dbOrder.returned || false,
+        returnDate: dbOrder.return_date,
+        returnReason: dbOrder.return_reason || '',
+        returnAuthorizedBy: dbOrder.return_authorized_by || '',
+        refundAmount: dbOrder.refund_amount ? parseFloat(dbOrder.refund_amount) : null,
+        refundProcessed: dbOrder.refund_processed || false
+      },
+      status: dbOrder.status || 'pending_technical_approval',
+      lastUpdated: dbOrder.last_updated || dbOrder.updated_at,
+      createdBy: dbOrder.created_by
+    };
+  }
+
+  // Transform order from application format (nested objects) to database format (flat)
+  transformOrderToDB(order) {
+    const dbOrder = {
+      // Submission Details
+      submission_timestamp: order.submissionTimestamp || new Date().toISOString(),
+      subteam: order.submissionDetails?.subteam,
+      submitter_name: order.submissionDetails?.submitterName,
+      submitter_email: order.submissionDetails?.submitterEmail,
+      created_by: order.createdBy || order.submissionDetails?.submitterEmail,
+      
+      // Material Details
+      material_name: order.materialDetails?.materialName,
+      specifications: order.materialDetails?.specifications,
+      material_link: order.materialDetails?.materialLink,
+      supplier: order.materialDetails?.supplier,
+      supplier_contact: order.materialDetails?.supplierContact,
+      
+      // Cost Breakdown
+      unit_price: order.costBreakdown?.unitPrice,
+      quantity: order.costBreakdown?.quantity || 1,
+      subtotal: order.costBreakdown?.subtotal,
+      shipping_cost: order.costBreakdown?.shippingCost || 0,
+      taxes: order.costBreakdown?.taxes || 0,
+      fees: order.costBreakdown?.fees || 0,
+      total_cost: order.costBreakdown?.totalCost,
+      
+      // Project Details
+      purpose: order.projectDetails?.purpose,
+      priority: order.projectDetails?.priority || 'medium',
+      urgency: order.projectDetails?.urgency || 'flexible',
+      needed_by_date: order.projectDetails?.neededByDate,
+      
+      // Approval Workflow - Technical Director
+      tech_approval_status: order.approvalWorkflow?.technicalDirectorApproval?.status || 'pending',
+      tech_approved_by: order.approvalWorkflow?.technicalDirectorApproval?.approvedBy,
+      tech_approval_date: order.approvalWorkflow?.technicalDirectorApproval?.approvalDate,
+      tech_comments: order.approvalWorkflow?.technicalDirectorApproval?.comments || '',
+      tech_denial_reason: order.approvalWorkflow?.technicalDirectorApproval?.denialReason || '',
+      
+      // Approval Workflow - Project Director
+      project_approval_status: order.approvalWorkflow?.projectDirectorPurchaseApproval?.status || 'pending',
+      project_approved_by: order.approvalWorkflow?.projectDirectorPurchaseApproval?.approvedBy,
+      project_approval_date: order.approvalWorkflow?.projectDirectorPurchaseApproval?.approvalDate,
+      project_comments: order.approvalWorkflow?.projectDirectorPurchaseApproval?.comments || '',
+      project_denial_reason: order.approvalWorkflow?.projectDirectorPurchaseApproval?.denialReason || '',
+      
+      // Sponsorship Info
+      can_be_sponsored: order.sponsorshipInfo?.canBeSponsored || false,
+      sponsor_contact_name: order.sponsorshipInfo?.sponsorContactName,
+      sponsor_contact_email: order.sponsorshipInfo?.sponsorContactEmail,
+      sponsor_company: order.sponsorshipInfo?.sponsorCompany,
+      sponsorship_requested: order.sponsorshipInfo?.sponsorshipRequested || false,
+      sponsorship_request_date: order.sponsorshipInfo?.sponsorshipRequestDate,
+      sponsorship_successful: order.sponsorshipInfo?.sponsorshipSuccessful || false,
+      sponsorship_response: order.sponsorshipInfo?.sponsorshipResponse || '',
+      sponsorship_response_date: order.sponsorshipInfo?.sponsorshipResponseDate,
+      
+      // Purchase Status
+      purchased: order.purchaseStatus?.purchased || false,
+      purchase_date: order.purchaseStatus?.purchaseDate,
+      purchase_order_number: order.purchaseStatus?.purchaseOrderNumber || '',
+      actual_cost: order.purchaseStatus?.actualCost,
+      purchased_by: order.purchaseStatus?.purchasedBy || '',
+      
+      // Delivery Info
+      expected_arrival_date: order.deliveryInfo?.expectedArrivalDate,
+      actual_arrival_date: order.deliveryInfo?.actualArrivalDate,
+      delivered_to_subteam: order.deliveryInfo?.deliveredToSubteam || false,
+      delivery_confirmed_by: order.deliveryInfo?.deliveryConfirmedBy || '',
+      delivery_notes: order.deliveryInfo?.deliveryNotes || '',
+      tracking_number: order.deliveryInfo?.trackingNumber || '',
+      
+      // Documentation
+      receipt_uploaded: order.documentation?.receiptInvoice?.uploaded || false,
+      receipt_file_name: order.documentation?.receiptInvoice?.fileName || '',
+      receipt_upload_date: order.documentation?.receiptInvoice?.uploadDate,
+      receipt_uploaded_by: order.documentation?.receiptInvoice?.uploadedBy || '',
+      additional_documents: order.documentation?.additionalDocuments || [],
+      
+      // Return Info
+      returned: order.returnInfo?.returned || false,
+      return_date: order.returnInfo?.returnDate,
+      return_reason: order.returnInfo?.returnReason || '',
+      return_authorized_by: order.returnInfo?.returnAuthorizedBy || '',
+      refund_amount: order.returnInfo?.refundAmount,
+      refund_processed: order.returnInfo?.refundProcessed || false,
+      
+      // Status and Metadata
+      status: order.status || 'pending_technical_approval',
+      last_updated: order.lastUpdated || new Date().toISOString()
+    };
+    
+    // Only include id if it exists (for updates)
+    if (order.id) {
+      dbOrder.id = order.id;
+    }
+    
+    return dbOrder;
   }
 
   // ===== REAL-TIME SUBSCRIPTIONS =====
