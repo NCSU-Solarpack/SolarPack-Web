@@ -16,6 +16,7 @@ export const useSupabaseSyncStatus = (fetchDataFn, pollInterval = 2000) => {
   const currentDisplayedHashRef = useRef(null); // Hash of what's currently displayed to user
   const intervalRef = useRef(null);
   const isSavingRef = useRef(false);
+  const isInitialLoadRef = useRef(true); // Prevent checking until initial load completes
 
   // Hash function to detect actual data changes (ignores lastUpdated timestamp)
   const hashData = (data) => {
@@ -42,6 +43,11 @@ export const useSupabaseSyncStatus = (fetchDataFn, pollInterval = 2000) => {
   const checkForUpdates = async () => {
     if (isSavingRef.current) {
       // Don't check while saving
+      return;
+    }
+
+    if (isInitialLoadRef.current) {
+      // Don't check until the component has finished its initial load
       return;
     }
 
@@ -135,6 +141,8 @@ export const useSupabaseSyncStatus = (fetchDataFn, pollInterval = 2000) => {
       console.log('✅ User refreshed - displayed hash updated to:', currentHash);
       setStatus('synced');
       setLastSync(new Date());
+      // Ensure initial load flag is cleared
+      isInitialLoadRef.current = false;
     } catch (error) {
       console.error('Error acknowledging new data:', error);
     }
@@ -146,6 +154,8 @@ export const useSupabaseSyncStatus = (fetchDataFn, pollInterval = 2000) => {
     console.log('📺 Component displaying data with hash:', hash);
     currentDisplayedHashRef.current = hash;
     lastKnownHashRef.current = hash;
+    // Mark initial load as complete so polling can begin
+    isInitialLoadRef.current = false;
   };
 
   return {

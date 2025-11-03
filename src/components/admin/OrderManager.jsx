@@ -182,6 +182,8 @@ const OrderManager = () => {
       setOrders(migratedOrders);
       // Tell the sync hook what data we're displaying
       setDisplayedData({ ...data, orders: migratedOrders });
+      // Acknowledge that we've loaded fresh data to prevent false "new-data" status
+      acknowledgeNewData();
     } catch (error) {
       console.error('Error loading orders:', error);
       await showError(`Failed to load orders: ${error.message}`, 'Load Error');
@@ -189,6 +191,12 @@ const OrderManager = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Handle refresh when new data is detected
+  const handleRefreshData = async () => {
+    await loadOrders();
+    acknowledgeNewData(); // Reset status to 'synced'
   };
 
   const updateOrderStatus = async (orderId, statusUpdate) => {
@@ -273,6 +281,9 @@ const OrderManager = () => {
       // Update local state
       const updatedOrders = orders.map(o => o.id === orderId ? updatedOrder : o);
       setOrders(updatedOrders);
+      
+      // Update the displayed data hash to match the new state
+      setDisplayedData({ orders: updatedOrders });
       
       finishSaving();
       await showSuccess('Order updated successfully');
@@ -361,9 +372,13 @@ const OrderManager = () => {
     
     try {
       const savedOrder = await supabaseService.createOrder(newOrder);
-      setOrders([savedOrder, ...orders]);
+      const updatedOrders = [savedOrder, ...orders];
+      setOrders(updatedOrders);
       setShowOrderForm(false);
       resetOrderForm();
+      
+      // Update the displayed data hash to match the new state
+      setDisplayedData({ orders: updatedOrders });
       
       finishSaving();
       await showSuccess('Order submitted successfully');
@@ -386,7 +401,11 @@ const OrderManager = () => {
     
     try {
       await supabaseService.deleteOrder(orderId);
-      setOrders(orders.filter(o => o.id !== orderId));
+      const updatedOrders = orders.filter(o => o.id !== orderId);
+      setOrders(updatedOrders);
+      
+      // Update the displayed data hash to match the new state
+      setDisplayedData({ orders: updatedOrders });
       
       finishSaving();
       await showSuccess('Order deleted successfully');
@@ -1868,7 +1887,7 @@ const OrderManager = () => {
       <div className="order-header">
         <h2 className="order-title">Order Management</h2>
         <div className="header-actions">
-          <SyncStatusBadge status={status} lastSync={lastSync} onRefresh={loadOrders} />
+          <SyncStatusBadge status={status} lastSync={lastSync} onRefresh={handleRefreshData} />
           {(isLead || isDirector) && (
             <button className="btn-primary" onClick={() => setShowOrderForm(true)}>
               + Submit New Order
