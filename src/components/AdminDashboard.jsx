@@ -54,10 +54,10 @@ const AdminDashboard = ({ onLogout }) => {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3, permission: 'view_schedules' },
     { id: 'schedules', label: 'Schedules', icon: Calendar, permission: 'view_schedules' },
-    { id: 'orders', label: 'Orders', icon: Package, permission: 'submit_orders' },
+    { id: 'orders', label: 'Orders', icon: Package, permission: 'view_orders' },
     { id: 'team', label: 'Team', icon: Users, permission: 'view_team' },
-    { id: 'alumni', label: 'Alumni', icon: GraduationCap, permission: 'edit_announcements' },
-    { id: 'sponsors', label: 'Sponsors', icon: Award, permission: 'edit_announcements' }
+    { id: 'alumni', label: 'Alumni', icon: GraduationCap, permission: 'view_alumni' },
+    { id: 'sponsors', label: 'Sponsors', icon: Award, permission: 'view_sponsors' }
     // Settings tab removed - GitHub integration no longer needed for data storage
   ];
 

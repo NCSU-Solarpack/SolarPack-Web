@@ -1,14 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { authService } from '../../utils/auth';
 // import { githubService } from '../../utils/github'; // Removed - transitioning to Supabase
 
 const ScheduleManager = () => {
   const [scheduleData, setScheduleData] = useState({ teams: [], projects: [], events: [], lastUpdated: '' });
-  const [activeView, setActiveView] = useState('projects');
+  const [activeView, setActiveView] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTeam, setSelectedTeam] = useState('all');
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [calendarView, setCalendarView] = useState('month'); // month, week
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   useEffect(() => {
     loadScheduleData();
@@ -262,6 +265,81 @@ const ScheduleManager = () => {
     return items.filter(item => item[teamKey] === selectedTeam);
   };
 
+  // Calendar utility functions
+  const getMonthCalendar = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+    
+    const days = [];
+    // Add empty cells for days before month starts
+    for (let i = 0; i < startingDayOfWeek; i++) {
+      days.push(null);
+    }
+    // Add days of the month
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(new Date(year, month, i));
+    }
+    return days;
+  };
+
+  const getItemsForDate = (date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    const projectsDue = scheduleData.projects.filter(p => p.dueDate === dateStr);
+    const events = scheduleData.events.filter(e => e.date === dateStr);
+    return [...projectsDue.map(p => ({...p, itemType: 'project'})), ...events.map(e => ({...e, itemType: 'event'}))];
+  };
+
+  const getUpcomingDeadlines = () => {
+    const today = new Date();
+    const nextWeek = new Date(today);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    
+    return scheduleData.projects
+      .filter(p => {
+        const dueDate = new Date(p.dueDate);
+        return dueDate >= today && dueDate <= nextWeek && p.status !== 'completed';
+      })
+      .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+  };
+
+  // Calculate team statistics
+  const teamStats = useMemo(() => {
+    return scheduleData.teams.map(team => {
+      const teamProjects = scheduleData.projects.filter(p => p.team === team.id);
+      const completed = teamProjects.filter(p => p.status === 'completed').length;
+      const inProgress = teamProjects.filter(p => p.status === 'in-progress').length;
+      const overdue = teamProjects.filter(p => isOverdue(p.dueDate, p.status)).length;
+      const avgProgress = teamProjects.length > 0 
+        ? Math.round(teamProjects.reduce((sum, p) => sum + p.progress, 0) / teamProjects.length)
+        : 0;
+      
+      return {
+        ...team,
+        totalProjects: teamProjects.length,
+        completed,
+        inProgress,
+        overdue,
+        avgProgress
+      };
+    });
+  }, [scheduleData]);
+
+  const overallStats = useMemo(() => {
+    const totalProjects = scheduleData.projects.length;
+    const completed = scheduleData.projects.filter(p => p.status === 'completed').length;
+    const inProgress = scheduleData.projects.filter(p => p.status === 'in-progress').length;
+    const overdue = scheduleData.projects.filter(p => isOverdue(p.dueDate, p.status)).length;
+    const avgProgress = totalProjects > 0
+      ? Math.round(scheduleData.projects.reduce((sum, p) => sum + p.progress, 0) / totalProjects)
+      : 0;
+    
+    return { totalProjects, completed, inProgress, overdue, avgProgress };
+  }, [scheduleData]);
+
   const canEdit = authService.hasPermission('edit_schedules');
 
   if (isLoading) {
@@ -271,55 +349,397 @@ const ScheduleManager = () => {
   return (
     <div className="schedule-manager">
       <style>{`
+        .schedule-manager {
+          padding: 1rem;
+          max-width: 1600px;
+          margin: 0 auto;
+        }
+
         .schedule-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
           margin-bottom: 2rem;
+          padding-bottom: 1rem;
+          border-bottom: 3px solid var(--primary);
         }
 
         .schedule-title {
           font-family: "Bebas Neue", sans-serif;
-          font-size: 2rem;
+          font-size: 2.5rem;
           color: var(--text);
           margin: 0;
+          letter-spacing: 1px;
+        }
+
+        .header-actions {
+          display: flex;
+          gap: 1rem;
+          align-items: center;
         }
 
         .view-tabs {
           display: flex;
           gap: 0.5rem;
           margin-bottom: 2rem;
+          background: var(--card-bg);
+          padding: 0.5rem;
+          border-radius: 12px;
+          border: 2px solid var(--card-border);
         }
 
         .view-tab {
-          padding: 0.5rem 1rem;
-          background: var(--card-bg);
-          border: 2px solid var(--card-border);
+          padding: 0.75rem 1.5rem;
+          background: transparent;
+          border: none;
           border-radius: 8px;
           cursor: pointer;
           transition: all 0.3s ease;
           color: var(--text);
+          font-weight: 600;
+          font-size: 0.95rem;
+        }
+
+        .view-tab:hover {
+          background: rgba(99, 102, 241, 0.1);
         }
 
         .view-tab.active {
           background: var(--primary);
           color: white;
+          box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+        }
+
+        /* Overview Dashboard Styles */
+        .overview-dashboard {
+          display: grid;
+          gap: 2rem;
+        }
+
+        .stats-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 1.5rem;
+          margin-bottom: 2rem;
+        }
+
+        .stat-card {
+          background: linear-gradient(135deg, var(--card-bg) 0%, var(--bg) 100%);
+          border: 2px solid var(--card-border);
+          border-radius: 12px;
+          padding: 1.5rem;
+          transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
           border-color: var(--primary);
+        }
+
+        .stat-label {
+          font-size: 0.85rem;
+          color: var(--text-secondary);
+          margin-bottom: 0.5rem;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          font-weight: 600;
+        }
+
+        .stat-value {
+          font-size: 2.5rem;
+          font-weight: 700;
+          color: var(--text);
+          line-height: 1;
+        }
+
+        .stat-sublabel {
+          font-size: 0.9rem;
+          color: var(--text-secondary);
+          margin-top: 0.5rem;
+        }
+
+        .teams-overview {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 1.5rem;
+          margin-bottom: 2rem;
+        }
+
+        .team-card {
+          background: var(--card-bg);
+          border: 2px solid var(--card-border);
+          border-radius: 12px;
+          padding: 1.5rem;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .team-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: linear-gradient(90deg, var(--team-color) 0%, transparent 100%);
+        }
+
+        .team-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+          border-color: var(--team-color);
+        }
+
+        .team-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1rem;
+        }
+
+        .team-name {
+          font-size: 1.2rem;
+          font-weight: 700;
+          color: var(--text);
+          margin: 0;
+        }
+
+        .team-badge {
+          padding: 0.25rem 0.75rem;
+          border-radius: 20px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: white;
+        }
+
+        .team-progress {
+          margin: 1rem 0;
+        }
+
+        .team-stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 0.75rem;
+          margin-top: 1rem;
+        }
+
+        .team-stat {
+          text-align: center;
+          padding: 0.75rem;
+          background: var(--bg);
+          border-radius: 8px;
+        }
+
+        .team-stat-value {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: var(--text);
+        }
+
+        .team-stat-label {
+          font-size: 0.75rem;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+          margin-top: 0.25rem;
+        }
+
+        .upcoming-deadlines {
+          background: var(--card-bg);
+          border: 2px solid var(--card-border);
+          border-radius: 12px;
+          padding: 1.5rem;
+        }
+
+        .section-title {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: var(--text);
+          margin: 0 0 1.5rem 0;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .deadline-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 1rem;
+          background: var(--bg);
+          border-left: 4px solid var(--team-color);
+          border-radius: 8px;
+          margin-bottom: 0.75rem;
+          transition: all 0.3s ease;
+        }
+
+        .deadline-item:hover {
+          transform: translateX(4px);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .deadline-info {
+          flex: 1;
+        }
+
+        .deadline-title {
+          font-weight: 600;
+          color: var(--text);
+          margin-bottom: 0.25rem;
+        }
+
+        .deadline-meta {
+          font-size: 0.85rem;
+          color: var(--text-secondary);
+        }
+
+        .deadline-date {
+          font-weight: 600;
+          color: var(--primary);
+          white-space: nowrap;
+        }
+
+        /* Calendar Styles */
+        .calendar-view {
+          background: var(--card-bg);
+          border: 2px solid var(--card-border);
+          border-radius: 12px;
+          padding: 1.5rem;
+        }
+
+        .calendar-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 2rem;
+        }
+
+        .calendar-nav {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .calendar-nav-btn {
+          padding: 0.5rem 1rem;
+          background: var(--primary);
+          color: white;
+          border: none;
+          border-radius: 8px;
+          cursor: pointer;
+          font-weight: 600;
+          transition: all 0.3s ease;
+        }
+
+        .calendar-nav-btn:hover {
+          background: var(--primary-dark);
+          transform: translateY(-2px);
+        }
+
+        .calendar-month {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: var(--text);
+        }
+
+        .calendar-grid {
+          display: grid;
+          grid-template-columns: repeat(7, 1fr);
+          gap: 0.5rem;
+        }
+
+        .calendar-day-header {
+          text-align: center;
+          font-weight: 600;
+          color: var(--text-secondary);
+          padding: 0.75rem;
+          font-size: 0.9rem;
+        }
+
+        .calendar-day {
+          min-height: 100px;
+          border: 2px solid var(--card-border);
+          border-radius: 8px;
+          padding: 0.5rem;
+          background: var(--bg);
+          transition: all 0.3s ease;
+        }
+
+        .calendar-day:hover {
+          border-color: var(--primary);
+          background: var(--card-bg);
+        }
+
+        .calendar-day.empty {
+          background: transparent;
+          border: none;
+        }
+
+        .calendar-day.today {
+          border-color: var(--primary);
+          background: rgba(99, 102, 241, 0.1);
+        }
+
+        .calendar-date {
+          font-weight: 700;
+          color: var(--text);
+          margin-bottom: 0.5rem;
+        }
+
+        .calendar-items {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+
+        .calendar-item {
+          font-size: 0.75rem;
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          color: white;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .calendar-item:hover {
+          transform: scale(1.05);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Projects View Styles */
+        .projects-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1.5rem;
         }
 
         .filters {
           display: flex;
           gap: 1rem;
-          margin-bottom: 2rem;
           align-items: center;
+          flex-wrap: wrap;
         }
 
         .team-filter {
-          padding: 0.5rem;
+          padding: 0.75rem 1rem;
           border: 2px solid var(--card-border);
           border-radius: 8px;
           background: var(--card-bg);
           color: var(--text);
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+
+        .team-filter:hover {
+          border-color: var(--primary);
         }
 
         .add-button {
@@ -331,16 +751,21 @@ const ScheduleManager = () => {
           cursor: pointer;
           font-weight: 600;
           transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
         }
 
         .add-button:hover {
           background: var(--primary-dark);
           transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
         }
 
         .projects-grid {
           display: grid;
-          gap: 2rem;
+          grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+          gap: 1.5rem;
           margin-bottom: 2rem;
         }
 
@@ -350,11 +775,25 @@ const ScheduleManager = () => {
           border-radius: 12px;
           padding: 1.5rem;
           transition: all 0.3s ease;
+          cursor: pointer;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .project-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: var(--team-color);
         }
 
         .project-card:hover {
           transform: translateY(-4px);
-          box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+          box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+          border-color: var(--team-color);
         }
 
         .project-header {
@@ -569,21 +1008,169 @@ const ScheduleManager = () => {
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(0,0,0,0.5);
+          background: rgba(0,0,0,0.6);
           display: flex;
           align-items: center;
           justify-content: center;
           z-index: 1000;
+          backdrop-filter: blur(4px);
+          animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
         }
 
         .modal {
           background: var(--card-bg);
-          border-radius: 12px;
+          border-radius: 16px;
           padding: 2rem;
           width: 90%;
-          max-width: 600px;
-          max-height: 80vh;
+          max-width: 800px;
+          max-height: 85vh;
           overflow-y: auto;
+          border: 2px solid var(--card-border);
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+          animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+          from {
+            transform: translateY(50px);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+
+        .modal::-webkit-scrollbar {
+          width: 8px;
+        }
+
+        .modal::-webkit-scrollbar-track {
+          background: var(--bg);
+          border-radius: 4px;
+        }
+
+        .modal::-webkit-scrollbar-thumb {
+          background: var(--primary);
+          border-radius: 4px;
+        }
+
+        .project-detail-modal {
+          max-width: 900px;
+        }
+
+        .modal-project-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 1.5rem;
+          padding-bottom: 1.5rem;
+          border-bottom: 2px solid var(--card-border);
+        }
+
+        .modal-project-info h2 {
+          margin: 0 0 0.5rem 0;
+          font-size: 2rem;
+          color: var(--text);
+        }
+
+        .modal-badges {
+          display: flex;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+          margin-top: 0.5rem;
+        }
+
+        .modal-project-meta {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 1.5rem;
+          margin: 1.5rem 0;
+          padding: 1.5rem;
+          background: var(--bg);
+          border-radius: 12px;
+        }
+
+        .meta-item {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+
+        .meta-label {
+          font-size: 0.85rem;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          font-weight: 600;
+        }
+
+        .meta-value {
+          font-size: 1.1rem;
+          font-weight: 700;
+          color: var(--text);
+        }
+
+        .modal-tasks-section {
+          margin-top: 2rem;
+        }
+
+        .modal-tasks-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1rem;
+        }
+
+        .task-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        .task-card {
+          background: var(--bg);
+          border: 2px solid var(--card-border);
+          border-radius: 8px;
+          padding: 1rem;
+          transition: all 0.3s ease;
+        }
+
+        .task-card:hover {
+          border-color: var(--primary);
+          transform: translateX(4px);
+        }
+
+        .task-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: start;
+          margin-bottom: 0.5rem;
+        }
+
+        .task-title-group h4 {
+          margin: 0 0 0.25rem 0;
+          color: var(--text);
+          font-size: 1.1rem;
+        }
+
+        .task-description {
+          color: var(--text-secondary);
+          font-size: 0.9rem;
+          margin: 0.5rem 0;
+        }
+
+        .task-progress-section {
+          margin-top: 0.75rem;
         }
 
         .modal-header {
@@ -683,54 +1270,280 @@ const ScheduleManager = () => {
       `}</style>
 
       <div className="schedule-header">
-        <h1 className="schedule-title">Schedule Manager</h1>
-        {canEdit && (
-          <button 
-            className="add-button" 
-            onClick={activeView === 'projects' ? handleAddProject : handleAddEvent}
-          >
-            + Add {activeView === 'projects' ? 'Project' : 'Event'}
-          </button>
-        )}
+        <h1 className="schedule-title">📋 Schedule Manager</h1>
       </div>
 
       <div className="view-tabs">
         <button 
+          className={`view-tab ${activeView === 'overview' ? 'active' : ''}`}
+          onClick={() => setActiveView('overview')}
+        >
+          📊 Overview
+        </button>
+        <button 
+          className={`view-tab ${activeView === 'calendar' ? 'active' : ''}`}
+          onClick={() => setActiveView('calendar')}
+        >
+          📅 Calendar
+        </button>
+        <button 
           className={`view-tab ${activeView === 'projects' ? 'active' : ''}`}
           onClick={() => setActiveView('projects')}
         >
-          Projects
+          📂 Projects
         </button>
         <button 
           className={`view-tab ${activeView === 'events' ? 'active' : ''}`}
           onClick={() => setActiveView('events')}
         >
-          Events
+          🎯 Events
         </button>
       </div>
 
-      <div className="filters">
-        <label htmlFor="team-filter">Filter by Team:</label>
-        <select 
-          id="team-filter"
-          className="team-filter"
-          value={selectedTeam}
-          onChange={(e) => setSelectedTeam(e.target.value)}
-        >
-          <option value="all">All Teams</option>
-          {scheduleData.teams.map(team => (
-            <option key={team.id} value={team.id}>{team.name}</option>
-          ))}
-        </select>
-      </div>
+      {/* Overview Dashboard */}
+      {activeView === 'overview' && (
+        <div className="overview-dashboard">
+          {/* Overall Statistics */}
+          <div className="stats-grid">
+            <div className="stat-card">
+              <div className="stat-label">Total Projects</div>
+              <div className="stat-value">{overallStats.totalProjects}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Completed</div>
+              <div className="stat-value" style={{color: '#28a745'}}>{overallStats.completed}</div>
+              <div className="stat-sublabel">{overallStats.totalProjects > 0 ? Math.round(overallStats.completed / overallStats.totalProjects * 100) : 0}%</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">In Progress</div>
+              <div className="stat-value" style={{color: '#007bff'}}>{overallStats.inProgress}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Overdue</div>
+              <div className="stat-value" style={{color: '#dc3545'}}>{overallStats.overdue}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Avg Progress</div>
+              <div className="stat-value">{overallStats.avgProgress}%</div>
+              <div className="progress-bar" style={{marginTop: '0.75rem'}}>
+                <div 
+                  className="progress-fill"
+                  style={{ 
+                    width: `${overallStats.avgProgress}%`,
+                    backgroundColor: '#6366f1'
+                  }}
+                />
+              </div>
+            </div>
+          </div>
 
-      {activeView === 'projects' && (
-        <div className="projects-grid">
-          {filterItemsByTeam(scheduleData.projects).map(project => (
-            <div 
-              key={project.id} 
-              className={`project-card ${isOverdue(project.dueDate, project.status) ? 'overdue' : ''}`}
+          {/* Team Overview Cards */}
+          <div>
+            <h2 className="section-title">🏢 Teams Overview</h2>
+            <div className="teams-overview">
+              {teamStats.map(team => (
+                <div 
+                  key={team.id} 
+                  className="team-card"
+                  style={{'--team-color': team.color}}
+                  onClick={() => {
+                    setSelectedTeam(team.id);
+                    setActiveView('projects');
+                  }}
+                >
+                  <div className="team-header">
+                    <h3 className="team-name">{team.name}</h3>
+                    <div className="team-badge" style={{backgroundColor: team.color}}>
+                      {team.totalProjects}
+                    </div>
+                  </div>
+                  
+                  <div className="team-progress">
+                    <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.9rem'}}>
+                      <span>Progress</span>
+                      <span style={{fontWeight: 'bold'}}>{team.avgProgress}%</span>
+                    </div>
+                    <div className="progress-bar">
+                      <div 
+                        className="progress-fill"
+                        style={{ 
+                          width: `${team.avgProgress}%`,
+                          backgroundColor: team.color
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="team-stats">
+                    <div className="team-stat">
+                      <div className="team-stat-value" style={{color: '#28a745'}}>{team.completed}</div>
+                      <div className="team-stat-label">Done</div>
+                    </div>
+                    <div className="team-stat">
+                      <div className="team-stat-value" style={{color: '#007bff'}}>{team.inProgress}</div>
+                      <div className="team-stat-label">Active</div>
+                    </div>
+                    <div className="team-stat">
+                      <div className="team-stat-value" style={{color: '#dc3545'}}>{team.overdue}</div>
+                      <div className="team-stat-label">Overdue</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Upcoming Deadlines */}
+          <div className="upcoming-deadlines">
+            <h2 className="section-title">⏰ Upcoming Deadlines (Next 7 Days)</h2>
+            {getUpcomingDeadlines().length === 0 ? (
+              <p style={{color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem'}}>
+                No upcoming deadlines in the next week
+              </p>
+            ) : (
+              getUpcomingDeadlines().map(project => (
+                <div 
+                  key={project.id} 
+                  className="deadline-item"
+                  style={{'--team-color': getTeamColor(project.team)}}
+                  onClick={() => setSelectedProject(project)}
+                >
+                  <div className="deadline-info">
+                    <div className="deadline-title">{project.title}</div>
+                    <div className="deadline-meta">
+                      {getTeamName(project.team)} • {project.assignedTo} • {project.progress}% complete
+                    </div>
+                  </div>
+                  <div className="deadline-date">
+                    {new Date(project.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Calendar View */}
+      {activeView === 'calendar' && (
+        <div className="calendar-view">
+          <div className="calendar-header">
+            <div className="calendar-nav">
+              <button 
+                className="calendar-nav-btn"
+                onClick={() => {
+                  const newDate = new Date(currentDate);
+                  newDate.setMonth(newDate.getMonth() - 1);
+                  setCurrentDate(newDate);
+                }}
+              >
+                ← Previous
+              </button>
+              <div className="calendar-month">
+                {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </div>
+              <button 
+                className="calendar-nav-btn"
+                onClick={() => {
+                  const newDate = new Date(currentDate);
+                  newDate.setMonth(newDate.getMonth() + 1);
+                  setCurrentDate(newDate);
+                }}
+              >
+                Next →
+              </button>
+            </div>
+            <button 
+              className="calendar-nav-btn"
+              onClick={() => setCurrentDate(new Date())}
             >
+              Today
+            </button>
+          </div>
+
+          <div className="calendar-grid">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+              <div key={day} className="calendar-day-header">{day}</div>
+            ))}
+            {getMonthCalendar(currentDate).map((date, index) => {
+              if (!date) {
+                return <div key={`empty-${index}`} className="calendar-day empty"></div>;
+              }
+              
+              const items = getItemsForDate(date);
+              const isToday = date.toDateString() === new Date().toDateString();
+              
+              return (
+                <div key={date.toISOString()} className={`calendar-day ${isToday ? 'today' : ''}`}>
+                  <div className="calendar-date">{date.getDate()}</div>
+                  <div className="calendar-items">
+                    {items.slice(0, 3).map(item => (
+                      <div 
+                        key={`${item.itemType}-${item.id}`}
+                        className="calendar-item"
+                        style={{
+                          backgroundColor: item.itemType === 'project' 
+                            ? getTeamColor(item.team)
+                            : '#6c757d'
+                        }}
+                        onClick={() => {
+                          if (item.itemType === 'project') {
+                            setSelectedProject(item);
+                          }
+                        }}
+                        title={item.title}
+                      >
+                        {item.title}
+                      </div>
+                    ))}
+                    {items.length > 3 && (
+                      <div style={{fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.25rem'}}>
+                        +{items.length - 3} more
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Projects View */}
+      {activeView === 'projects' && (
+        <div>
+          <div className="projects-header">
+            <div className="filters">
+              <label htmlFor="team-filter" style={{fontWeight: 600, color: 'var(--text)'}}>
+                Filter by Team:
+              </label>
+              <select 
+                id="team-filter"
+                className="team-filter"
+                value={selectedTeam}
+                onChange={(e) => setSelectedTeam(e.target.value)}
+              >
+                <option value="all">All Teams</option>
+                {scheduleData.teams.map(team => (
+                  <option key={team.id} value={team.id}>{team.name}</option>
+                ))}
+              </select>
+            </div>
+            {canEdit && (
+              <button className="add-button" onClick={handleAddProject}>
+                ➕ Add Project
+              </button>
+            )}
+          </div>
+
+          <div className="projects-grid">
+            {filterItemsByTeam(scheduleData.projects).map(project => (
+              <div 
+                key={project.id} 
+                className={`project-card ${isOverdue(project.dueDate, project.status) ? 'overdue' : ''}`}
+                style={{'--team-color': getTeamColor(project.team)}}
+                onClick={() => setSelectedProject(project)}
+              >
               <div className="project-header">
                 <div>
                   <h3 className="project-title">{project.title}</h3>
@@ -851,15 +1664,41 @@ const ScheduleManager = () => {
                   </button>
                 </div>
               )}
-            </div>
-          ))}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
+      {/* Events View */}
       {activeView === 'events' && (
-        <div className="events-grid">
-          {filterItemsByTeam(scheduleData.events).map(event => (
-            <div key={event.id} className="event-card">
+        <div>
+          <div className="projects-header">
+            <div className="filters">
+              <label htmlFor="team-filter-events" style={{fontWeight: 600, color: 'var(--text)'}}>
+                Filter by Team:
+              </label>
+              <select 
+                id="team-filter-events"
+                className="team-filter"
+                value={selectedTeam}
+                onChange={(e) => setSelectedTeam(e.target.value)}
+              >
+                <option value="all">All Teams</option>
+                {scheduleData.teams.map(team => (
+                  <option key={team.id} value={team.id}>{team.name}</option>
+                ))}
+              </select>
+            </div>
+            {canEdit && (
+              <button className="add-button" onClick={handleAddEvent}>
+                ➕ Add Event
+              </button>
+            )}
+          </div>
+          <div className="events-grid">
+            {filterItemsByTeam(scheduleData.events).map(event => (
+              <div key={event.id} className="event-card">
               <div className="event-date">
                 {new Date(event.date).toLocaleDateString('en-US', { 
                   weekday: 'long', 
@@ -895,11 +1734,178 @@ const ScheduleManager = () => {
                   </button>
                 </div>
               )}
-            </div>
-          ))}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
+      {/* Project Detail Modal */}
+      {selectedProject && !isEditing && (
+        <div className="modal-overlay" onClick={(e) => {
+          if (e.target === e.currentTarget) setSelectedProject(null);
+        }}>
+          <div className="modal project-detail-modal">
+            <div className="modal-project-header">
+              <div className="modal-project-info">
+                <h2>{selectedProject.title}</h2>
+                <div className="modal-badges">
+                  <div 
+                    className="project-team"
+                    style={{ backgroundColor: getTeamColor(selectedProject.team) }}
+                  >
+                    {getTeamName(selectedProject.team)}
+                  </div>
+                  <div
+                    className="project-status"
+                    style={{ backgroundColor: getStatusColor(selectedProject.status, selectedProject.dueDate) }}
+                  >
+                    {isOverdue(selectedProject.dueDate, selectedProject.status) ? 'OVERDUE' : selectedProject.status.toUpperCase()}
+                  </div>
+                  <div
+                    className="project-status"
+                    style={{ backgroundColor: selectedProject.priority === 'critical' ? '#dc3545' : selectedProject.priority === 'high' ? '#ff6b6b' : selectedProject.priority === 'medium' ? '#ffc107' : '#6c757d' }}
+                  >
+                    {selectedProject.priority.toUpperCase()}
+                  </div>
+                </div>
+              </div>
+              <button className="close-btn" onClick={() => setSelectedProject(null)}>×</button>
+            </div>
+
+            <p style={{color: 'var(--text-secondary)', marginBottom: '1.5rem'}}>{selectedProject.description}</p>
+
+            <div className="modal-project-meta">
+              <div className="meta-item">
+                <div className="meta-label">Assigned To</div>
+                <div className="meta-value">{selectedProject.assignedTo}</div>
+              </div>
+              <div className="meta-item">
+                <div className="meta-label">Start Date</div>
+                <div className="meta-value">{new Date(selectedProject.startDate).toLocaleDateString()}</div>
+              </div>
+              <div className="meta-item">
+                <div className="meta-label">Due Date</div>
+                <div className="meta-value">{new Date(selectedProject.dueDate).toLocaleDateString()}</div>
+              </div>
+              <div className="meta-item">
+                <div className="meta-label">Progress</div>
+                <div className="meta-value">{selectedProject.progress}%</div>
+              </div>
+              <div className="meta-item">
+                <div className="meta-label">Hours</div>
+                <div className="meta-value">{selectedProject.actualHours} / {selectedProject.estimatedHours}</div>
+              </div>
+            </div>
+
+            <div className="project-progress">
+              <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem'}}>
+                <span style={{fontWeight: 600, color: 'var(--text)'}}>Overall Progress</span>
+                <span style={{fontWeight: 700, color: 'var(--primary)'}}>{selectedProject.progress}%</span>
+              </div>
+              <div className="progress-bar" style={{height: '12px'}}>
+                <div 
+                  className="progress-fill"
+                  style={{ 
+                    width: `${selectedProject.progress}%`,
+                    backgroundColor: getTeamColor(selectedProject.team)
+                  }}
+                />
+              </div>
+            </div>
+
+            {selectedProject.tasks && selectedProject.tasks.length > 0 && (
+              <div className="modal-tasks-section">
+                <div className="modal-tasks-header">
+                  <h3 className="section-title">✓ Tasks ({selectedProject.tasks.length})</h3>
+                </div>
+                <div className="task-list">
+                  {selectedProject.tasks.map(task => (
+                    <div key={task.id} className="task-card">
+                      <div className="task-header">
+                        <div className="task-title-group">
+                          <h4>{task.title}</h4>
+                          <div className="task-description">{task.description}</div>
+                        </div>
+                        <div
+                          className="project-status"
+                          style={{ 
+                            backgroundColor: getStatusColor(task.status, task.dueDate),
+                            fontSize: '0.75rem',
+                            padding: '0.4rem 0.75rem',
+                            marginLeft: '1rem'
+                          }}
+                        >
+                          {isOverdue(task.dueDate, task.status) ? 'OVERDUE' : task.status.toUpperCase()}
+                        </div>
+                      </div>
+                      
+                      <div style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.75rem'}}>
+                        <div><strong>Assigned:</strong> {task.assignedTo}</div>
+                        <div><strong>Due:</strong> {new Date(task.dueDate).toLocaleDateString()}</div>
+                        <div><strong>Priority:</strong> {task.priority}</div>
+                        <div><strong>Hours:</strong> {task.actualHours}/{task.estimatedHours}</div>
+                      </div>
+
+                      <div className="task-progress-section">
+                        <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.9rem'}}>
+                          <span>Progress</span>
+                          <span style={{fontWeight: 'bold'}}>{task.progress}%</span>
+                        </div>
+                        <div className="progress-bar">
+                          <div 
+                            className="progress-fill"
+                            style={{ 
+                              width: `${task.progress}%`,
+                              backgroundColor: getTeamColor(selectedProject.team)
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="modal-actions">
+              {canEdit && (
+                <>
+                  <button 
+                    className="edit-btn" 
+                    style={{padding: '0.75rem 1.5rem'}}
+                    onClick={() => {
+                      handleEditProject(selectedProject);
+                      setSelectedProject(null);
+                    }}
+                  >
+                    Edit Project
+                  </button>
+                  <button 
+                    className="delete-btn" 
+                    style={{padding: '0.75rem 1.5rem'}}
+                    onClick={() => {
+                      handleDeleteItem('project', selectedProject.id);
+                      setSelectedProject(null);
+                    }}
+                  >
+                    Delete Project
+                  </button>
+                </>
+              )}
+              <button 
+                className="cancel-btn" 
+                style={{padding: '0.75rem 1.5rem'}}
+                onClick={() => setSelectedProject(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
       {isEditing && editingItem && (
         <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setIsEditing(false)}>
           <div className="modal">

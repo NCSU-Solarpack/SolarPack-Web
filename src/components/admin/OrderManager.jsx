@@ -11,11 +11,17 @@ const OrderManager = () => {
   const formScrollRef = useRef(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterTeam, setFilterTeam] = useState('all');
+  const [filterTimeline, setFilterTimeline] = useState('6months');
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [isEditingOrderDetails, setIsEditingOrderDetails] = useState(false);
+  const [editedOrderData, setEditedOrderData] = useState(null);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [purchasingOrder, setPurchasingOrder] = useState(null);
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [approvingOrder, setApprovingOrder] = useState(null);
+  const [approvalComments, setApprovalComments] = useState('');
   const [purchaseFormData, setPurchaseFormData] = useState({
     expectedDeliveryDate: '',
     deliveryNotes: '',
@@ -93,6 +99,12 @@ const OrderManager = () => {
 
   // Migrate old order structure to new single-director-approval structure
   const migrateOrderStructure = (order) => {
+    // Safety check: ensure order has required structure
+    if (!order || !order.approvalWorkflow) {
+      console.warn('Order missing approvalWorkflow, skipping:', order);
+      return null;
+    }
+
     // Check if order needs migration (has old structure)
     if (!order.approvalWorkflow.directorApproval && 
         (order.approvalWorkflow.technicalDirectorApproval || order.approvalWorkflow.projectDirectorPurchaseApproval)) {
@@ -175,8 +187,8 @@ const OrderManager = () => {
         throw new Error('Invalid orders data structure');
       }
       
-      // Migrate old order structures to new format
-      const migratedOrders = data.orders.map(migrateOrderStructure);
+      // Migrate old order structures to new format, filter out any null results
+      const migratedOrders = data.orders.map(migrateOrderStructure).filter(order => order !== null);
       
       console.log(`✓ Successfully loaded ${migratedOrders.length} orders from Supabase`);
       setOrders(migratedOrders);
@@ -294,6 +306,44 @@ const OrderManager = () => {
     }
   };
 
+  const saveOrderEdits = async () => {
+    if (!editedOrderData) return;
+    
+    startSaving();
+    
+    try {
+      const now = new Date().toISOString();
+      const updatedOrder = {
+        ...editedOrderData,
+        lastUpdated: now
+      };
+
+      // Save to Supabase
+      await supabaseService.updateOrder(editedOrderData.id, updatedOrder);
+      
+      // Update local state
+      const updatedOrders = orders.map(o => o.id === editedOrderData.id ? updatedOrder : o);
+      setOrders(updatedOrders);
+      
+      // Update selected order to show new data
+      setSelectedOrder(updatedOrder);
+      
+      // Update the displayed data hash to match the new state
+      setDisplayedData({ orders: updatedOrders });
+      
+      // Exit edit mode
+      setIsEditingOrderDetails(false);
+      setEditedOrderData(null);
+      
+      finishSaving();
+      await showSuccess('Order details saved successfully');
+    } catch (error) {
+      console.error('Error saving order edits:', error);
+      finishSaving();
+      await showError(`Failed to save changes: ${error.message}`, 'Save Error');
+    }
+  };
+
   const submitNewOrder = async () => {
     const now = new Date().toISOString();
     const newOrder = {
@@ -304,7 +354,6 @@ const OrderManager = () => {
         unitPrice: parseFloat(orderFormData.costBreakdown.unitPrice),
         quantity: parseInt(orderFormData.costBreakdown.quantity),
         shippingCost: parseFloat(orderFormData.costBreakdown.shippingCost),
-        subtotal: parseFloat(orderFormData.costBreakdown.unitPrice) * parseInt(orderFormData.costBreakdown.quantity),
         totalCost: parseFloat(orderFormData.costBreakdown.totalCost),
         taxes: 0,
         fees: 0
@@ -487,6 +536,32 @@ const OrderManager = () => {
   const filteredOrders = orders.filter(order => {
     if (filterStatus !== 'all' && order.status !== filterStatus) return false;
     if (filterTeam !== 'all' && order.submissionDetails.subteam !== filterTeam) return false;
+    
+    // Timeline filter
+    if (filterTimeline !== 'all') {
+      const orderDate = new Date(order.submissionTimestamp);
+      const now = new Date();
+      const monthsAgo = new Date();
+      
+      switch (filterTimeline) {
+        case '1month':
+          monthsAgo.setMonth(now.getMonth() - 1);
+          if (orderDate < monthsAgo) return false;
+          break;
+        case '6months':
+          monthsAgo.setMonth(now.getMonth() - 6);
+          if (orderDate < monthsAgo) return false;
+          break;
+        case '1year':
+          monthsAgo.setFullYear(now.getFullYear() - 1);
+          if (orderDate < monthsAgo) return false;
+          break;
+        case 'all':
+          // Show all orders
+          break;
+      }
+    }
+    
     return true;
   });
 
@@ -532,16 +607,92 @@ const OrderManager = () => {
         <div className="modal-content" onClick={e => e.stopPropagation()}>
           <div className="modal-header">
             <h3>{order.materialDetails.materialName}</h3>
-            <button className="modal-close" onClick={onClose}>×</button>
+            <div className="modal-header-actions">
+              {isDirector && !isEditingOrderDetails && (
+                <button 
+                  className="btn-edit-order" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsEditingOrderDetails(true);
+                    setEditedOrderData(JSON.parse(JSON.stringify(order))); // Deep copy
+                  }}
+                  title="Edit Order Details"
+                >
+                  ✎
+                </button>
+              )}
+              <button className="modal-close" onClick={onClose}>×</button>
+            </div>
           </div>
           
           <div className="modal-body">
             <div className="detail-section">
               <h4>Submission Details</h4>
               <div className="detail-grid">
-                <div><strong>Subteam:</strong> {order.submissionDetails.subteam}</div>
-                <div><strong>Submitted by:</strong> {order.submissionDetails.submitterName}</div>
-                <div><strong>Email:</strong> {order.submissionDetails.submitterEmail}</div>
+                <div>
+                  <strong>Subteam:</strong> 
+                  {isEditingOrderDetails ? (
+                    <select 
+                      value={editedOrderData.submissionDetails.subteam}
+                      onChange={(e) => setEditedOrderData({
+                        ...editedOrderData,
+                        submissionDetails: {
+                          ...editedOrderData.submissionDetails,
+                          subteam: e.target.value
+                        }
+                      })}
+                      className="inline-edit-input"
+                    >
+                      <option value="Business">Business</option>
+                      <option value="Aerodynamics">Aerodynamics</option>
+                      <option value="Low Voltage">Low Voltage</option>
+                      <option value="Systems Architecture">Systems Architecture</option>
+                      <option value="High Voltage">High Voltage</option>
+                      <option value="Structures">Structures</option>
+                      <option value="Vehicle Dynamics">Vehicle Dynamics</option>
+                    </select>
+                  ) : (
+                    ` ${order.submissionDetails.subteam}`
+                  )}
+                </div>
+                <div>
+                  <strong>Submitted by:</strong>
+                  {isEditingOrderDetails ? (
+                    <input 
+                      type="text"
+                      value={editedOrderData.submissionDetails.submitterName}
+                      onChange={(e) => setEditedOrderData({
+                        ...editedOrderData,
+                        submissionDetails: {
+                          ...editedOrderData.submissionDetails,
+                          submitterName: e.target.value
+                        }
+                      })}
+                      className="inline-edit-input"
+                    />
+                  ) : (
+                    ` ${order.submissionDetails.submitterName}`
+                  )}
+                </div>
+                <div>
+                  <strong>Email:</strong>
+                  {isEditingOrderDetails ? (
+                    <input 
+                      type="email"
+                      value={editedOrderData.submissionDetails.submitterEmail}
+                      onChange={(e) => setEditedOrderData({
+                        ...editedOrderData,
+                        submissionDetails: {
+                          ...editedOrderData.submissionDetails,
+                          submitterEmail: e.target.value
+                        }
+                      })}
+                      className="inline-edit-input"
+                    />
+                  ) : (
+                    ` ${order.submissionDetails.submitterEmail}`
+                  )}
+                </div>
                 <div><strong>Submitted:</strong> {new Date(order.submissionTimestamp).toLocaleString()}</div>
               </div>
             </div>
@@ -549,20 +700,106 @@ const OrderManager = () => {
             <div className="detail-section">
               <h4>Material Specifications</h4>
               <div className="detail-grid">
-                <div><strong>Material:</strong> {order.materialDetails.materialName}</div>
-                <div><strong>Supplier:</strong> {order.materialDetails.supplier}</div>
-                <div><strong>Supplier Contact:</strong> {order.materialDetails.supplierContact}</div>
-                {order.materialDetails.materialLink && (
-                  <div><strong>Link: </strong> 
+                <div>
+                  <strong>Material:</strong>
+                  {isEditingOrderDetails ? (
+                    <input 
+                      type="text"
+                      value={editedOrderData.materialDetails.materialName}
+                      onChange={(e) => setEditedOrderData({
+                        ...editedOrderData,
+                        materialDetails: {
+                          ...editedOrderData.materialDetails,
+                          materialName: e.target.value
+                        }
+                      })}
+                      className="inline-edit-input"
+                    />
+                  ) : (
+                    ` ${order.materialDetails.materialName}`
+                  )}
+                </div>
+                <div>
+                  <strong>Supplier:</strong>
+                  {isEditingOrderDetails ? (
+                    <input 
+                      type="text"
+                      value={editedOrderData.materialDetails?.supplier || ''}
+                      onChange={(e) => setEditedOrderData({
+                        ...editedOrderData,
+                        materialDetails: {
+                          ...editedOrderData.materialDetails,
+                          supplier: e.target.value
+                        }
+                      })}
+                      className="inline-edit-input"
+                    />
+                  ) : (
+                    ` ${order.materialDetails?.supplier || 'N/A'}`
+                  )}
+                </div>
+                <div>
+                  <strong>Supplier Contact:</strong>
+                  {isEditingOrderDetails ? (
+                    <input 
+                      type="text"
+                      value={editedOrderData.materialDetails?.supplierContact || ''}
+                      onChange={(e) => setEditedOrderData({
+                        ...editedOrderData,
+                        materialDetails: {
+                          ...editedOrderData.materialDetails,
+                          supplierContact: e.target.value
+                        }
+                      })}
+                      className="inline-edit-input"
+                    />
+                  ) : (
+                    ` ${order.materialDetails?.supplierContact || 'N/A'}`
+                  )}
+                </div>
+                <div>
+                  <strong>Link:</strong>
+                  {isEditingOrderDetails ? (
+                    <input 
+                      type="url"
+                      value={editedOrderData.materialDetails.materialLink || ''}
+                      onChange={(e) => setEditedOrderData({
+                        ...editedOrderData,
+                        materialDetails: {
+                          ...editedOrderData.materialDetails,
+                          materialLink: e.target.value
+                        }
+                      })}
+                      className="inline-edit-input"
+                      placeholder="https://..."
+                    />
+                  ) : order.materialDetails.materialLink ? (
                     <a href={order.materialDetails.materialLink} target="_blank" rel="noopener noreferrer">
                       View Material
                     </a>
-                  </div>
-                )}
+                  ) : (
+                    ' N/A'
+                  )}
+                </div>
               </div>
               <div className="specifications">
                 <strong>Specifications:</strong>
-                <p>{order.materialDetails.specifications}</p>
+                {isEditingOrderDetails ? (
+                  <textarea 
+                    value={editedOrderData.materialDetails?.specifications || ''}
+                    onChange={(e) => setEditedOrderData({
+                      ...editedOrderData,
+                      materialDetails: {
+                        ...editedOrderData.materialDetails,
+                        specifications: e.target.value
+                      }
+                    })}
+                    className="inline-edit-textarea"
+                    rows="4"
+                  />
+                ) : (
+                  <p>{order.materialDetails?.specifications || 'N/A'}</p>
+                )}
               </div>
             </div>
 
@@ -571,31 +808,151 @@ const OrderManager = () => {
               <div className="cost-table">
                 <div className="cost-row">
                   <span>Unit Price:</span>
-                  <span>${order.costBreakdown.unitPrice.toFixed(2)}</span>
+                  {isEditingOrderDetails ? (
+                    <input 
+                      type="number"
+                      step="0.01"
+                      value={editedOrderData.costBreakdown.unitPrice}
+                      onChange={(e) => {
+                        const unitPrice = parseFloat(e.target.value) || 0;
+                        const quantity = editedOrderData.costBreakdown.quantity;
+                        const shipping = editedOrderData.costBreakdown.shippingCost;
+                        const taxes = editedOrderData.costBreakdown.taxes;
+                        const fees = editedOrderData.costBreakdown.fees;
+                        const totalCost = (unitPrice * quantity) + shipping + taxes + fees;
+                        setEditedOrderData({
+                          ...editedOrderData,
+                          costBreakdown: {
+                            ...editedOrderData.costBreakdown,
+                            unitPrice,
+                            totalCost
+                          }
+                        });
+                      }}
+                      className="inline-edit-input-small"
+                    />
+                  ) : (
+                    <span>${order.costBreakdown.unitPrice.toFixed(2)}</span>
+                  )}
                 </div>
                 <div className="cost-row">
                   <span>Quantity:</span>
-                  <span>{order.costBreakdown.quantity}</span>
-                </div>
-                <div className="cost-row">
-                  <span>Subtotal:</span>
-                  <span>${order.costBreakdown.subtotal.toFixed(2)}</span>
+                  {isEditingOrderDetails ? (
+                    <input 
+                      type="number"
+                      value={editedOrderData.costBreakdown.quantity}
+                      onChange={(e) => {
+                        const quantity = parseInt(e.target.value) || 0;
+                        const unitPrice = editedOrderData.costBreakdown.unitPrice;
+                        const shipping = editedOrderData.costBreakdown.shippingCost;
+                        const taxes = editedOrderData.costBreakdown.taxes;
+                        const fees = editedOrderData.costBreakdown.fees;
+                        const totalCost = (unitPrice * quantity) + shipping + taxes + fees;
+                        setEditedOrderData({
+                          ...editedOrderData,
+                          costBreakdown: {
+                            ...editedOrderData.costBreakdown,
+                            quantity,
+                            totalCost
+                          }
+                        });
+                      }}
+                      className="inline-edit-input-small"
+                    />
+                  ) : (
+                    <span>{order.costBreakdown.quantity}</span>
+                  )}
                 </div>
                 <div className="cost-row">
                   <span>Shipping:</span>
-                  <span>${order.costBreakdown.shippingCost.toFixed(2)}</span>
+                  {isEditingOrderDetails ? (
+                    <input 
+                      type="number"
+                      step="0.01"
+                      value={editedOrderData.costBreakdown.shippingCost}
+                      onChange={(e) => {
+                        const shipping = parseFloat(e.target.value) || 0;
+                        const unitPrice = editedOrderData.costBreakdown.unitPrice;
+                        const quantity = editedOrderData.costBreakdown.quantity;
+                        const taxes = editedOrderData.costBreakdown.taxes;
+                        const fees = editedOrderData.costBreakdown.fees;
+                        const totalCost = (unitPrice * quantity) + shipping + taxes + fees;
+                        setEditedOrderData({
+                          ...editedOrderData,
+                          costBreakdown: {
+                            ...editedOrderData.costBreakdown,
+                            shippingCost: shipping,
+                            totalCost
+                          }
+                        });
+                      }}
+                      className="inline-edit-input-small"
+                    />
+                  ) : (
+                    <span>${order.costBreakdown.shippingCost.toFixed(2)}</span>
+                  )}
                 </div>
                 <div className="cost-row">
                   <span>Taxes:</span>
-                  <span>${order.costBreakdown.taxes.toFixed(2)}</span>
+                  {isEditingOrderDetails ? (
+                    <input 
+                      type="number"
+                      step="0.01"
+                      value={editedOrderData.costBreakdown.taxes}
+                      onChange={(e) => {
+                        const taxes = parseFloat(e.target.value) || 0;
+                        const unitPrice = editedOrderData.costBreakdown.unitPrice;
+                        const quantity = editedOrderData.costBreakdown.quantity;
+                        const shipping = editedOrderData.costBreakdown.shippingCost;
+                        const fees = editedOrderData.costBreakdown.fees;
+                        const totalCost = (unitPrice * quantity) + shipping + taxes + fees;
+                        setEditedOrderData({
+                          ...editedOrderData,
+                          costBreakdown: {
+                            ...editedOrderData.costBreakdown,
+                            taxes,
+                            totalCost
+                          }
+                        });
+                      }}
+                      className="inline-edit-input-small"
+                    />
+                  ) : (
+                    <span>${order.costBreakdown.taxes.toFixed(2)}</span>
+                  )}
                 </div>
                 <div className="cost-row">
                   <span>Fees:</span>
-                  <span>${order.costBreakdown.fees.toFixed(2)}</span>
+                  {isEditingOrderDetails ? (
+                    <input 
+                      type="number"
+                      step="0.01"
+                      value={editedOrderData.costBreakdown.fees}
+                      onChange={(e) => {
+                        const fees = parseFloat(e.target.value) || 0;
+                        const unitPrice = editedOrderData.costBreakdown.unitPrice;
+                        const quantity = editedOrderData.costBreakdown.quantity;
+                        const shipping = editedOrderData.costBreakdown.shippingCost;
+                        const taxes = editedOrderData.costBreakdown.taxes;
+                        const totalCost = (unitPrice * quantity) + shipping + taxes + fees;
+                        setEditedOrderData({
+                          ...editedOrderData,
+                          costBreakdown: {
+                            ...editedOrderData.costBreakdown,
+                            fees,
+                            totalCost
+                          }
+                        });
+                      }}
+                      className="inline-edit-input-small"
+                    />
+                  ) : (
+                    <span>${order.costBreakdown.fees.toFixed(2)}</span>
+                  )}
                 </div>
                 <div className="cost-row total">
                   <span><strong>Total:</strong></span>
-                  <span><strong>${order.costBreakdown.totalCost.toFixed(2)}</strong></span>
+                  <span><strong>${isEditingOrderDetails ? editedOrderData.costBreakdown.totalCost.toFixed(2) : order.costBreakdown.totalCost.toFixed(2)}</strong></span>
                 </div>
               </div>
             </div>
@@ -603,12 +960,66 @@ const OrderManager = () => {
             <div className="detail-section">
               <h4>Project Details</h4>
               <div className="detail-grid">
-                <div><strong>Urgency:</strong> {order.projectDetails.urgency}</div>
-                <div><strong>Needed by:</strong> {new Date(order.projectDetails.neededByDate).toLocaleDateString()}</div>
+                <div>
+                  <strong>Urgency:</strong>
+                  {isEditingOrderDetails ? (
+                    <select 
+                      value={editedOrderData.projectDetails.urgency}
+                      onChange={(e) => setEditedOrderData({
+                        ...editedOrderData,
+                        projectDetails: {
+                          ...editedOrderData.projectDetails,
+                          urgency: e.target.value
+                        }
+                      })}
+                      className="inline-edit-input"
+                    >
+                      <option value="flexible">Flexible</option>
+                      <option value="urgent">Urgent</option>
+                      <option value="critical">Critical</option>
+                    </select>
+                  ) : (
+                    ` ${order.projectDetails.urgency}`
+                  )}
+                </div>
+                <div>
+                  <strong>Needed by:</strong>
+                  {isEditingOrderDetails ? (
+                    <input 
+                      type="date"
+                      value={editedOrderData.projectDetails.neededByDate?.split('T')[0] || ''}
+                      onChange={(e) => setEditedOrderData({
+                        ...editedOrderData,
+                        projectDetails: {
+                          ...editedOrderData.projectDetails,
+                          neededByDate: e.target.value
+                        }
+                      })}
+                      className="inline-edit-input"
+                    />
+                  ) : (
+                    ` ${new Date(order.projectDetails.neededByDate).toLocaleDateString()}`
+                  )}
+                </div>
               </div>
               <div className="purpose">
                 <strong>Purpose:</strong>
-                <p>{order.projectDetails.purpose}</p>
+                {isEditingOrderDetails ? (
+                  <textarea 
+                    value={editedOrderData.projectDetails?.purpose || ''}
+                    onChange={(e) => setEditedOrderData({
+                      ...editedOrderData,
+                      projectDetails: {
+                        ...editedOrderData.projectDetails,
+                        purpose: e.target.value
+                      }
+                    })}
+                    className="inline-edit-textarea"
+                    rows="4"
+                  />
+                ) : (
+                  <p>{order.projectDetails?.purpose || 'N/A'}</p>
+                )}
               </div>
             </div>
 
@@ -641,8 +1052,14 @@ const OrderManager = () => {
               <div className="approval-grid">
                 <div className="approval-item">
                   <strong>Director Approval:</strong>
-                  <span className={`approval-status ${order.approvalWorkflow?.directorApproval?.status || 'pending'}`}>
-                    {order.approvalWorkflow?.directorApproval?.status || 'pending'}
+                  <span className={`approval-status ${
+                    order.status === 'approved_for_purchase' || order.status === 'purchased' || order.status === 'delivered' 
+                      ? 'approved' 
+                      : order.approvalWorkflow?.directorApproval?.status || 'pending'
+                  }`}>
+                    {order.status === 'approved_for_purchase' || order.status === 'purchased' || order.status === 'delivered'
+                      ? 'approved'
+                      : order.approvalWorkflow?.directorApproval?.status || 'pending'}
                   </span>
                   {order.approvalWorkflow?.directorApproval?.approvedBy && (
                     <p className="approval-meta">By: {order.approvalWorkflow.directorApproval.approvedBy}</p>
@@ -784,12 +1201,39 @@ const OrderManager = () => {
                 </div>
               </div>
             )}
+
+            {/* Edit Mode Action Buttons */}
+            {isEditingOrderDetails && (
+              <div className="detail-section edit-actions">
+                <div className="edit-buttons">
+                  <button 
+                    className="btn-save-edit"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      await saveOrderEdits();
+                    }}
+                  >
+                    ✓ Save Changes
+                  </button>
+                  <button 
+                    className="btn-cancel-edit"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsEditingOrderDetails(false);
+                      setEditedOrderData(null);
+                    }}
+                  >
+                    ✗ Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
       );
     };
-  }, [isDirector, updateOrderStatus, showError, showConfirm]);
+  }, [isDirector, isEditingOrderDetails, editedOrderData, updateOrderStatus, showError, showConfirm, saveOrderEdits]);
 
   const OrderForm = useMemo(() => {
     return () => (
@@ -1002,17 +1446,6 @@ const OrderManager = () => {
                     />
                   </div>
                 </div>
-                {orderFormData.costBreakdown.unitPrice && orderFormData.costBreakdown.quantity && orderFormData.costBreakdown.shippingCost && (
-                  <div className="cost-preview">
-                    <strong>Calculated Subtotal (Price × Quantity + Shipping): $
-                      {(
-                        (parseFloat(orderFormData.costBreakdown.unitPrice) || 0) * 
-                        (parseInt(orderFormData.costBreakdown.quantity) || 0) +
-                        (parseFloat(orderFormData.costBreakdown.shippingCost) || 0)
-                      ).toFixed(2)}
-                    </strong>
-                  </div>
-                )}
               </div>
 
               <div className="form-section">
@@ -1254,6 +1687,7 @@ const OrderManager = () => {
 
         .orders-grid {
           display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
           gap: 1.5rem;
         }
 
@@ -1275,10 +1709,12 @@ const OrderManager = () => {
           justify-content: space-between;
           align-items: flex-start;
           margin-bottom: 1rem;
+          gap: 1rem;
         }
 
         .order-title-section {
           flex: 1;
+          min-width: 0;
         }
 
         .order-part-name {
@@ -1286,6 +1722,9 @@ const OrderManager = () => {
           font-size: 1.2rem;
           font-weight: 600;
           margin: 0 0 0.5rem 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .order-meta {
@@ -1363,13 +1802,40 @@ const OrderManager = () => {
         }
 
         .action-btn {
-          padding: 0.5rem 1rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem 1.25rem;
           border: none;
-          border-radius: 4px;
+          border-radius: 8px;
           cursor: pointer;
-          font-size: 0.8rem;
-          font-weight: 500;
-          transition: all 0.3s ease;
+          font-size: 0.9rem;
+          font-weight: 600;
+          transition: all 0.2s ease;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+          letter-spacing: 0.3px;
+        }
+
+        .action-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .action-btn:active {
+          transform: translateY(0);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-icon {
+          font-size: 1.1rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          line-height: 1;
+        }
+
+        .btn-text {
+          line-height: 1;
         }
 
         .approve-btn {
@@ -1391,22 +1857,30 @@ const OrderManager = () => {
         }
 
         .mark-ordered-btn {
-          background: #17a2b8;
+          background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
           color: white;
         }
 
         .mark-ordered-btn:hover {
-          background: #138496;
+          background: linear-gradient(135deg, #138496 0%, #117a8b 100%);
         }
 
         .mark-delivered-btn {
-          background: var(--accent);
+          background: linear-gradient(135deg, #28a745 0%, #218838 100%);
           color: white;
         }
 
         .mark-delivered-btn:hover {
-          background: #c71821;
-          transform: translateY(-1px);
+          background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+        }
+
+        .approve-deny-btn {
+          background: linear-gradient(135deg, var(--accent) 0%, #c71821 100%);
+          color: white;
+        }
+
+        .approve-deny-btn:hover {
+          background: linear-gradient(135deg, #c71821 0%, #a01419 100%);
         }
 
         .stats-summary {
@@ -1494,6 +1968,28 @@ const OrderManager = () => {
           margin: 0;
         }
 
+        .modal-header-actions {
+          display: flex;
+          gap: 0.75rem;
+          align-items: center;
+        }
+
+        .btn-edit-order {
+          background: #007bff;
+          border: none;
+          color: white;
+          font-size: 1.2rem;
+          cursor: pointer;
+          padding: 0.5rem 0.75rem;
+          border-radius: 6px;
+          transition: all 0.2s ease;
+        }
+
+        .btn-edit-order:hover {
+          background: #0056b3;
+          transform: scale(1.05);
+        }
+
         .modal-close {
           background: none;
           border: none;
@@ -1505,6 +2001,94 @@ const OrderManager = () => {
 
         .modal-close:hover {
           color: var(--text);
+        }
+
+        /* Edit mode styles */
+        .inline-edit-input, .inline-edit-textarea {
+          background: rgba(255, 255, 255, 0.1);
+          border: 1px solid #555;
+          border-radius: 4px;
+          color: var(--text);
+          padding: 0.4rem 0.6rem;
+          font-size: 0.9rem;
+          width: 100%;
+          margin-top: 0.25rem;
+        }
+
+        .inline-edit-input:focus, .inline-edit-textarea:focus {
+          outline: none;
+          border-color: var(--accent);
+          background: rgba(255, 255, 255, 0.15);
+        }
+
+        .inline-edit-input-small {
+          background: rgba(255, 255, 255, 0.1);
+          border: 1px solid #555;
+          border-radius: 4px;
+          color: var(--text);
+          padding: 0.3rem 0.5rem;
+          font-size: 0.9rem;
+          width: 120px;
+        }
+
+        .inline-edit-input-small:focus {
+          outline: none;
+          border-color: var(--accent);
+          background: rgba(255, 255, 255, 0.15);
+        }
+
+        .inline-edit-textarea {
+          min-height: 80px;
+          resize: vertical;
+          font-family: inherit;
+        }
+
+        .edit-actions {
+          background: rgba(0, 123, 255, 0.1);
+          border: 2px solid #007bff;
+          padding: 1.5rem;
+          border-radius: 8px;
+        }
+
+        .edit-buttons {
+          display: flex;
+          gap: 1rem;
+          justify-content: center;
+        }
+
+        .btn-save-edit {
+          background: #28a745;
+          color: white;
+          border: none;
+          padding: 0.75rem 2rem;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 600;
+          font-size: 1rem;
+          transition: all 0.3s ease;
+        }
+
+        .btn-save-edit:hover {
+          background: #218838;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-cancel-edit {
+          background: #6c757d;
+          color: white;
+          border: none;
+          padding: 0.75rem 2rem;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 600;
+          font-size: 1rem;
+          transition: all 0.3s ease;
+        }
+
+        .btn-cancel-edit:hover {
+          background: #5a6268;
+          transform: translateY(-2px);
         }
 
         .modal-body {
@@ -1690,6 +2274,25 @@ const OrderManager = () => {
           color: var(--text);
         }
 
+        /* Approval Modal Styles */
+        .approval-order-summary {
+          background: rgba(220, 53, 69, 0.1);
+          padding: 1rem;
+          border-radius: 6px;
+          margin-bottom: 1.5rem;
+          border: 1px solid rgba(220, 53, 69, 0.3);
+        }
+
+        .approval-order-summary h4 {
+          color: var(--accent);
+          margin: 0 0 0.5rem 0;
+        }
+
+        .approval-order-summary p {
+          margin: 0.25rem 0;
+          color: var(--text);
+        }
+
         .modal-actions {
           display: flex;
           gap: 1rem;
@@ -1754,15 +2357,6 @@ const OrderManager = () => {
           margin: 0.5rem 0;
           color: var(--text);
           line-height: 1.6;
-        }
-
-        .action-message {
-          background: rgba(253, 126, 20, 0.2);
-          padding: 0.75rem;
-          border-radius: 6px;
-          text-align: center;
-          color: var(--text);
-          font-weight: 500;
         }
 
         /* Form Styles */
@@ -1899,25 +2493,25 @@ const OrderManager = () => {
       {/* Summary Statistics */}
       <div className="stats-summary">
         <div className="stat-card">
-          <div className="stat-number">{orders.filter(o => o.status === 'pending_approval').length}</div>
+          <div className="stat-number">{filteredOrders.filter(o => o.status === 'pending_approval').length}</div>
           <div className="stat-label">Pending Approval</div>
         </div>
         <div className="stat-card">
-          <div className="stat-number">{orders.filter(o => o.status === 'approved_for_purchase').length}</div>
+          <div className="stat-number">{filteredOrders.filter(o => o.status === 'approved_for_purchase').length}</div>
           <div className="stat-label">Ready to Purchase</div>
         </div>
         <div className="stat-card">
-          <div className="stat-number">{orders.filter(o => o.status === 'purchased').length}</div>
+          <div className="stat-number">{filteredOrders.filter(o => o.status === 'purchased').length}</div>
           <div className="stat-label">In Transit</div>
         </div>
         <div className="stat-card">
           <div className="stat-number">
-            ${orders.reduce((total, order) => total + (order.costBreakdown?.totalCost || 0), 0).toFixed(2)}
+            ${filteredOrders.reduce((total, order) => total + (order.costBreakdown?.totalCost || 0), 0).toFixed(2)}
           </div>
           <div className="stat-label">Total Value</div>
         </div>
         <div className="stat-card">
-          <div className="stat-number">{orders.filter(o => o.status === 'delivered').length}</div>
+          <div className="stat-number">{filteredOrders.filter(o => o.status === 'delivered').length}</div>
           <div className="stat-label">Delivered</div>
         </div>
       </div>
@@ -1951,6 +2545,20 @@ const OrderManager = () => {
             {teams.map(team => (
               <option key={team} value={team}>{team}</option>
             ))}
+          </select>
+        </div>
+        
+        <div className="filter-group">
+          <label className="filter-label">Orders Placed</label>
+          <select 
+            className="filter-select"
+            value={filterTimeline}
+            onChange={(e) => setFilterTimeline(e.target.value)}
+          >
+            <option value="1month">Past Month</option>
+            <option value="6months">Past 6 Months</option>
+            <option value="1year">Past Year</option>
+            <option value="all">All Time</option>
           </select>
         </div>
       </div>
@@ -1989,7 +2597,7 @@ const OrderManager = () => {
               <div className="order-details">
                 <div className="detail-row">
                   <span className="detail-label">Supplier:</span>
-                  <span className="detail-value">{order.materialDetails.supplier}</span>
+                  <span className="detail-value">{order.materialDetails?.supplier || 'N/A'}</span>
                 </div>
                 <div className="detail-row">
                   <span className="detail-label">Quantity:</span>
@@ -2012,16 +2620,23 @@ const OrderManager = () => {
               </div>
 
               <div className="order-notes">
-                <strong>Purpose:</strong> {order.projectDetails.purpose.substring(0, 150)}
-                {order.projectDetails.purpose.length > 150 && '...'}
+                <strong>Purpose:</strong> {order.projectDetails?.purpose ? order.projectDetails.purpose.substring(0, 150) : 'N/A'}
+                {order.projectDetails?.purpose && order.projectDetails.purpose.length > 150 && '...'}
               </div>
 
               {isDirector && (
                 <div className="order-actions" onClick={(e) => e.stopPropagation()}>
                   {order.status === 'pending_approval' && (
-                    <div className="action-message">
-                      Click to view and approve/deny this order
-                    </div>
+                    <button 
+                      className="action-btn approve-deny-btn"
+                      onClick={() => {
+                        setApprovingOrder(order);
+                        setApprovalComments('');
+                        setShowApprovalModal(true);
+                      }}
+                    >
+                      <span className="btn-text">Approve/Deny Order</span>
+                    </button>
                   )}
 
                   {order.status === 'approved_for_purchase' && (
@@ -2032,7 +2647,7 @@ const OrderManager = () => {
                         setShowPurchaseModal(true);
                       }}
                     >
-                      📦 Mark as Purchased
+                      <span className="btn-text">Mark as Purchased</span>
                     </button>
                   )}
                   
@@ -2045,7 +2660,8 @@ const OrderManager = () => {
                         notes: 'Delivered to subteam'
                       })}
                     >
-                      ✅ Mark as Delivered
+                      <span className="btn-icon">✓</span>
+                      <span className="btn-text">Mark as Delivered</span>
                     </button>
                   )}
                 </div>
@@ -2143,10 +2759,98 @@ const OrderManager = () => {
                     Cancel
                   </button>
                   <button type="submit" className="btn-submit">
-                    📦 Confirm Purchase
+                    Confirm Purchase
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approval Modal */}
+      {showApprovalModal && approvingOrder && (
+        <div className="modal-overlay" onClick={() => setShowApprovalModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Approve or Deny Order</h3>
+              <button className="modal-close" onClick={() => setShowApprovalModal(false)}>×</button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="approval-order-summary">
+                <h4>{approvingOrder.materialDetails.materialName}</h4>
+                <p><strong>Subteam:</strong> {approvingOrder.submissionDetails.subteam}</p>
+                <p><strong>Submitter:</strong> {approvingOrder.submissionDetails.submitterName}</p>
+                <p><strong>Total Cost:</strong> ${approvingOrder.costBreakdown.totalCost.toFixed(2)}</p>
+                <p><strong>Purpose:</strong> {approvingOrder.projectDetails?.purpose || 'N/A'}</p>
+              </div>
+
+              <div className="form-section">
+                <div className="form-group">
+                  <label>Comments / Reason</label>
+                  <textarea 
+                    value={approvalComments}
+                    onChange={(e) => setApprovalComments(e.target.value)}
+                    placeholder="Add comments for approval or reason for denial..."
+                    rows="4"
+                  />
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button 
+                  type="button" 
+                  className="btn-cancel" 
+                  onClick={() => setShowApprovalModal(false)}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="button"
+                  className="btn-deny"
+                  onClick={async () => {
+                    if (!approvalComments.trim()) {
+                      await showError('Please provide a reason for denial', 'Denial Reason Required');
+                      return;
+                    }
+                    const confirmed = await showConfirm(
+                      'Are you sure you want to deny this order? This action will notify the submitter.',
+                      'Confirm Denial'
+                    );
+                    if (!confirmed) return;
+                    
+                    await updateOrderStatus(approvingOrder.id, {
+                      type: 'director_approval',
+                      approved: false,
+                      approvedBy: authService.currentUser?.level || 'director',
+                      denialReason: approvalComments
+                    });
+                    setShowApprovalModal(false);
+                    setApprovingOrder(null);
+                    setApprovalComments('');
+                  }}
+                >
+                  ✗ Deny Order
+                </button>
+                <button 
+                  type="button"
+                  className="btn-approve"
+                  onClick={async () => {
+                    await updateOrderStatus(approvingOrder.id, {
+                      type: 'director_approval',
+                      approved: true,
+                      approvedBy: authService.currentUser?.level || 'director',
+                      comments: approvalComments || 'Approved by director'
+                    });
+                    setShowApprovalModal(false);
+                    setApprovingOrder(null);
+                    setApprovalComments('');
+                  }}
+                >
+                  ✓ Approve Order
+                </button>
+              </div>
             </div>
           </div>
         </div>

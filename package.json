@@ -8,9 +8,7 @@
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "deploy": "npm run build && gh-pages -d dist",
-    "migrate-images": "node migrate-team-images.js",
-    "migrate-alumni": "node migrate-alumni-to-supabase.js"
+    "deploy": "npm run build && gh-pages -d dist"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.78.0",

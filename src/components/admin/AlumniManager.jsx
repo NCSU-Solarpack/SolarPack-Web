@@ -247,6 +247,8 @@ const AlumniManager = () => {
     setNewSemester({ ...newSemester, leadership: updatedLeadership });
   };
 
+  const canEdit = authService.hasPermission('edit_alumni');
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -518,13 +520,15 @@ const AlumniManager = () => {
             lastSync={lastSync}
             onRefresh={handleRefreshData}
           />
-          <button 
-            className="btn" 
-            onClick={() => setShowAddSemester(!showAddSemester)}
-          >
-            <Plus size={18} />
-            Add Semester
-          </button>
+          {canEdit && (
+            <button 
+              className="btn" 
+              onClick={() => setShowAddSemester(!showAddSemester)}
+            >
+              <Plus size={18} />
+              Add Semester
+            </button>
+          )}
         </div>
       </div>
 
@@ -608,7 +612,7 @@ const AlumniManager = () => {
           <div
             key={semester.id || semesterIndex}
             className={`semester-card${dragOverIndex === semesterIndex ? ' drag-over' : ''}`}
-            draggable={editingIndex === null}
+            draggable={canEdit && editingIndex === null}
             onDragStart={handleDragStart(semesterIndex)}
             onDragEnter={handleDragEnter(semesterIndex)}
           >
@@ -623,9 +627,11 @@ const AlumniManager = () => {
                 />
               ) : (
                 <div className="semester-title-row">
-                  <span title="Drag to reorder" style={{ cursor: 'grab', color: 'var(--subtxt)' }}>
-                    <GripVertical size={18} />
-                  </span>
+                  {canEdit && (
+                    <span title="Drag to reorder" style={{ cursor: 'grab', color: 'var(--subtxt)' }}>
+                      <GripVertical size={18} />
+                    </span>
+                  )}
                   <h3 className="semester-title">{semester.semester}</h3>
                 </div>
               )}
@@ -647,18 +653,22 @@ const AlumniManager = () => {
                   </>
                 ) : (
                   <>
-                    <button 
-                      className="btn btn-small"
-                      onClick={() => handleEditSemester(semester, semesterIndex)}
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button 
-                      className="btn btn-small btn-secondary"
-                      onClick={() => handleDeleteSemester(semester.id, semester.semester)}
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                    {canEdit && (
+                      <>
+                        <button 
+                          className="btn btn-small"
+                          onClick={() => handleEditSemester(semester, semesterIndex)}
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button 
+                          className="btn btn-small btn-secondary"
+                          onClick={() => handleDeleteSemester(semester.id, semester.semester)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </>
+                    )}
                   </>
                 )}
               </div>
