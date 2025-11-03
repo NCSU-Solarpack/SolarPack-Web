@@ -14,6 +14,14 @@ const OrderManager = () => {
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [purchasingOrder, setPurchasingOrder] = useState(null);
+  const [purchaseFormData, setPurchaseFormData] = useState({
+    expectedDeliveryDate: '',
+    deliveryNotes: '',
+    purchaseOrderNumber: '',
+    trackingNumber: ''
+  });
   const [orderFormData, setOrderFormData] = useState({
     submissionDetails: {
       subteam: '',
@@ -220,13 +228,6 @@ const OrderManager = () => {
           denialReason: statusUpdate.denialReason || ''
         };
         updatedOrder.status = statusUpdate.approved ? 'approved_for_purchase' : 'denied';
-        
-        // Set expected delivery date if approved (7 days from now by default)
-        if (statusUpdate.approved && !updatedOrder.deliveryInfo.expectedArrivalDate) {
-          const expectedDate = new Date();
-          expectedDate.setDate(expectedDate.getDate() + 7);
-          updatedOrder.deliveryInfo.expectedArrivalDate = expectedDate.toISOString();
-        }
       } else if (statusUpdate.type === 'purchase') {
         updatedOrder.purchaseStatus = {
           ...updatedOrder.purchaseStatus,
@@ -236,6 +237,16 @@ const OrderManager = () => {
           actualCost: statusUpdate.actualCost || updatedOrder.costBreakdown.totalCost,
           purchasedBy: statusUpdate.purchasedBy || ''
         };
+        // Set delivery information from the purchase form
+        if (statusUpdate.expectedDeliveryDate) {
+          updatedOrder.deliveryInfo.expectedArrivalDate = new Date(statusUpdate.expectedDeliveryDate).toISOString();
+        }
+        if (statusUpdate.deliveryNotes) {
+          updatedOrder.deliveryInfo.deliveryNotes = statusUpdate.deliveryNotes;
+        }
+        if (statusUpdate.trackingNumber) {
+          updatedOrder.deliveryInfo.trackingNumber = statusUpdate.trackingNumber;
+        }
         updatedOrder.status = 'purchased';
       } else if (statusUpdate.type === 'delivery') {
         updatedOrder.deliveryInfo = {
@@ -417,6 +428,33 @@ const OrderManager = () => {
         sponsorContactEmail: '',
         sponsorCompany: ''
       }
+    });
+  };
+
+  const handlePurchaseSubmit = async () => {
+    if (!purchaseFormData.expectedDeliveryDate) {
+      await showError('Please enter an expected delivery date', 'Required Field');
+      return;
+    }
+
+    await updateOrderStatus(purchasingOrder.id, {
+      type: 'purchase',
+      purchaseOrderNumber: purchaseFormData.purchaseOrderNumber || `PO-${Date.now()}`,
+      actualCost: purchasingOrder.costBreakdown.totalCost,
+      purchasedBy: authService.currentUser?.level || 'director',
+      expectedDeliveryDate: purchaseFormData.expectedDeliveryDate,
+      deliveryNotes: purchaseFormData.deliveryNotes,
+      trackingNumber: purchaseFormData.trackingNumber
+    });
+
+    // Reset and close modal
+    setShowPurchaseModal(false);
+    setPurchasingOrder(null);
+    setPurchaseFormData({
+      expectedDeliveryDate: '',
+      deliveryNotes: '',
+      purchaseOrderNumber: '',
+      trackingNumber: ''
     });
   };
 
@@ -1914,12 +1952,10 @@ const OrderManager = () => {
                   {order.status === 'approved_for_purchase' && (
                     <button 
                       className="action-btn mark-ordered-btn"
-                      onClick={() => updateOrderStatus(order.id, {
-                        type: 'purchase',
-                        purchaseOrderNumber: `PO-${Date.now()}`,
-                        actualCost: order.costBreakdown.totalCost,
-                        purchasedBy: authService.currentUser?.level || 'director'
-                      })}
+                      onClick={() => {
+                        setPurchasingOrder(order);
+                        setShowPurchaseModal(true);
+                      }}
                     >
                       📦 Mark as Purchased
                     </button>
@@ -1952,6 +1988,94 @@ const OrderManager = () => {
 
       {/* Order Form Modal */}
       {showOrderForm && OrderForm()}
+
+      {/* Purchase Modal */}
+      {showPurchaseModal && purchasingOrder && (
+        <div className="modal-overlay" onClick={() => setShowPurchaseModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Mark Order as Purchased</h3>
+              <button className="modal-close" onClick={() => setShowPurchaseModal(false)}>×</button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="purchase-order-summary">
+                <h4>{purchasingOrder.materialDetails.materialName}</h4>
+                <p><strong>Subteam:</strong> {purchasingOrder.submissionDetails.subteam}</p>
+                <p><strong>Total Cost:</strong> ${purchasingOrder.costBreakdown.totalCost.toFixed(2)}</p>
+              </div>
+
+              <form onSubmit={(e) => { e.preventDefault(); handlePurchaseSubmit(); }}>
+                <div className="form-section">
+                  <h4>Delivery Information</h4>
+                  
+                  <div className="form-group">
+                    <label>Expected Delivery Date *</label>
+                    <input 
+                      type="date"
+                      value={purchaseFormData.expectedDeliveryDate}
+                      onChange={(e) => setPurchaseFormData({
+                        ...purchaseFormData,
+                        expectedDeliveryDate: e.target.value
+                      })}
+                      required
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Delivery Notes</label>
+                    <textarea 
+                      value={purchaseFormData.deliveryNotes}
+                      onChange={(e) => setPurchaseFormData({
+                        ...purchaseFormData,
+                        deliveryNotes: e.target.value
+                      })}
+                      placeholder="Add any custom notes about the delivery (e.g., special handling, expected carrier, etc.)"
+                      rows="4"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Tracking Number (Optional)</label>
+                    <input 
+                      type="text"
+                      value={purchaseFormData.trackingNumber}
+                      onChange={(e) => setPurchaseFormData({
+                        ...purchaseFormData,
+                        trackingNumber: e.target.value
+                      })}
+                      placeholder="Enter tracking number if available"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Purchase Order Number (Optional)</label>
+                    <input 
+                      type="text"
+                      value={purchaseFormData.purchaseOrderNumber}
+                      onChange={(e) => setPurchaseFormData({
+                        ...purchaseFormData,
+                        purchaseOrderNumber: e.target.value
+                      })}
+                      placeholder="Auto-generated if left blank"
+                    />
+                  </div>
+                </div>
+
+                <div className="modal-actions">
+                  <button type="button" className="btn-cancel" onClick={() => setShowPurchaseModal(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn-submit">
+                    📦 Confirm Purchase
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
