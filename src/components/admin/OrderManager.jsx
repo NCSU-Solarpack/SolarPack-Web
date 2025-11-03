@@ -1653,6 +1653,62 @@ const OrderManager = () => {
           box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
         }
 
+        /* Purchase Modal Styles */
+        .purchase-order-summary {
+          background: rgba(0, 123, 255, 0.1);
+          padding: 1rem;
+          border-radius: 6px;
+          margin-bottom: 1.5rem;
+        }
+
+        .purchase-order-summary h4 {
+          color: var(--accent);
+          margin: 0 0 0.5rem 0;
+        }
+
+        .purchase-order-summary p {
+          margin: 0.25rem 0;
+          color: var(--text);
+        }
+
+        .modal-actions {
+          display: flex;
+          gap: 1rem;
+          margin-top: 2rem;
+          justify-content: flex-end;
+        }
+
+        .btn-cancel {
+          background: #6c757d;
+          color: white;
+          border: none;
+          padding: 0.75rem 1.5rem;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 500;
+          transition: all 0.3s ease;
+        }
+
+        .btn-cancel:hover {
+          background: #545b62;
+        }
+
+        .btn-submit {
+          background: var(--accent);
+          color: white;
+          border: none;
+          padding: 0.75rem 1.5rem;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 600;
+          transition: all 0.3s ease;
+        }
+
+        .btn-submit:hover {
+          background: #c71821;
+          transform: translateY(-1px);
+        }
+
         /* Next Steps Section */
         .next-steps {
           background: rgba(40, 167, 69, 0.1);
