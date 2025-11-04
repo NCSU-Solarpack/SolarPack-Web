@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { authService } from '../../utils/auth';
 import { supabaseService } from '../../utils/supabase';
 import { useSupabaseSyncStatus } from '../../hooks/useSupabaseSyncStatus';
 import SyncStatusBadge from '../SyncStatusBadge';
 import { useAlert } from '../../contexts/AlertContext';
 
-const OrderManager = () => {
+const OrderManager = forwardRef((props, ref) => {
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const formScrollRef = useRef(null);
@@ -68,6 +68,13 @@ const OrderManager = () => {
     () => supabaseService.getOrders(),
     showOrderForm ? 10000 : 2000 // 10 seconds when form is open, 2 seconds otherwise
   );
+
+  // Expose methods to parent component
+  useImperativeHandle(ref, () => ({
+    handleSubmitOrder: () => {
+      setShowOrderForm(true);
+    }
+  }));
 
   useEffect(() => {
     loadOrders();
@@ -2857,6 +2864,8 @@ const OrderManager = () => {
       )}
     </div>
   );
-};
+});
+
+OrderManager.displayName = 'OrderManager';
 
 export default OrderManager;

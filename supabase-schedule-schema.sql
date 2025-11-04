@@ -223,8 +223,9 @@ INSERT INTO schedule_teams (id, name, color, description) VALUES
   ('technical-director', 'Technical Director', '#8b5cf6', 'Technical oversight and engineering leadership'),
   ('aerodynamics', 'Aerodynamics', '#06b6d4', 'Aeroshell design and wind tunnel testing'),
   ('high-voltage', 'High Voltage', '#ef4444', 'Battery and high-voltage electrical systems'),
-  ('low-voltage', 'Low Voltage Systems', '#f59e0b', 'Electronics and control systems'),
-  ('architecture', 'Architecture Structures', '#10b981', 'Vehicle frame and structural design'),
+  ('low-voltage', 'Low Voltage', '#f59e0b', 'Electronics and control systems'),
+  ('systems-architecture', 'Systems Architecture', '#10b981', 'System integration and architecture design'),
+  ('structures', 'Structures', '#14b8a6', 'Vehicle frame and structural design'),
   ('vehicle-dynamics', 'Vehicle Dynamics', '#f97316', 'Suspension, steering, and handling'),
   ('business', 'Business', '#84cc16', 'Sponsorship, marketing, and operations')
 ON CONFLICT (id) DO UPDATE SET

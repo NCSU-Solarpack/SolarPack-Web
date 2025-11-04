@@ -1,9 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { authService } from '../../utils/auth';
-// import { githubService } from '../../utils/github'; // Removed - transitioning to Supabase
+import { supabaseService } from '../../utils/supabase';
+import { useAlert } from '../../contexts/AlertContext';
 
-const ScheduleManager = () => {
-  const [scheduleData, setScheduleData] = useState({ teams: [], projects: [], events: [], lastUpdated: '' });
+const ScheduleManager = forwardRef((props, ref) => {
+  const { showAlert } = useAlert();
+  const [scheduleData, setScheduleData] = useState({ teams: [], projects: [], lastUpdated: '' });
   const [activeView, setActiveView] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -13,46 +15,61 @@ const ScheduleManager = () => {
   const [calendarView, setCalendarView] = useState('month'); // month, week
   const [currentDate, setCurrentDate] = useState(new Date());
 
+  // Expose methods to parent component
+  useImperativeHandle(ref, () => ({
+    handleAddProject: () => {
+      setEditingItem({
+        type: 'project',
+        title: '',
+        description: '',
+        team: 'director',
+        priority: 'medium',
+        status: 'planning',
+        startDate: new Date().toISOString().split('T')[0],
+        dueDate: '',
+        estimatedHours: 0,
+        actualHours: 0,
+        progress: 0,
+        assignedTo: '',
+        tasks: []
+      });
+      setIsEditing(true);
+    }
+  }));
+
   useEffect(() => {
     loadScheduleData();
+    
+    // Set up real-time subscriptions
+    const projectsSubscription = supabaseService.subscribeToTable('schedule_projects', handleDataChange);
+    const tasksSubscription = supabaseService.subscribeToTable('schedule_tasks', handleDataChange);
+    
+    return () => {
+      supabaseService.unsubscribe(projectsSubscription);
+      supabaseService.unsubscribe(tasksSubscription);
+    };
   }, []);
+  
+  const handleDataChange = () => {
+    // Reload data when changes occur
+    loadScheduleData();
+  };
 
   const loadScheduleData = async () => {
     try {
-      const cacheBuster = `?_t=${Date.now()}&_cb=${Math.random()}`;
-      const url = `/data/schedules.json${cacheBuster}`;
+      setIsLoading(true);
       
-      const response = await fetch(url, {
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      });
-      
-      if (response.status === 304) {
-        const cached = sessionStorage.getItem('json:/data/schedules.json');
-        if (cached) {
-          setScheduleData(JSON.parse(cached));
-          return;
-        }
-        throw new Error('HTTP 304 with no cached copy');
+      if (!supabaseService.isConfigured()) {
+        showAlert('Supabase is not configured. Please set up your environment variables.', 'error');
+        setIsLoading(false);
+        return;
       }
       
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      sessionStorage.setItem('json:/data/schedules.json', JSON.stringify(data));
+      const data = await supabaseService.getScheduleData();
       setScheduleData(data);
     } catch (error) {
       console.error('Error loading schedule data:', error);
-      const cached = sessionStorage.getItem('json:/data/schedules.json');
-      if (cached) {
-        setScheduleData(JSON.parse(cached));
-      }
+      showAlert(`Failed to load schedule data: ${error.message}`, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -90,13 +107,13 @@ const ScheduleManager = () => {
   const handleAddProject = () => {
     setEditingItem({
       type: 'project',
-      id: Date.now(),
+      // Don't set id - let Supabase auto-generate it
       title: '',
       description: '',
       team: 'director',
       priority: 'medium',
       status: 'planning',
-      startDate: '',
+      startDate: new Date().toISOString().split('T')[0], // Default to today
       dueDate: '',
       estimatedHours: 0,
       actualHours: 0,
@@ -121,27 +138,27 @@ const ScheduleManager = () => {
     setIsEditing(true);
   };
 
-  const handleDeleteTask = (projectId, taskId) => {
+  const handleDeleteTask = async (projectId, taskId) => {
     if (!window.confirm('Are you sure you want to delete this task?')) return;
     
-    const updatedData = { ...scheduleData };
-    const projectIndex = updatedData.projects.findIndex(p => p.id === projectId);
-    
-    if (projectIndex >= 0) {
-      updatedData.projects[projectIndex].tasks = updatedData.projects[projectIndex].tasks.filter(t => t.id !== taskId);
-      updatedData.lastUpdated = new Date().toISOString();
-      setScheduleData(updatedData);
-      saveData(updatedData);
+    try {
+      await supabaseService.deleteTask(taskId);
+      showAlert('Task deleted successfully!', 'success');
+      await loadScheduleData(); // Reload all data
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      showAlert(`Failed to delete task: ${error.message}`, 'error');
     }
   };
 
   const handleAddTask = (projectId) => {
     const project = scheduleData.projects.find(p => p.id === projectId);
     const newTask = {
-      id: Date.now(),
+      // Don't set id - let Supabase auto-generate it
+      projectId: projectId,
       title: '',
       description: '',
-      startDate: '',
+      startDate: new Date().toISOString().split('T')[0], // Default to today
       dueDate: '',
       estimatedHours: 0,
       actualHours: 0,
@@ -154,77 +171,39 @@ const ScheduleManager = () => {
     setEditingItem({
       ...project,
       type: 'project',
-      tasks: [...project.tasks, newTask]
+      tasks: [...(project.tasks || []), newTask]
     });
-    setIsEditing(true);
-  };
-
-  const handleAddEvent = () => {
-    setEditingItem({
-      type: 'event',
-      id: Date.now(),
-      title: '',
-      description: '',
-      team: 'director',
-      date: '',
-      startTime: '',
-      endTime: '',
-      eventType: 'meeting',
-      priority: 'medium',
-      attendees: [],
-      location: ''
-    });
-    setIsEditing(true);
-  };
-
-  const handleEditEvent = (event) => {
-    const editData = { ...event };
-    // Convert the event type to eventType for editing to avoid conflicts
-    editData.eventType = event.type;
-    editData.type = 'event'; // This is the editing type
-    setEditingItem(editData);
     setIsEditing(true);
   };
 
   const handleSaveItem = async () => {
     try {
-      const updatedData = { ...scheduleData };
+      if (!editingItem) return;
       
       if (editingItem.type === 'project') {
-        const existingIndex = updatedData.projects.findIndex(p => p.id === editingItem.id);
         const projectData = { ...editingItem };
         delete projectData.type;
         
-        if (existingIndex >= 0) {
-          updatedData.projects[existingIndex] = projectData;
-        } else {
-          updatedData.projects.push(projectData);
-        }
-      } else if (editingItem.type === 'event') {
-        const existingIndex = updatedData.events.findIndex(e => e.id === editingItem.id);
-        const eventData = { ...editingItem };
-        delete eventData.type;
-        // Rename eventType back to type for storage
-        if (eventData.eventType) {
-          eventData.type = eventData.eventType;
-          delete eventData.eventType;
+        // Save project to Supabase
+        const savedProject = await supabaseService.saveProject(projectData);
+        
+        // Save all tasks for this project
+        if (projectData.tasks && projectData.tasks.length > 0) {
+          for (const task of projectData.tasks) {
+            const taskData = { ...task, projectId: savedProject.id };
+            await supabaseService.saveTask(taskData);
+          }
         }
         
-        if (existingIndex >= 0) {
-          updatedData.events[existingIndex] = eventData;
-        } else {
-          updatedData.events.push(eventData);
-        }
+        showAlert('Project saved successfully!', 'success');
       }
       
-      updatedData.lastUpdated = new Date().toISOString();
-      setScheduleData(updatedData);
-      await saveData(updatedData);
       setIsEditing(false);
       setEditingItem(null);
+      await loadScheduleData(); // Reload all data
     } catch (error) {
       console.error('Error saving item:', error);
-      alert('Failed to save changes. Please try again.');
+      showAlert(`Failed to save: ${error.message}`, 'error');
     }
   };
 
@@ -232,31 +211,15 @@ const ScheduleManager = () => {
     if (!window.confirm('Are you sure you want to delete this item?')) return;
     
     try {
-      const updatedData = { ...scheduleData };
-      
       if (itemType === 'project') {
-        updatedData.projects = updatedData.projects.filter(p => p.id !== itemId);
-      } else if (itemType === 'event') {
-        updatedData.events = updatedData.events.filter(e => e.id !== itemId);
+        await supabaseService.deleteProject(itemId);
+        showAlert('Project deleted successfully!', 'success');
       }
       
-      updatedData.lastUpdated = new Date().toISOString();
-      setScheduleData(updatedData);
-      await saveData(updatedData);
+      await loadScheduleData(); // Reload all data
     } catch (error) {
       console.error('Error deleting item:', error);
-      alert('Failed to delete item. Please try again.');
-    }
-  };
-
-  const saveData = async (data) => {
-    try {
-      // TODO: Save to Supabase database
-      console.log('Saving schedule data:', data);
-      alert('✓ Schedule data saved locally! (Supabase integration pending)');
-    } catch (error) {
-      console.error('Error saving schedule data:', error);
-      throw error;
+      showAlert(`Failed to delete: ${error.message}`, 'error');
     }
   };
 
@@ -289,8 +252,7 @@ const ScheduleManager = () => {
   const getItemsForDate = (date) => {
     const dateStr = date.toISOString().split('T')[0];
     const projectsDue = scheduleData.projects.filter(p => p.dueDate === dateStr);
-    const events = scheduleData.events.filter(e => e.date === dateStr);
-    return [...projectsDue.map(p => ({...p, itemType: 'project'})), ...events.map(e => ({...e, itemType: 'event'}))];
+    return projectsDue.map(p => ({...p, itemType: 'project'}));
   };
 
   const getUpcomingDeadlines = () => {
@@ -361,7 +323,7 @@ const ScheduleManager = () => {
           align-items: center;
           margin-bottom: 2rem;
           padding-bottom: 1rem;
-          border-bottom: 3px solid var(--primary);
+          border-bottom: 3px solid var(--accent);
         }
 
         .schedule-title {
@@ -382,10 +344,11 @@ const ScheduleManager = () => {
           display: flex;
           gap: 0.5rem;
           margin-bottom: 2rem;
-          background: var(--card-bg);
+          background: var(--card);
           padding: 0.5rem;
           border-radius: 12px;
-          border: 2px solid var(--card-border);
+          border: none;
+          box-shadow: 0 4px 24px #0006;
         }
 
         .view-tab {
@@ -401,13 +364,14 @@ const ScheduleManager = () => {
         }
 
         .view-tab:hover {
-          background: rgba(99, 102, 241, 0.1);
+          background: rgba(227, 27, 35, 0.1);
+          color: var(--accent);
         }
 
         .view-tab.active {
-          background: var(--primary);
+          background: var(--accent);
           color: white;
-          box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+          box-shadow: 0 2px 8px rgba(227, 27, 35, 0.3);
         }
 
         /* Overview Dashboard Styles */
@@ -424,22 +388,22 @@ const ScheduleManager = () => {
         }
 
         .stat-card {
-          background: linear-gradient(135deg, var(--card-bg) 0%, var(--bg) 100%);
-          border: 2px solid var(--card-border);
+          background: var(--card);
+          border: none;
           border-radius: 12px;
           padding: 1.5rem;
           transition: all 0.3s ease;
+          box-shadow: 0 4px 24px #0006;
         }
 
         .stat-card:hover {
           transform: translateY(-4px);
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-          border-color: var(--primary);
+          box-shadow: 0 8px 32px #0008;
         }
 
         .stat-label {
           font-size: 0.85rem;
-          color: var(--text-secondary);
+          color: var(--subtxt);
           margin-bottom: 0.5rem;
           text-transform: uppercase;
           letter-spacing: 0.5px;
@@ -455,7 +419,7 @@ const ScheduleManager = () => {
 
         .stat-sublabel {
           font-size: 0.9rem;
-          color: var(--text-secondary);
+          color: var(--subtxt);
           margin-top: 0.5rem;
         }
 
@@ -467,14 +431,15 @@ const ScheduleManager = () => {
         }
 
         .team-card {
-          background: var(--card-bg);
-          border: 2px solid var(--card-border);
+          background: var(--card);
+          border: none;
           border-radius: 12px;
           padding: 1.5rem;
           cursor: pointer;
           transition: all 0.3s ease;
           position: relative;
           overflow: hidden;
+          box-shadow: 0 4px 24px #0006;
         }
 
         .team-card::before {
@@ -489,8 +454,7 @@ const ScheduleManager = () => {
 
         .team-card:hover {
           transform: translateY(-4px);
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-          border-color: var(--team-color);
+          box-shadow: 0 8px 32px #0008;
         }
 
         .team-header {
@@ -541,16 +505,17 @@ const ScheduleManager = () => {
 
         .team-stat-label {
           font-size: 0.75rem;
-          color: var(--text-secondary);
+          color: var(--subtxt);
           text-transform: uppercase;
           margin-top: 0.25rem;
         }
 
         .upcoming-deadlines {
-          background: var(--card-bg);
-          border: 2px solid var(--card-border);
+          background: var(--card);
+          border: none;
           border-radius: 12px;
           padding: 1.5rem;
+          box-shadow: 0 4px 24px #0006;
         }
 
         .section-title {
@@ -592,21 +557,22 @@ const ScheduleManager = () => {
 
         .deadline-meta {
           font-size: 0.85rem;
-          color: var(--text-secondary);
+          color: var(--subtxt);
         }
 
         .deadline-date {
           font-weight: 600;
-          color: var(--primary);
+          color: var(--accent);
           white-space: nowrap;
         }
 
         /* Calendar Styles */
         .calendar-view {
-          background: var(--card-bg);
-          border: 2px solid var(--card-border);
+          background: var(--card);
+          border: none;
           border-radius: 12px;
           padding: 1.5rem;
+          box-shadow: 0 4px 24px #0006;
         }
 
         .calendar-header {
@@ -624,7 +590,7 @@ const ScheduleManager = () => {
 
         .calendar-nav-btn {
           padding: 0.5rem 1rem;
-          background: var(--primary);
+          background: var(--accent);
           color: white;
           border: none;
           border-radius: 8px;
@@ -634,7 +600,7 @@ const ScheduleManager = () => {
         }
 
         .calendar-nav-btn:hover {
-          background: var(--primary-dark);
+          background: #ff4a45;
           transform: translateY(-2px);
         }
 
@@ -653,23 +619,23 @@ const ScheduleManager = () => {
         .calendar-day-header {
           text-align: center;
           font-weight: 600;
-          color: var(--text-secondary);
+          color: var(--subtxt);
           padding: 0.75rem;
           font-size: 0.9rem;
         }
 
         .calendar-day {
           min-height: 100px;
-          border: 2px solid var(--card-border);
+          border: 1px solid #333;
           border-radius: 8px;
           padding: 0.5rem;
-          background: var(--bg);
+          background: var(--surface);
           transition: all 0.3s ease;
         }
 
         .calendar-day:hover {
-          border-color: var(--primary);
-          background: var(--card-bg);
+          border-color: var(--accent);
+          background: var(--card);
         }
 
         .calendar-day.empty {
@@ -678,8 +644,8 @@ const ScheduleManager = () => {
         }
 
         .calendar-day.today {
-          border-color: var(--primary);
-          background: rgba(99, 102, 241, 0.1);
+          border-color: var(--accent);
+          background: var(--card);
         }
 
         .calendar-date {
@@ -729,22 +695,28 @@ const ScheduleManager = () => {
 
         .team-filter {
           padding: 0.75rem 1rem;
-          border: 2px solid var(--card-border);
+          border: none;
           border-radius: 8px;
-          background: var(--card-bg);
+          background: var(--card);
           color: var(--text);
           font-weight: 600;
           cursor: pointer;
           transition: all 0.3s ease;
+          box-shadow: 0 4px 24px #0006;
         }
 
         .team-filter:hover {
-          border-color: var(--primary);
+          box-shadow: 0 6px 28px #0008;
+        }
+
+        .team-filter:focus {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
         }
 
         .add-button {
           padding: 0.75rem 1.5rem;
-          background: var(--primary);
+          background: var(--accent);
           color: white;
           border: none;
           border-radius: 8px;
@@ -757,9 +729,9 @@ const ScheduleManager = () => {
         }
 
         .add-button:hover {
-          background: var(--primary-dark);
+          background: #ff4a45;
           transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+          box-shadow: 0 4px 12px rgba(227, 27, 35, 0.4);
         }
 
         .projects-grid {
@@ -770,14 +742,15 @@ const ScheduleManager = () => {
         }
 
         .project-card {
-          background: var(--card-bg);
-          border: 2px solid var(--card-border);
+          background: var(--card);
+          border: none;
           border-radius: 12px;
           padding: 1.5rem;
           transition: all 0.3s ease;
           cursor: pointer;
           position: relative;
           overflow: hidden;
+          box-shadow: 0 4px 24px #0006;
         }
 
         .project-card::before {
@@ -792,8 +765,7 @@ const ScheduleManager = () => {
 
         .project-card:hover {
           transform: translateY(-4px);
-          box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-          border-color: var(--team-color);
+          box-shadow: 0 8px 32px #0008;
         }
 
         .project-header {
@@ -834,7 +806,7 @@ const ScheduleManager = () => {
         .progress-bar {
           width: 100%;
           height: 8px;
-          background: #e9ecef;
+          background: #222;
           border-radius: 4px;
           overflow: hidden;
         }
@@ -850,13 +822,13 @@ const ScheduleManager = () => {
           gap: 1rem;
           margin: 1rem 0;
           font-size: 0.9rem;
-          color: var(--text-secondary);
+          color: var(--subtxt);
         }
 
         .tasks-section {
           margin-top: 1.5rem;
           padding-top: 1.5rem;
-          border-top: 1px solid var(--card-border);
+          border-top: 1px solid #333;
         }
 
         .tasks-header {
@@ -871,7 +843,7 @@ const ScheduleManager = () => {
           justify-content: space-between;
           align-items: center;
           padding: 0.75rem;
-          background: var(--bg);
+          background: var(--surface);
           border-radius: 8px;
           margin-bottom: 0.5rem;
         }
@@ -890,7 +862,7 @@ const ScheduleManager = () => {
         .tasks-management-section {
           margin-top: 2rem;
           padding-top: 2rem;
-          border-top: 2px solid var(--card-border);
+          border-top: 2px solid #333;
         }
 
         .tasks-management-section h3 {
@@ -900,8 +872,8 @@ const ScheduleManager = () => {
         }
 
         .task-edit-item {
-          background: var(--bg);
-          border: 2px solid var(--card-border);
+          background: var(--surface);
+          border: 1px solid #333;
           border-radius: 8px;
           padding: 1.5rem;
           margin-bottom: 1.5rem;
@@ -913,7 +885,7 @@ const ScheduleManager = () => {
           align-items: center;
           margin-bottom: 1rem;
           padding-bottom: 0.5rem;
-          border-bottom: 1px solid var(--card-border);
+          border-bottom: 1px solid #333;
         }
 
         .task-edit-header h4 {
@@ -934,7 +906,7 @@ const ScheduleManager = () => {
 
         .task-meta {
           font-size: 0.8rem;
-          color: var(--text-secondary);
+          color: var(--subtxt);
         }
 
         .events-grid {
@@ -944,28 +916,29 @@ const ScheduleManager = () => {
         }
 
         .event-card {
-          background: var(--card-bg);
-          border: 2px solid var(--card-border);
+          background: var(--card);
+          border: none;
           border-radius: 12px;
           padding: 1.5rem;
           transition: all 0.3s ease;
+          box-shadow: 0 4px 24px #0006;
         }
 
         .event-card:hover {
           transform: translateY(-2px);
-          box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+          box-shadow: 0 8px 32px #0008;
         }
 
         .event-date {
           font-size: 1.1rem;
           font-weight: 700;
-          color: var(--primary);
+          color: var(--accent);
           margin-bottom: 0.5rem;
         }
 
         .event-time {
           font-size: 0.9rem;
-          color: var(--text-secondary);
+          color: var(--subtxt);
           margin-bottom: 1rem;
         }
 
@@ -975,17 +948,20 @@ const ScheduleManager = () => {
         }
 
         .edit-btn, .delete-btn {
-          padding: 0.5rem 1rem;
+          padding: 0.5rem 0.75rem;
           border: none;
           border-radius: 6px;
           cursor: pointer;
-          font-size: 0.8rem;
+          font-size: 0.9rem;
           font-weight: 600;
           transition: all 0.3s ease;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .edit-btn {
-          background: var(--primary);
+          background: var(--accent);
           color: white;
         }
 
@@ -995,11 +971,47 @@ const ScheduleManager = () => {
         }
 
         .edit-btn:hover {
-          background: var(--primary-dark);
+          background: #ff4a45;
+          transform: translateY(-1px);
         }
 
         .delete-btn:hover {
           background: #c82333;
+          transform: translateY(-1px);
+        }
+
+        .icon-btn {
+          width: 32px;
+          height: 32px;
+          padding: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 0.9rem;
+          transition: all 0.3s ease;
+        }
+
+        .icon-btn.edit {
+          background: var(--accent);
+          color: white;
+        }
+
+        .icon-btn.delete {
+          background: #dc3545;
+          color: white;
+        }
+
+        .icon-btn.edit:hover {
+          background: #ff4a45;
+          transform: translateY(-1px);
+        }
+
+        .icon-btn.delete:hover {
+          background: #c82333;
+          transform: translateY(-1px);
         }
 
         .modal-overlay {
@@ -1027,15 +1039,15 @@ const ScheduleManager = () => {
         }
 
         .modal {
-          background: var(--card-bg);
+          background: var(--card);
           border-radius: 16px;
           padding: 2rem;
           width: 90%;
           max-width: 800px;
           max-height: 85vh;
           overflow-y: auto;
-          border: 2px solid var(--card-border);
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+          border: none;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
           animation: slideUp 0.3s ease;
         }
 
@@ -1055,12 +1067,12 @@ const ScheduleManager = () => {
         }
 
         .modal::-webkit-scrollbar-track {
-          background: var(--bg);
+          background: var(--surface);
           border-radius: 4px;
         }
 
         .modal::-webkit-scrollbar-thumb {
-          background: var(--primary);
+          background: var(--accent);
           border-radius: 4px;
         }
 
@@ -1074,7 +1086,7 @@ const ScheduleManager = () => {
           align-items: flex-start;
           margin-bottom: 1.5rem;
           padding-bottom: 1.5rem;
-          border-bottom: 2px solid var(--card-border);
+          border-bottom: 2px solid #333;
         }
 
         .modal-project-info h2 {
@@ -1096,7 +1108,7 @@ const ScheduleManager = () => {
           gap: 1.5rem;
           margin: 1.5rem 0;
           padding: 1.5rem;
-          background: var(--bg);
+          background: var(--surface);
           border-radius: 12px;
         }
 
@@ -1108,7 +1120,7 @@ const ScheduleManager = () => {
 
         .meta-label {
           font-size: 0.85rem;
-          color: var(--text-secondary);
+          color: var(--subtxt);
           text-transform: uppercase;
           letter-spacing: 0.5px;
           font-weight: 600;
@@ -1138,15 +1150,15 @@ const ScheduleManager = () => {
         }
 
         .task-card {
-          background: var(--bg);
-          border: 2px solid var(--card-border);
+          background: var(--surface);
+          border: 1px solid #333;
           border-radius: 8px;
           padding: 1rem;
           transition: all 0.3s ease;
         }
 
         .task-card:hover {
-          border-color: var(--primary);
+          border-color: var(--accent);
           transform: translateX(4px);
         }
 
@@ -1164,7 +1176,7 @@ const ScheduleManager = () => {
         }
 
         .task-description {
-          color: var(--text-secondary);
+          color: var(--subtxt);
           font-size: 0.9rem;
           margin: 0.5rem 0;
         }
@@ -1192,7 +1204,7 @@ const ScheduleManager = () => {
           border: none;
           font-size: 1.5rem;
           cursor: pointer;
-          color: var(--text-secondary);
+          color: var(--subtxt);
         }
 
         .form-group {
@@ -1209,11 +1221,17 @@ const ScheduleManager = () => {
         .form-input, .form-select, .form-textarea {
           width: 100%;
           padding: 0.75rem;
-          border: 2px solid var(--card-border);
+          border: 1px solid #333;
           border-radius: 8px;
-          background: var(--bg);
+          background: var(--surface);
           color: var(--text);
           font-size: 1rem;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+          outline: 2px solid var(--accent);
+          outline-offset: 2px;
+          border-color: var(--accent);
         }
 
         .form-textarea {
@@ -1233,7 +1251,7 @@ const ScheduleManager = () => {
           justify-content: flex-end;
           margin-top: 2rem;
           padding-top: 2rem;
-          border-top: 1px solid var(--card-border);
+          border-top: 1px solid #333;
         }
 
         .save-btn, .cancel-btn {
@@ -1246,13 +1264,23 @@ const ScheduleManager = () => {
         }
 
         .save-btn {
-          background: var(--primary);
+          background: var(--accent);
           color: white;
         }
 
+        .save-btn:hover {
+          background: #ff4a45;
+          transform: translateY(-1px);
+        }
+
         .cancel-btn {
-          background: var(--card-border);
+          background: var(--surface);
           color: var(--text);
+          border: 1px solid #333;
+        }
+
+        .cancel-btn:hover {
+          background: var(--card);
         }
 
         .overdue {
@@ -1265,12 +1293,12 @@ const ScheduleManager = () => {
           align-items: center;
           height: 200px;
           font-size: 1.2rem;
-          color: var(--text-secondary);
+          color: var(--subtxt);
         }
       `}</style>
 
       <div className="schedule-header">
-        <h1 className="schedule-title">📋 Schedule Manager</h1>
+        <h1 className="schedule-title">Schedule Manager</h1>
       </div>
 
       <div className="view-tabs">
@@ -1278,25 +1306,19 @@ const ScheduleManager = () => {
           className={`view-tab ${activeView === 'overview' ? 'active' : ''}`}
           onClick={() => setActiveView('overview')}
         >
-          📊 Overview
+          Overview
         </button>
         <button 
           className={`view-tab ${activeView === 'calendar' ? 'active' : ''}`}
           onClick={() => setActiveView('calendar')}
         >
-          📅 Calendar
+          Calendar
         </button>
         <button 
           className={`view-tab ${activeView === 'projects' ? 'active' : ''}`}
           onClick={() => setActiveView('projects')}
         >
-          📂 Projects
-        </button>
-        <button 
-          className={`view-tab ${activeView === 'events' ? 'active' : ''}`}
-          onClick={() => setActiveView('events')}
-        >
-          🎯 Events
+          Projects
         </button>
       </div>
 
@@ -1339,7 +1361,7 @@ const ScheduleManager = () => {
 
           {/* Team Overview Cards */}
           <div>
-            <h2 className="section-title">🏢 Teams Overview</h2>
+            <h2 className="section-title">Teams Overview</h2>
             <div className="teams-overview">
               {teamStats.map(team => (
                 <div 
@@ -1395,9 +1417,9 @@ const ScheduleManager = () => {
 
           {/* Upcoming Deadlines */}
           <div className="upcoming-deadlines">
-            <h2 className="section-title">⏰ Upcoming Deadlines (Next 7 Days)</h2>
+            <h2 className="section-title">Upcoming Deadlines (Next 7 Days)</h2>
             {getUpcomingDeadlines().length === 0 ? (
-              <p style={{color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem'}}>
+              <p style={{color: 'var(--subtxt)', textAlign: 'center', padding: '2rem'}}>
                 No upcoming deadlines in the next week
               </p>
             ) : (
@@ -1497,7 +1519,7 @@ const ScheduleManager = () => {
                       </div>
                     ))}
                     {items.length > 3 && (
-                      <div style={{fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.25rem'}}>
+                      <div style={{fontSize: '0.7rem', color: 'var(--subtxt)', marginTop: '0.25rem'}}>
                         +{items.length - 3} more
                       </div>
                     )}
@@ -1531,7 +1553,7 @@ const ScheduleManager = () => {
             </div>
             {canEdit && (
               <button className="add-button" onClick={handleAddProject}>
-                ➕ Add Project
+                <i className="fas fa-plus"></i> Add Project
               </button>
             )}
           </div>
@@ -1624,24 +1646,24 @@ const ScheduleManager = () => {
                         {canEdit && (
                           <div className="task-buttons">
                             <button 
-                              className="edit-btn"
-                              style={{ fontSize: '0.7rem', padding: '0.25rem 0.5rem' }}
+                              className="icon-btn edit"
+                              title="Edit task"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleEditTask(project, task);
                               }}
                             >
-                              Edit
+                              <i className="fas fa-edit"></i>
                             </button>
                             <button 
-                              className="delete-btn"
-                              style={{ fontSize: '0.7rem', padding: '0.25rem 0.5rem' }}
+                              className="icon-btn delete"
+                              title="Delete task"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleDeleteTask(project.id, task.id);
                               }}
                             >
-                              Del
+                              <i className="fas fa-trash"></i>
                             </button>
                           </div>
                         )}
@@ -1653,84 +1675,15 @@ const ScheduleManager = () => {
 
               {canEdit && (
                 <div className="action-buttons" style={{ marginTop: '1rem' }}>
-                  <button className="edit-btn" onClick={() => handleEditProject(project)}>
-                    Edit
+                  <button className="icon-btn edit" title="Edit project" onClick={() => handleEditProject(project)}>
+                    <i className="fas fa-edit"></i>
                   </button>
                   <button 
-                    className="delete-btn" 
+                    className="icon-btn delete"
+                    title="Delete project"
                     onClick={() => handleDeleteItem('project', project.id)}
                   >
-                    Delete
-                  </button>
-                </div>
-              )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Events View */}
-      {activeView === 'events' && (
-        <div>
-          <div className="projects-header">
-            <div className="filters">
-              <label htmlFor="team-filter-events" style={{fontWeight: 600, color: 'var(--text)'}}>
-                Filter by Team:
-              </label>
-              <select 
-                id="team-filter-events"
-                className="team-filter"
-                value={selectedTeam}
-                onChange={(e) => setSelectedTeam(e.target.value)}
-              >
-                <option value="all">All Teams</option>
-                {scheduleData.teams.map(team => (
-                  <option key={team.id} value={team.id}>{team.name}</option>
-                ))}
-              </select>
-            </div>
-            {canEdit && (
-              <button className="add-button" onClick={handleAddEvent}>
-                ➕ Add Event
-              </button>
-            )}
-          </div>
-          <div className="events-grid">
-            {filterItemsByTeam(scheduleData.events).map(event => (
-              <div key={event.id} className="event-card">
-              <div className="event-date">
-                {new Date(event.date).toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}
-              </div>
-              <div className="event-time">
-                {event.startTime} - {event.endTime}
-              </div>
-              
-              <h3 className="project-title">{event.title}</h3>
-              <p>{event.description}</p>
-              
-              <div className="project-meta">
-                <div><strong>Team:</strong> {getTeamName(event.team)}</div>
-                <div><strong>Type:</strong> {event.type}</div>
-                <div><strong>Location:</strong> {event.location}</div>
-                <div><strong>Priority:</strong> {event.priority}</div>
-              </div>
-
-              {canEdit && (
-                <div className="action-buttons" style={{ marginTop: '1rem' }}>
-                  <button className="edit-btn" onClick={() => handleEditEvent(event)}>
-                    Edit
-                  </button>
-                  <button 
-                    className="delete-btn" 
-                    onClick={() => handleDeleteItem('event', event.id)}
-                  >
-                    Delete
+                    <i className="fas fa-trash"></i>
                   </button>
                 </div>
               )}
@@ -1773,7 +1726,7 @@ const ScheduleManager = () => {
               <button className="close-btn" onClick={() => setSelectedProject(null)}>×</button>
             </div>
 
-            <p style={{color: 'var(--text-secondary)', marginBottom: '1.5rem'}}>{selectedProject.description}</p>
+            <p style={{color: 'var(--subtxt)', marginBottom: '1.5rem'}}>{selectedProject.description}</p>
 
             <div className="modal-project-meta">
               <div className="meta-item">
@@ -1801,7 +1754,7 @@ const ScheduleManager = () => {
             <div className="project-progress">
               <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem'}}>
                 <span style={{fontWeight: 600, color: 'var(--text)'}}>Overall Progress</span>
-                <span style={{fontWeight: 700, color: 'var(--primary)'}}>{selectedProject.progress}%</span>
+                <span style={{fontWeight: 700, color: 'var(--accent)'}}>{selectedProject.progress}%</span>
               </div>
               <div className="progress-bar" style={{height: '12px'}}>
                 <div 
@@ -1817,7 +1770,7 @@ const ScheduleManager = () => {
             {selectedProject.tasks && selectedProject.tasks.length > 0 && (
               <div className="modal-tasks-section">
                 <div className="modal-tasks-header">
-                  <h3 className="section-title">✓ Tasks ({selectedProject.tasks.length})</h3>
+                  <h3 className="section-title">Tasks ({selectedProject.tasks.length})</h3>
                 </div>
                 <div className="task-list">
                   {selectedProject.tasks.map(task => (
@@ -1840,7 +1793,7 @@ const ScheduleManager = () => {
                         </div>
                       </div>
                       
-                      <div style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.75rem'}}>
+                      <div style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', fontSize: '0.85rem', color: 'var(--subtxt)', marginTop: '0.75rem'}}>
                         <div><strong>Assigned:</strong> {task.assignedTo}</div>
                         <div><strong>Due:</strong> {new Date(task.dueDate).toLocaleDateString()}</div>
                         <div><strong>Priority:</strong> {task.priority}</div>
@@ -1879,7 +1832,7 @@ const ScheduleManager = () => {
                       setSelectedProject(null);
                     }}
                   >
-                    Edit Project
+                    <i className="fas fa-edit"></i> Edit Project
                   </button>
                   <button 
                     className="delete-btn" 
@@ -1889,7 +1842,7 @@ const ScheduleManager = () => {
                       setSelectedProject(null);
                     }}
                   >
-                    Delete Project
+                    <i className="fas fa-trash"></i> Delete Project
                   </button>
                 </>
               )}
@@ -1911,17 +1864,13 @@ const ScheduleManager = () => {
           <div className="modal">
             <div className="modal-header">
               <h2 className="modal-title">
-                {editingItem.type === 'project' ? 
-                  (scheduleData.projects.find(p => p.id === editingItem.id) ? 'Edit Project' : 'Add Project') :
-                  (scheduleData.events.find(e => e.id === editingItem.id) ? 'Edit Event' : 'Add Event')
-                }
+                {scheduleData.projects.find(p => p.id === editingItem.id) ? 'Edit Project' : 'Add Project'}
               </h2>
               <button className="close-btn" onClick={() => setIsEditing(false)}>×</button>
             </div>
 
-            {editingItem.type === 'project' ? (
-              <div>
-                <div className="form-group">
+            <div>
+              <div className="form-group">
                   <label className="form-label">Title</label>
                   <input
                     type="text"
@@ -2245,116 +2194,6 @@ const ScheduleManager = () => {
                   </button>
                 </div>
               </div>
-            ) : (
-              <div>
-                <div className="form-group">
-                  <label className="form-label">Title</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={editingItem.title}
-                    onChange={(e) => setEditingItem({...editingItem, title: e.target.value})}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Description</label>
-                  <textarea
-                    className="form-textarea"
-                    value={editingItem.description}
-                    onChange={(e) => setEditingItem({...editingItem, description: e.target.value})}
-                  />
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Team</label>
-                    <select
-                      className="form-select"
-                      value={editingItem.team}
-                      onChange={(e) => setEditingItem({...editingItem, team: e.target.value})}
-                    >
-                      {scheduleData.teams.map(team => (
-                        <option key={team.id} value={team.id}>{team.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Type</label>
-                    <select
-                      className="form-select"
-                      value={editingItem.eventType}
-                      onChange={(e) => setEditingItem({...editingItem, eventType: e.target.value})}
-                    >
-                      <option value="meeting">Meeting</option>
-                      <option value="testing">Testing</option>
-                      <option value="presentation">Presentation</option>
-                      <option value="deadline">Deadline</option>
-                      <option value="milestone">Milestone</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Date</label>
-                  <input
-                    type="date"
-                    className="form-input"
-                    value={editingItem.date}
-                    onChange={(e) => setEditingItem({...editingItem, date: e.target.value})}
-                  />
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Start Time</label>
-                    <input
-                      type="time"
-                      className="form-input"
-                      value={editingItem.startTime}
-                      onChange={(e) => setEditingItem({...editingItem, startTime: e.target.value})}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">End Time</label>
-                    <input
-                      type="time"
-                      className="form-input"
-                      value={editingItem.endTime}
-                      onChange={(e) => setEditingItem({...editingItem, endTime: e.target.value})}
-                    />
-                  </div>
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label className="form-label">Location</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={editingItem.location}
-                      onChange={(e) => setEditingItem({...editingItem, location: e.target.value})}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Priority</label>
-                    <select
-                      className="form-select"
-                      value={editingItem.priority}
-                      onChange={(e) => setEditingItem({...editingItem, priority: e.target.value})}
-                    >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="critical">Critical</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
 
             <div className="modal-actions">
               <button className="cancel-btn" onClick={() => setIsEditing(false)}>
@@ -2369,6 +2208,8 @@ const ScheduleManager = () => {
       )}
     </div>
   );
-};
+});
+
+ScheduleManager.displayName = 'ScheduleManager';
 
 export default ScheduleManager;

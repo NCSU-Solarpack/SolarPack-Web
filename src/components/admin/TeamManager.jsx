@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { authService } from '../../utils/auth';
 import { supabaseService } from '../../utils/supabase';
 import { useSupabaseSyncStatus } from '../../hooks/useSupabaseSyncStatus';
 import SyncStatusBadge from '../SyncStatusBadge';
 import { useAlert } from '../../contexts/AlertContext';
 
-const TeamManager = () => {
+const TeamManager = forwardRef((props, ref) => {
   const [teamData, setTeamData] = useState({ teamMembers: [], lastUpdated: '' });
   const [isEditing, setIsEditing] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
@@ -24,6 +24,25 @@ const TeamManager = () => {
     () => supabaseService.getTeamMembers(),
     2000 // Check every 2 seconds
   );
+
+  // Expose methods to parent component
+  useImperativeHandle(ref, () => ({
+    handleAddMember: () => {
+      setEditingMember({
+        id: Date.now(),
+        name: '',
+        role: '',
+        image: '',
+        bio: '',
+        email: '',
+        linkedin: '',
+        order: teamData.teamMembers.length + 1
+      });
+      setImageFile(null);
+      setImagePreview(null);
+      setIsEditing(true);
+    }
+  }));
 
   useEffect(() => {
     loadTeamData();
@@ -921,6 +940,8 @@ const TeamManager = () => {
       )}
     </div>
   );
-};
+});
+
+TeamManager.displayName = 'TeamManager';
 
 export default TeamManager;

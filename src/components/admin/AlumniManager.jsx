@@ -277,7 +277,7 @@ const AlumniManager = () => {
         .alumni-title {
           font-family: 'Bebas Neue', sans-serif;
           font-size: 2rem;
-          color: var(--accent);
+          color: var(--text);
           margin: 0;
         }
 
