@@ -439,44 +439,282 @@ class SupabaseService {
 
   // ===== SCHEDULE DATA =====
   
-  async getSchedules() {
+  // Get all schedule data (teams, projects, tasks)
+  async getScheduleData() {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    try {
+      // Fetch all data in parallel
+      const [teamsResult, projectsResult] = await Promise.all([
+        this.client.from('schedule_teams').select('*').order('name', { ascending: true }),
+        this.client.from('schedule_projects').select('*').order('due_date', { ascending: true })
+      ]);
+      
+      if (teamsResult.error) throw teamsResult.error;
+      if (projectsResult.error) throw projectsResult.error;
+      
+      // Fetch tasks for all projects
+      const projectIds = (projectsResult.data || []).map(p => p.id);
+      let tasksData = [];
+      
+      if (projectIds.length > 0) {
+        const { data: tasks, error: tasksError } = await this.client
+          .from('schedule_tasks')
+          .select('*')
+          .in('project_id', projectIds)
+          .order('due_date', { ascending: true });
+        
+        if (tasksError) throw tasksError;
+        tasksData = tasks || [];
+      }
+      
+      // Transform projects to include their tasks
+      const projects = (projectsResult.data || []).map(project => ({
+        ...this.transformProjectFromDB(project),
+        tasks: tasksData
+          .filter(task => task.project_id === project.id)
+          .map(task => this.transformTaskFromDB(task))
+      }));
+      
+      return {
+        teams: (teamsResult.data || []).map(team => ({
+          id: team.id,
+          name: team.name,
+          color: team.color,
+          description: team.description
+        })),
+        projects,
+        lastUpdated: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Error fetching schedule data:', error);
+      throw error;
+    }
+  }
+  
+  // ===== TEAMS =====
+  
+  async getTeams() {
     if (!this.client) throw new Error('Supabase not configured');
     
     const { data, error } = await this.client
-      .from('schedules')
+      .from('schedule_teams')
       .select('*')
-      .order('date', { ascending: false });
+      .order('name', { ascending: true });
     
     if (error) throw error;
-    return {
-      schedules: data || [],
-      lastUpdated: new Date().toISOString()
-    };
+    return data || [];
   }
-
-  async saveSchedule(schedule) {
+  
+  async saveTeam(team) {
     if (!this.client) throw new Error('Supabase not configured');
     
     const { data, error } = await this.client
-      .from('schedules')
-      .upsert(schedule)
+      .from('schedule_teams')
+      .upsert(team)
       .select()
       .single();
     
     if (error) throw error;
     return data;
   }
-
-  async deleteSchedule(id) {
+  
+  async deleteTeam(id) {
     if (!this.client) throw new Error('Supabase not configured');
     
     const { error } = await this.client
-      .from('schedules')
+      .from('schedule_teams')
       .delete()
       .eq('id', id);
     
     if (error) throw error;
   }
+  
+  // ===== PROJECTS =====
+  
+  async getProjects() {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { data, error } = await this.client
+      .from('schedule_projects')
+      .select('*')
+      .order('due_date', { ascending: true });
+    
+    if (error) throw error;
+    return (data || []).map(p => this.transformProjectFromDB(p));
+  }
+  
+  async saveProject(project) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const dbProject = this.transformProjectToDB(project);
+    
+    const { data, error } = await this.client
+      .from('schedule_projects')
+      .upsert(dbProject)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return this.transformProjectFromDB(data);
+  }
+  
+  async deleteProject(id) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    // Tasks will be cascade deleted automatically
+    const { error } = await this.client
+      .from('schedule_projects')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+  }
+  
+  // ===== TASKS =====
+  
+  async getTasks(projectId = null) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    let query = this.client
+      .from('schedule_tasks')
+      .select('*')
+      .order('due_date', { ascending: true });
+    
+    if (projectId) {
+      query = query.eq('project_id', projectId);
+    }
+    
+    const { data, error } = await query;
+    
+    if (error) throw error;
+    return (data || []).map(t => this.transformTaskFromDB(t));
+  }
+  
+  async saveTask(task) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const dbTask = this.transformTaskToDB(task);
+    
+    const { data, error } = await this.client
+      .from('schedule_tasks')
+      .upsert(dbTask)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return this.transformTaskFromDB(data);
+  }
+  
+  async deleteTask(id) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { error } = await this.client
+      .from('schedule_tasks')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+  }
+  
+
+  
+  // ===== TRANSFORMATION HELPERS =====
+  
+  // Transform project from database format to application format
+  transformProjectFromDB(dbProject) {
+    if (!dbProject) return null;
+    
+    return {
+      id: dbProject.id,
+      title: dbProject.title,
+      description: dbProject.description,
+      team: dbProject.team,
+      priority: dbProject.priority,
+      status: dbProject.status,
+      startDate: dbProject.start_date,
+      dueDate: dbProject.due_date,
+      estimatedHours: dbProject.estimated_hours || 0,
+      actualHours: dbProject.actual_hours || 0,
+      progress: dbProject.progress || 0,
+      assignedTo: dbProject.assigned_to,
+      notes: dbProject.notes,
+      tasks: [] // Tasks will be populated separately
+    };
+  }
+  
+  // Transform project from application format to database format
+  transformProjectToDB(project) {
+    const dbProject = {
+      title: project.title,
+      description: project.description,
+      team: project.team,
+      priority: project.priority || 'medium',
+      status: project.status || 'planning',
+      start_date: project.startDate,
+      due_date: project.dueDate,
+      estimated_hours: project.estimatedHours || 0,
+      actual_hours: project.actualHours || 0,
+      progress: project.progress || 0,
+      assigned_to: project.assignedTo,
+      notes: project.notes
+    };
+    
+    // Only include id if it exists (for updates)
+    if (project.id) {
+      dbProject.id = project.id;
+    }
+    
+    return dbProject;
+  }
+  
+  // Transform task from database format to application format
+  transformTaskFromDB(dbTask) {
+    if (!dbTask) return null;
+    
+    return {
+      id: dbTask.id,
+      projectId: dbTask.project_id,
+      title: dbTask.title,
+      description: dbTask.description,
+      startDate: dbTask.start_date,
+      dueDate: dbTask.due_date,
+      estimatedHours: dbTask.estimated_hours || 0,
+      actualHours: dbTask.actual_hours || 0,
+      status: dbTask.status,
+      priority: dbTask.priority,
+      assignedTo: dbTask.assigned_to,
+      progress: dbTask.progress || 0,
+      notes: dbTask.notes
+    };
+  }
+  
+  // Transform task from application format to database format
+  transformTaskToDB(task) {
+    const dbTask = {
+      project_id: task.projectId,
+      title: task.title,
+      description: task.description,
+      start_date: task.startDate,
+      due_date: task.dueDate,
+      estimated_hours: task.estimatedHours || 0,
+      actual_hours: task.actualHours || 0,
+      status: task.status || 'pending',
+      priority: task.priority || 'medium',
+      assigned_to: task.assignedTo,
+      progress: task.progress || 0,
+      notes: task.notes
+    };
+    
+    // Only include id if it exists (for updates)
+    if (task.id) {
+      dbTask.id = task.id;
+    }
+    
+    return dbTask;
+  }
+  
+
 
   // ===== ORDERS DATA =====
   
