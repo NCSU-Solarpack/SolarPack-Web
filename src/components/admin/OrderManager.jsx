@@ -661,17 +661,17 @@ const OrderManager = forwardRef((props, ref) => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'pending_technical_approval': return '#fd7e14';
-      case 'awaiting_sponsorship': return '#17a2b8';
-      case 'pending_purchase_approval': return '#ffc107';
-      case 'approved_for_purchase': return '#007bff';
-      case 'in_transit': return '#6f42c1';
-      case 'delivered': return '#28a745';
-      case 'denied': return '#dc3545';
+      case 'pending_technical_approval': return '#f59e0b'; // Warm amber for pending
+      case 'awaiting_sponsorship': return '#8b5cf6'; // Purple for sponsorship process
+      case 'pending_purchase_approval': return '#f59e0b'; // Same amber for consistency
+      case 'approved_for_purchase': return '#10b981'; // Emerald green for approved
+      case 'in_transit': return '#3b82f6'; // Clean blue for in-transit
+      case 'delivered': return '#059669'; // Darker green for completion
+      case 'denied': return '#ef4444'; // Clean red for denied
       // Legacy statuses
-      case 'pending_approval': return '#fd7e14';
-      case 'purchased': return '#6f42c1';
-      default: return '#6c757d';
+      case 'pending_approval': return '#f59e0b';
+      case 'purchased': return '#3b82f6';
+      default: return '#6b7280';
     }
   };
 
@@ -2046,7 +2046,8 @@ const OrderManager = forwardRef((props, ref) => {
         }
 
         .order-details {
-          background: rgba(0, 123, 255, 0.1);
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.08);
           padding: 1rem;
           border-radius: 6px;
           margin: 1rem 0;
@@ -2126,57 +2127,57 @@ const OrderManager = forwardRef((props, ref) => {
         }
 
         .approve-btn {
-          background: #28a745;
+          background: #10b981;
           color: white;
         }
 
         .approve-btn:hover {
-          background: #218838;
+          background: #059669;
         }
 
         .reject-btn {
-          background: #dc3545;
+          background: #ef4444;
           color: white;
         }
 
         .reject-btn:hover {
-          background: #c82333;
+          background: #dc2626;
         }
 
         .mark-ordered-btn {
-          background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+          background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
           color: white;
         }
 
         .mark-ordered-btn:hover {
-          background: linear-gradient(135deg, #138496 0%, #117a8b 100%);
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
         }
 
         .mark-delivered-btn {
-          background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
           color: white;
         }
 
         .mark-delivered-btn:hover {
-          background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+          background: linear-gradient(135deg, #059669 0%, #047857 100%);
         }
 
         .approve-deny-btn {
-          background: linear-gradient(135deg, var(--accent) 0%, #c71821 100%);
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
           color: white;
         }
 
         .approve-deny-btn:hover {
-          background: linear-gradient(135deg, #c71821 0%, #a01419 100%);
+          background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
         }
 
         .sponsorship-btn {
-          background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
           color: white;
         }
 
         .sponsorship-btn:hover {
-          background: linear-gradient(135deg, #138496 0%, #117a8b 100%);
+          background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
         }
 
         .stats-summary {
@@ -2271,7 +2272,7 @@ const OrderManager = forwardRef((props, ref) => {
         }
 
         .btn-edit-order {
-          background: #007bff;
+          background: #3b82f6;
           border: none;
           color: white;
           font-size: 1.2rem;
@@ -2282,7 +2283,7 @@ const OrderManager = forwardRef((props, ref) => {
         }
 
         .btn-edit-order:hover {
-          background: #0056b3;
+          background: #2563eb;
           transform: scale(1.05);
         }
 
@@ -2340,8 +2341,8 @@ const OrderManager = forwardRef((props, ref) => {
         }
 
         .edit-actions {
-          background: rgba(0, 123, 255, 0.1);
-          border: 2px solid #007bff;
+          background: rgba(59, 130, 246, 0.08);
+          border: 2px solid #3b82f6;
           padding: 1.5rem;
           border-radius: 8px;
         }
@@ -2353,7 +2354,7 @@ const OrderManager = forwardRef((props, ref) => {
         }
 
         .btn-save-edit {
-          background: #28a745;
+          background: #10b981;
           color: white;
           border: none;
           padding: 0.75rem 2rem;
@@ -2365,13 +2366,13 @@ const OrderManager = forwardRef((props, ref) => {
         }
 
         .btn-save-edit:hover {
-          background: #218838;
+          background: #059669;
           transform: translateY(-2px);
-          box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+          box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
         }
 
         .btn-cancel-edit {
-          background: #6c757d;
+          background: #6b7280;
           color: white;
           border: none;
           padding: 0.75rem 2rem;
@@ -2383,7 +2384,7 @@ const OrderManager = forwardRef((props, ref) => {
         }
 
         .btn-cancel-edit:hover {
-          background: #5a6268;
+          background: #4b5563;
           transform: translateY(-2px);
         }
 
@@ -2474,22 +2475,22 @@ const OrderManager = forwardRef((props, ref) => {
         }
 
         .approval-status.pending {
-          background: #fd7e14;
+          background: #f59e0b;
           color: white;
         }
 
         .approval-status.approved {
-          background: #28a745;
+          background: #10b981;
           color: white;
         }
 
         .approval-status.denied {
-          background: #dc3545;
+          background: #ef4444;
           color: white;
         }
 
         .approval-status.not_required {
-          background: #6c757d;
+          background: #6b7280;
           color: white;
         }
 
@@ -2504,27 +2505,27 @@ const OrderManager = forwardRef((props, ref) => {
         }
 
         .sponsorship-status.not_started {
-          background: #6c757d;
+          background: #6b7280;
           color: white;
         }
 
         .sponsorship-status.in_progress {
-          background: #17a2b8;
+          background: #8b5cf6;
           color: white;
         }
 
         .sponsorship-status.successful {
-          background: #28a745;
+          background: #10b981;
           color: white;
         }
 
         .sponsorship-status.failed {
-          background: #dc3545;
+          background: #ef4444;
           color: white;
         }
 
         .sponsorship-status.not_applicable {
-          background: #495057;
+          background: #4b5563;
           color: white;
         }
 
@@ -2543,8 +2544,8 @@ const OrderManager = forwardRef((props, ref) => {
 
         /* Approval Actions */
         .approval-actions {
-          background: rgba(220, 53, 69, 0.1);
-          border: 2px solid var(--accent);
+          background: rgba(245, 158, 11, 0.08);
+          border: 2px solid #f59e0b;
           padding: 1.5rem;
           border-radius: 8px;
         }
@@ -2578,37 +2579,38 @@ const OrderManager = forwardRef((props, ref) => {
         }
 
         .btn-approve {
-          background: #28a745;
+          background: #10b981;
           color: white;
         }
 
         .btn-approve:hover {
-          background: #218838;
+          background: #059669;
           transform: translateY(-2px);
-          box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+          box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);
         }
 
         .btn-deny {
-          background: #dc3545;
+          background: #ef4444;
           color: white;
         }
 
         .btn-deny:hover {
-          background: #c82333;
+          background: #dc2626;
           transform: translateY(-2px);
-          box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+          box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
         }
 
         /* Purchase Modal Styles */
         .purchase-order-summary {
-          background: rgba(0, 123, 255, 0.1);
+          background: rgba(59, 130, 246, 0.08);
+          border: 1px solid rgba(59, 130, 246, 0.3);
           padding: 1rem;
           border-radius: 6px;
           margin-bottom: 1.5rem;
         }
 
         .purchase-order-summary h4 {
-          color: var(--accent);
+          color: #3b82f6;
           margin: 0 0 0.5rem 0;
         }
 
@@ -2619,15 +2621,15 @@ const OrderManager = forwardRef((props, ref) => {
 
         /* Approval Modal Styles */
         .approval-order-summary {
-          background: rgba(220, 53, 69, 0.1);
+          background: rgba(245, 158, 11, 0.08);
           padding: 1rem;
           border-radius: 6px;
           margin-bottom: 1.5rem;
-          border: 1px solid rgba(220, 53, 69, 0.3);
+          border: 1px solid rgba(245, 158, 11, 0.3);
         }
 
         .approval-order-summary h4 {
-          color: var(--accent);
+          color: #f59e0b;
           margin: 0 0 0.5rem 0;
         }
 
@@ -2644,7 +2646,7 @@ const OrderManager = forwardRef((props, ref) => {
         }
 
         .btn-cancel {
-          background: #6c757d;
+          background: #6b7280;
           color: white;
           border: none;
           padding: 0.75rem 1.5rem;
@@ -2655,11 +2657,11 @@ const OrderManager = forwardRef((props, ref) => {
         }
 
         .btn-cancel:hover {
-          background: #545b62;
+          background: #4b5563;
         }
 
         .btn-submit {
-          background: var(--accent);
+          background: #3b82f6;
           color: white;
           border: none;
           padding: 0.75rem 1.5rem;
@@ -2670,30 +2672,30 @@ const OrderManager = forwardRef((props, ref) => {
         }
 
         .btn-submit:hover {
-          background: #c71821;
+          background: #2563eb;
           transform: translateY(-1px);
         }
 
         /* Next Steps Section */
         .next-steps {
-          background: rgba(40, 167, 69, 0.1);
-          border-left: 4px solid #28a745;
+          background: rgba(16, 185, 129, 0.08);
+          border-left: 4px solid #10b981;
           padding: 1.5rem;
           border-radius: 6px;
         }
 
         .next-steps.denied {
-          background: rgba(220, 53, 69, 0.1);
-          border-left-color: #dc3545;
+          background: rgba(239, 68, 68, 0.08);
+          border-left-color: #ef4444;
         }
 
         .next-steps h4 {
           margin: 0 0 1rem 0;
-          color: #28a745;
+          color: #10b981;
         }
 
         .next-steps.denied h4 {
-          color: #dc3545;
+          color: #ef4444;
         }
 
         .next-steps-content p {
@@ -2759,7 +2761,8 @@ const OrderManager = forwardRef((props, ref) => {
         .cost-preview {
           margin-top: 1rem;
           padding: 1rem;
-          background: rgba(0, 123, 255, 0.1);
+          background: rgba(59, 130, 246, 0.08);
+          border: 1px solid rgba(59, 130, 246, 0.2);
           border-radius: 6px;
           text-align: center;
           color: var(--text);
