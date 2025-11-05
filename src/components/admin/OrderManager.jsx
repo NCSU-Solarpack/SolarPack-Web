@@ -1186,9 +1186,9 @@ const OrderManager = forwardRef((props, ref) => {
                 <div className="approval-item">
                   <strong>2. Purchase Approval:</strong>
                   <span className={`approval-status ${
-                    order.approvalWorkflow?.purchaseApproval?.status || 'not_required'
+                    order.approvalWorkflow?.purchaseApproval?.status || 'pending'
                   }`}>
-                    {(order.approvalWorkflow?.purchaseApproval?.status || 'not_required').replace(/_/g, ' ').toUpperCase()}
+                    {(order.approvalWorkflow?.purchaseApproval?.status || 'pending').replace(/_/g, ' ').toUpperCase()}
                   </span>
                   {order.approvalWorkflow?.purchaseApproval?.status === 'not_required' && (
                     <p className="approval-meta">✨ {order.approvalWorkflow.purchaseApproval.comments || 'Purchase approval not needed'}</p>
@@ -1243,11 +1243,20 @@ const OrderManager = forwardRef((props, ref) => {
             {/* Next Steps Section */}
             {order.status === 'awaiting_sponsorship' && (
               <div className="detail-section next-steps">
-                <h4>🔍 Awaiting Sponsorship Update</h4>
+                <h4>
+                  {(order.sponsorshipInfo?.sponsorshipSearchStatus === 'successful' || 
+                    order.sponsorshipInfo?.sponsorshipSearchStatus === 'failed') 
+                    ? '✓ Sponsorship Search Completed' 
+                    : '✓ Sponsorship Search Completed'}
+                </h4>
                 <div className="next-steps-content">
-                  <p>This order has been approved by the Technical Director. The sponsorship search is currently in progress.</p>
                   <p><strong>Current Search Status:</strong> {(order.sponsorshipInfo?.sponsorshipSearchStatus || 'in_progress').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
-                  <p>Once the sponsorship search is complete, the Technical Director will update the status to determine next steps.</p>
+                  {(order.sponsorshipInfo?.sponsorshipSearchStatus === 'successful' || 
+                    order.sponsorshipInfo?.sponsorshipSearchStatus === 'failed') ? (
+                    <p>The sponsorship search is complete. The Technical Director will now proceed with final approval or denial of the order.</p>
+                  ) : (
+                    <p>The sponsorship search is complete. The Technical Director will now proceed with final approval or denial of the order.</p>
+                  )}
                 </div>
               </div>
             )}
@@ -1301,80 +1310,114 @@ const OrderManager = forwardRef((props, ref) => {
             {isDirector && (order.status === 'pending_approval' || order.status === 'pending_technical_approval' || order.status === 'awaiting_sponsorship') && (
               <div className="detail-section approval-actions">
                 <h4>Step 1: Sponsorship Search Status</h4>
-                <p className="approval-help-text">
-                  First, update the sponsorship search status. Once set to "Not Applicable" or "Failed", you can then approve or deny the order in Step 2 below.
-                </p>
-                <div className="approval-form">
-                  <div className="form-group">
-                    <label>Sponsorship Search Status *</label>
-                    <select 
-                      id={`sponsorship-status-${order.id}`}
-                      defaultValue={order.sponsorshipInfo?.sponsorshipSearchStatus || 'not_started'}
-                    >
-                      <option value="not_applicable">Not Applicable (Cannot be sponsored)</option>
-                      <option value="not_started">Not Started</option>
-                      <option value="in_progress">In Progress (Currently searching)</option>
-                      <option value="successful">Successful (Obtained for free!)</option>
-                      <option value="failed">Failed (Need to purchase)</option>
-                    </select>
-                    <small style={{color: 'var(--subtxt)', fontSize: '0.85rem', marginTop: '0.5rem', display: 'block'}}>
-                      • If successful, purchase approval will be skipped<br/>
-                      • If failed/not applicable, order will require purchase approval<br/>
-                      • Set to "Not Applicable" or "Failed" to unlock approval buttons below
-                    </small>
+                {(order.sponsorshipInfo?.sponsorshipSearchStatus === 'not_applicable' || 
+                  order.sponsorshipInfo?.sponsorshipSearchStatus === 'failed' ||
+                  order.sponsorshipInfo?.sponsorshipSearchStatus === 'successful') ? (
+                  // Collapsed/Read-only view after status is finalized
+                  <div className="sponsorship-finalized">
+                    <p className="approval-help-text" style={{marginBottom: '1rem'}}>
+                      ✓ Sponsorship status has been set and locked. Proceed to Step 2 below to approve or deny the order.
+                    </p>
+                    <div className="sponsorship-summary">
+                      <div className="summary-item">
+                        <strong>Status:</strong>
+                        <span className={`sponsorship-status ${order.sponsorshipInfo?.sponsorshipSearchStatus || 'not_started'}`}>
+                          {(order.sponsorshipInfo?.sponsorshipSearchStatus || 'not_started').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </span>
+                      </div>
+                      {order.sponsorshipInfo?.sponsorshipResponse && (
+                        <div className="summary-item">
+                          <strong>Notes:</strong>
+                          <p style={{margin: '0.25rem 0 0 0', color: 'var(--subtxt)'}}>{order.sponsorshipInfo.sponsorshipResponse}</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="form-group">
-                    <label>Sponsorship Notes</label>
-                    <textarea 
-                      id={`sponsorship-notes-${order.id}`}
-                      placeholder="Add notes about sponsorship search, sponsor contact info, or why it cannot be sponsored..."
-                      rows="2"
-                      defaultValue={order.sponsorshipInfo?.sponsorshipResponse || ''}
-                    />
-                  </div>
-                  <div className="approval-buttons">
-                    <button 
-                      className="btn-primary"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        const sponsorshipStatus = document.getElementById(`sponsorship-status-${order.id}`).value;
-                        const sponsorshipNotes = document.getElementById(`sponsorship-notes-${order.id}`).value;
-                        
-                        await updateOrderStatus(order.id, {
-                          type: 'sponsorship_status',
-                          searchStatus: sponsorshipStatus
-                        });
-                        
-                        if (sponsorshipNotes.trim()) {
-                          await updateOrderStatus(order.id, {
-                            type: 'sponsorship_response',
-                            successful: sponsorshipStatus === 'successful',
-                            response: sponsorshipNotes
-                          });
-                        }
-                        
-                        // Reload the order details to show updated status
-                        const updatedOrders = orders.map(o => {
-                          if (o.id === order.id) {
-                            return {
-                              ...o,
-                              sponsorshipInfo: {
-                                ...o.sponsorshipInfo,
-                                sponsorshipSearchStatus: sponsorshipStatus,
-                                sponsorshipResponse: sponsorshipNotes
+                ) : (
+                  // Editable view for initial sponsorship status setting
+                  <>
+                    <p className="approval-help-text">
+                      First, update the sponsorship search status. Once set to "Not Applicable", "Failed", or "Successful", you can then approve or deny the order in Step 2 below.
+                    </p>
+                    <div className="approval-form">
+                      <div className="form-group">
+                        <label>Sponsorship Search Status *</label>
+                        <select 
+                          id={`sponsorship-status-${order.id}`}
+                          defaultValue={order.sponsorshipInfo?.sponsorshipSearchStatus || 'in_progress'}
+                        >
+                          <option value="not_applicable">Not Applicable (Cannot be sponsored)</option>
+                          <option value="in_progress">In Progress (Currently searching)</option>
+                          <option value="successful">Successful (Obtained for free!)</option>
+                          <option value="failed">Failed (Need to purchase)</option>
+                        </select>
+                        <small style={{color: 'var(--subtxt)', fontSize: '0.85rem', marginTop: '0.5rem', display: 'block'}}>
+                          • If successful, purchase approval will be skipped<br/>
+                          • If failed/not applicable, order will require purchase approval<br/>
+                          • Status will be locked after saving to prevent changes
+                        </small>
+                      </div>
+                      <div className="form-group">
+                        <label>Sponsorship Notes</label>
+                        <textarea 
+                          id={`sponsorship-notes-${order.id}`}
+                          placeholder="Add notes about sponsorship search, sponsor contact info, or why it cannot be sponsored..."
+                          rows="2"
+                          defaultValue={order.sponsorshipInfo?.sponsorshipResponse || ''}
+                        />
+                      </div>
+                      <div className="approval-buttons">
+                        <button 
+                          className="btn-primary"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const sponsorshipStatus = document.getElementById(`sponsorship-status-${order.id}`).value;
+                            const sponsorshipNotes = document.getElementById(`sponsorship-notes-${order.id}`).value;
+                            
+                            // Confirm before locking the sponsorship status
+                            const confirmed = await showConfirm(
+                              'Are you sure you want to lock this sponsorship status? Once saved, it cannot be changed.',
+                              'Confirm Lock Sponsorship Status'
+                            );
+                            if (!confirmed) return;
+                            
+                            await updateOrderStatus(order.id, {
+                              type: 'sponsorship_status',
+                              searchStatus: sponsorshipStatus
+                            });
+                            
+                            if (sponsorshipNotes.trim()) {
+                              await updateOrderStatus(order.id, {
+                                type: 'sponsorship_response',
+                                successful: sponsorshipStatus === 'successful',
+                                response: sponsorshipNotes
+                              });
+                            }
+                            
+                            // Reload the order details to show updated status
+                            const updatedOrders = orders.map(o => {
+                              if (o.id === order.id) {
+                                return {
+                                  ...o,
+                                  sponsorshipInfo: {
+                                    ...o.sponsorshipInfo,
+                                    sponsorshipSearchStatus: sponsorshipStatus,
+                                    sponsorshipResponse: sponsorshipNotes
+                                  }
+                                };
                               }
-                            };
-                          }
-                          return o;
-                        });
-                        const updatedOrder = updatedOrders.find(o => o.id === order.id);
-                        setSelectedOrder(updatedOrder);
-                      }}
-                    >
-                      💾 Save/Update Sponsorship Status
-                    </button>
-                  </div>
-                </div>
+                              return o;
+                            });
+                            const updatedOrder = updatedOrders.find(o => o.id === order.id);
+                            setSelectedOrder(updatedOrder);
+                          }}
+                        >
+                          Save & Lock Sponsorship Status
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -2797,8 +2840,8 @@ const OrderManager = forwardRef((props, ref) => {
           <div className="stat-label">Pending Tech Approval</div>
         </div>
         <div className="stat-card">
-          <div className="stat-number">{filteredOrders.filter(o => o.status === 'awaiting_sponsorship').length}</div>
-          <div className="stat-label">Awaiting Sponsorship</div>
+          <div className="stat-number">{filteredOrders.filter(o => o.status === 'awaiting_sponsorship' || o.status === 'pending_purchase_approval').length}</div>
+          <div className="stat-label">Pending Purchase Approval</div>
         </div>
         <div className="stat-card">
           <div className="stat-number">{filteredOrders.filter(o => o.status === 'approved_for_purchase').length}</div>
@@ -2813,10 +2856,6 @@ const OrderManager = forwardRef((props, ref) => {
             ${filteredOrders.reduce((total, order) => total + (order.costBreakdown?.totalCost || 0), 0).toFixed(2)}
           </div>
           <div className="stat-label">Total Value</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-number">{filteredOrders.filter(o => o.status === 'delivered').length}</div>
-          <div className="stat-label">Delivered</div>
         </div>
       </div>
 
