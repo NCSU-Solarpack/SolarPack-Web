@@ -67,7 +67,7 @@ export default function StatusDropdown({ value, options, color, onChange, disabl
             padding: 6,
             boxShadow: '0 8px 24px #0008',
             zIndex: 20,
-            minWidth: 160
+            minWidth: 200
           }}
         >
           {options.map(opt => (

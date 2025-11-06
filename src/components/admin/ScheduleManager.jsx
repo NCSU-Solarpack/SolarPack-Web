@@ -1,21 +1,32 @@
 import { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
-import { authService } from '../../utils/auth';
+import { authService, AUTH_LEVELS } from '../../utils/auth';
 import { supabaseService } from '../../utils/supabase';
 import { useAlert } from '../../contexts/AlertContext';
 import StatusDropdown from '../StatusDropdown';
+import InlineNotesEditor from '../InlineNotesEditor';
 
 const ScheduleManager = forwardRef((props, ref) => {
-  const { showAlert } = useAlert();
+  const { showAlert, showConfirm } = useAlert();
   const [scheduleData, setScheduleData] = useState({ teams: [], projects: [], lastUpdated: '' });
   const [activeView, setActiveView] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTeam, setSelectedTeam] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedProject, setSelectedProject] = useState(null);
+  const [selectedDateInfo, setSelectedDateInfo] = useState(null); // { date: Date, items: [] }
   const [calendarView, setCalendarView] = useState('month'); // month, week
   const [currentDate, setCurrentDate] = useState(new Date());
   const [expandedTasks, setExpandedTasks] = useState({}); // Track which projects have tasks expanded
+
+  // Role-based permissions
+  const userLevel = authService.getLevel();
+  const isMember = userLevel === AUTH_LEVELS.MEMBER;
+  const isLeader = userLevel === AUTH_LEVELS.LEADER;
+  const isDirector = userLevel === AUTH_LEVELS.DIRECTOR;
+  const canEdit = authService.hasPermission('edit_schedules'); // Leaders and Directors can edit
+  const canEditDates = isDirector; // Only Directors can edit dates
 
   // Expose methods to parent component
   useImperativeHandle(ref, () => ({
@@ -88,10 +99,35 @@ const ScheduleManager = forwardRef((props, ref) => {
     return team ? team.color : '#6c757d';
   };
 
+  // Helper function to format dates without timezone issues
+  // When we store "2024-12-03", we want to display "12/3/2024" regardless of timezone
+  const formatDateLocal = (dateString) => {
+    if (!dateString) return '';
+    const [year, month, day] = dateString.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return date.toLocaleDateString();
+  };
+
+  // Helper function to format dates with custom options
+  const formatDateLocalWithOptions = (dateString, options) => {
+    if (!dateString) return '';
+    const [year, month, day] = dateString.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return date.toLocaleDateString('en-US', options);
+  };
+
+  // Helper function to parse date strings to Date objects in local timezone
+  const parseDateLocal = (dateString) => {
+    if (!dateString) return null;
+    const [year, month, day] = dateString.split('-');
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+  };
+
   const isOverdue = (dueDate, status) => {
     if (status === 'completed') return false;
     const today = new Date();
-    const due = new Date(dueDate);
+    today.setHours(0, 0, 0, 0); // Reset time to midnight for accurate date comparison
+    const due = parseDateLocal(dueDate);
     return due < today;
   };
 
@@ -102,8 +138,22 @@ const ScheduleManager = forwardRef((props, ref) => {
       case 'in-progress': return '#6c757d'; // Gray for in-progress
       case 'pending': return '#ffc107'; // Yellow for pending
       case 'planning': return '#6c757d'; // Gray for planning
+      case 'on-hold': return '#6c757d'; // Gray for on-hold
+      case 'cancelled': return '#6c757d'; // Gray for cancelled
       case 'critical': return '#dc3545'; // Red for critical
       default: return '#6c757d'; // Gray default
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'planning': return 'Planning';
+      case 'pending': return 'Pending';
+      case 'in-progress': return 'In Progress';
+      case 'completed': return 'Completed';
+      case 'on-hold': return 'On Hold';
+      case 'cancelled': return 'Canceled';
+      default: return String(status || '').toString();
     }
   };
 
@@ -111,6 +161,11 @@ const ScheduleManager = forwardRef((props, ref) => {
   const TASK_STATUSES = ['pending', 'in-progress', 'completed', 'blocked', 'cancelled'];
 
   const handleProjectStatusChange = async (project, newStatus) => {
+    if (!canEdit) {
+      showAlert('You do not have permission to change project status. Only team leaders and directors can edit schedules.', 'error');
+      return;
+    }
+    
     try {
       // Optimistic UI update
       const newProgress = newStatus === 'completed' 
@@ -132,6 +187,11 @@ const ScheduleManager = forwardRef((props, ref) => {
   };
 
   const handleTaskStatusChange = async (projectId, task, newStatus) => {
+    if (!canEdit) {
+      showAlert('You do not have permission to change task status. Only team leaders and directors can edit schedules.', 'error');
+      return;
+    }
+    
     try {
       const newProgress = newStatus === 'completed' 
         ? 100 
@@ -152,14 +212,34 @@ const ScheduleManager = forwardRef((props, ref) => {
       await loadScheduleData();
     }
   };
+  const handleWeeklyNotesSave = async (project, newNotes) => {
+    if (!canEdit) {
+      showAlert('You do not have permission to edit weekly notes. Only team leaders and directors can edit schedules.', 'error');
+      return;
+    }
+    
+    try {
+      setScheduleData(prev => ({
+        ...prev,
+        projects: prev.projects.map(p => p.id === project.id ? { ...p, weeklyNotes: newNotes } : p)
+      }));
+      await supabaseService.updateProjectFields(project.id, { weekly_notes: newNotes });
+      showAlert('Weekly notes saved', 'success');
+    } catch (error) {
+      console.error('Failed to save weekly notes:', error);
+      showAlert(`Failed to save weekly notes: ${error.message}`, 'error');
+      await loadScheduleData();
+    }
+  };
 
   const calculateProgress = (startDate, dueDate, status) => {
     if (status === 'completed') return 100;
     if (!startDate || !dueDate) return 0;
     
-    const start = new Date(startDate);
-    const due = new Date(dueDate);
+    const start = parseDateLocal(startDate);
+    const due = parseDateLocal(dueDate);
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     
     // If project hasn't started yet
     if (today < start) return 0;
@@ -176,6 +256,11 @@ const ScheduleManager = forwardRef((props, ref) => {
   };
 
   const handleAddProject = () => {
+    if (!canEdit) {
+      showAlert('You do not have permission to add projects. Only team leaders and directors can edit schedules.', 'error');
+      return;
+    }
+    
     setEditingItem({
       type: 'project',
       // Don't set id - let Supabase auto-generate it
@@ -197,11 +282,21 @@ const ScheduleManager = forwardRef((props, ref) => {
   };
 
   const handleEditProject = (project) => {
+    if (!canEdit) {
+      showAlert('You do not have permission to edit projects. Only team leaders and directors can edit schedules.', 'error');
+      return;
+    }
+    
     setEditingItem({ ...project, type: 'project' });
     setIsEditing(true);
   };
 
   const handleEditTask = (project, task) => {
+    if (!canEdit) {
+      showAlert('You do not have permission to edit tasks. Only team leaders and directors can edit schedules.', 'error');
+      return;
+    }
+    
     setEditingItem({
       ...project,
       type: 'project',
@@ -211,7 +306,18 @@ const ScheduleManager = forwardRef((props, ref) => {
   };
 
   const handleDeleteTask = async (projectId, taskId) => {
-    if (!window.confirm('Are you sure you want to delete this task?')) return;
+    if (!canEdit) {
+      showAlert('You do not have permission to delete tasks. Only team leaders and directors can edit schedules.', 'error');
+      return;
+    }
+    
+    const confirmed = await showConfirm(
+      'Are you sure you want to delete this task? This action cannot be undone.',
+      'Delete Task',
+      'Delete',
+      'Cancel'
+    );
+    if (!confirmed) return;
     
     try {
       await supabaseService.deleteTask(taskId);
@@ -232,6 +338,11 @@ const ScheduleManager = forwardRef((props, ref) => {
   };
 
   const handleAddTask = (projectId) => {
+    if (!canEdit) {
+      showAlert('You do not have permission to add tasks. Only team leaders and directors can edit schedules.', 'error');
+      return;
+    }
+    
     const project = scheduleData.projects.find(p => p.id === projectId);
     const newTask = {
       // Don't set id - let Supabase auto-generate it
@@ -258,10 +369,31 @@ const ScheduleManager = forwardRef((props, ref) => {
     try {
       if (!editingItem) return;
       
+      if (!canEdit) {
+        showAlert('You do not have permission to save changes. Only team leaders and directors can edit schedules.', 'error');
+        return;
+      }
+      
       if (editingItem.type === 'project') {
         // Validate required fields for project
         if (!editingItem.title || editingItem.title.trim() === '') {
           showAlert('Project title is required', 'error');
+          return;
+        }
+        if (!editingItem.priority || editingItem.priority.trim() === '') {
+          showAlert('Project priority is required', 'error');
+          return;
+        }
+        if (!editingItem.status || editingItem.status.trim() === '') {
+          showAlert('Project status is required', 'error');
+          return;
+        }
+        if (!editingItem.assignedTo || editingItem.assignedTo.trim() === '') {
+          showAlert('Project assigned to is required', 'error');
+          return;
+        }
+        if (!editingItem.startDate || editingItem.startDate.trim() === '') {
+          showAlert('Project start date is required', 'error');
           return;
         }
         if (!editingItem.dueDate || editingItem.dueDate.trim() === '') {
@@ -273,11 +405,29 @@ const ScheduleManager = forwardRef((props, ref) => {
           return;
         }
         
+        // No validation blocking team leaders from creating projects - they can set dates when creating
+        
         // Validate required fields for each task
         if (editingItem.tasks && editingItem.tasks.length > 0) {
           for (const [i, task] of editingItem.tasks.entries()) {
             if (!task.title || task.title.trim() === '') {
               showAlert(`Task ${i + 1}: Title is required`, 'error');
+              return;
+            }
+            if (!task.priority || task.priority.trim() === '') {
+              showAlert(`Task ${i + 1}: Priority is required`, 'error');
+              return;
+            }
+            if (!task.status || task.status.trim() === '') {
+              showAlert(`Task ${i + 1}: Status is required`, 'error');
+              return;
+            }
+            if (!task.assignedTo || task.assignedTo.trim() === '') {
+              showAlert(`Task ${i + 1}: Assigned to is required`, 'error');
+              return;
+            }
+            if (!task.startDate || task.startDate.trim() === '') {
+              showAlert(`Task ${i + 1}: Start date is required`, 'error');
               return;
             }
             if (!task.dueDate || task.dueDate.trim() === '') {
@@ -319,7 +469,19 @@ const ScheduleManager = forwardRef((props, ref) => {
   };
 
   const handleDeleteItem = async (itemType, itemId) => {
-    if (!window.confirm('Are you sure you want to delete this item?')) return;
+    if (!canEdit) {
+      showAlert('You do not have permission to delete items. Only team leaders and directors can edit schedules.', 'error');
+      return;
+    }
+    
+    const itemTypeName = itemType === 'project' ? 'project' : 'item';
+    const confirmed = await showConfirm(
+      `Are you sure you want to delete this ${itemTypeName}? This will also delete all associated tasks and cannot be undone.`,
+      `Delete ${itemTypeName.charAt(0).toUpperCase() + itemTypeName.slice(1)}`,
+      'Delete',
+      'Cancel'
+    );
+    if (!confirmed) return;
     
     try {
       if (itemType === 'project') {
@@ -366,17 +528,23 @@ const ScheduleManager = forwardRef((props, ref) => {
     return projectsDue.map(p => ({...p, itemType: 'project'}));
   };
 
+  const openDateModal = (date) => {
+    const items = getItemsForDate(date);
+    setSelectedDateInfo({ date, items });
+  };
+
   const getUpcomingDeadlines = () => {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const nextWeek = new Date(today);
     nextWeek.setDate(nextWeek.getDate() + 7);
     
     return scheduleData.projects
       .filter(p => {
-        const dueDate = new Date(p.dueDate);
+        const dueDate = parseDateLocal(p.dueDate);
         return dueDate >= today && dueDate <= nextWeek && p.status !== 'completed';
       })
-      .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+      .sort((a, b) => parseDateLocal(a.dueDate) - parseDateLocal(b.dueDate));
   };
 
   // Calculate team statistics
@@ -412,8 +580,6 @@ const ScheduleManager = forwardRef((props, ref) => {
     
     return { totalProjects, completed, inProgress, overdue, avgProgress };
   }, [scheduleData]);
-
-  const canEdit = authService.hasPermission('edit_schedules');
 
   if (isLoading) {
     return <div className="loading">Loading schedule data...</div>;
@@ -742,6 +908,7 @@ const ScheduleManager = forwardRef((props, ref) => {
           padding: 0.5rem;
           background: var(--surface);
           transition: all 0.3s ease;
+          cursor: pointer;
         }
 
         .calendar-day:hover {
@@ -782,6 +949,13 @@ const ScheduleManager = forwardRef((props, ref) => {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+
+        .calendar-more {
+          font-size: 0.75rem;
+          color: var(--subtxt);
+          margin-top: 0.25rem;
+          font-weight: 600;
         }
 
         .calendar-item:hover {
@@ -899,6 +1073,10 @@ const ScheduleManager = forwardRef((props, ref) => {
           font-size: 0.8rem;
           font-weight: 600;
           color: white;
+          line-height: 1.5;
+          display: inline-flex;
+          align-items: center;
+          height: fit-content;
         }
 
         .project-status {
@@ -907,7 +1085,10 @@ const ScheduleManager = forwardRef((props, ref) => {
           font-size: 0.8rem;
           font-weight: 600;
           color: white;
-          margin-bottom: 0.5rem;
+          line-height: 1.5;
+          display: inline-flex;
+          align-items: center;
+          height: fit-content;
         }
 
         .project-progress {
@@ -1246,6 +1427,7 @@ const ScheduleManager = forwardRef((props, ref) => {
           gap: 0.5rem;
           flex-wrap: wrap;
           margin-top: 0.5rem;
+          align-items: center;
         }
 
         .modal-project-meta {
@@ -1518,70 +1700,90 @@ const ScheduleManager = forwardRef((props, ref) => {
           </div>
 
           {/* Team Overview Cards */}
-          <div>
-            <h2 className="section-title">Teams Overview</h2>
-            <div className="teams-overview">
-              {teamStats.map(team => (
-                <div 
-                  key={team.id} 
-                  className="team-card"
-                  style={{'--team-color': team.color}}
-                  onClick={() => {
-                    setSelectedTeam(team.id);
-                    setActiveView('projects');
-                  }}
-                >
-                  <div className="team-header">
-                    <h3 className="team-name">{team.name}</h3>
-                    <div className="team-badge" style={{backgroundColor: 'var(--accent)'}}>
-                      {team.totalProjects}
-                    </div>
-                  </div>
-                  
-                  <div className="team-progress">
-                    <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.9rem'}}>
-                      <span>Progress</span>
-                      <span style={{fontWeight: 'bold'}}>{team.avgProgress}%</span>
-                    </div>
-                    <div className="progress-bar">
-                      <div 
-                        className="progress-fill"
-                        style={{ 
-                          width: `${team.avgProgress}%`,
-                          backgroundColor: 'var(--accent)'
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="team-stats">
-                    <div className="team-stat">
-                      <div className="team-stat-value" style={{color: 'var(--subtxt)'}}>{team.completed}</div>
-                      <div className="team-stat-label">Done</div>
-                    </div>
-                    <div className="team-stat">
-                      <div className="team-stat-value" style={{color: 'var(--text)'}}>{team.inProgress}</div>
-                      <div className="team-stat-label">Active</div>
-                    </div>
-                    <div className="team-stat">
-                      <div className="team-stat-value" style={{color: 'var(--accent)'}}>{team.overdue}</div>
-                      <div className="team-stat-label">Overdue</div>
-                    </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h2 className="section-title" style={{ marginBottom: 0 }}>Teams Overview</h2>
+            {canEdit && (
+              <button
+                className="add-button"
+                style={{ marginLeft: '1rem', whiteSpace: 'nowrap' }}
+                onClick={() => {
+                  setActiveView('projects');
+                  setSelectedTeam('all');
+                  setSelectedStatus('all');
+                  handleAddProject();
+                }}
+              >
+                <i className="fas fa-plus"></i> New Project
+              </button>
+            )}
+          </div>
+          <div className="teams-overview">
+            {teamStats.map(team => (
+              <div 
+                key={team.id} 
+                className="team-card"
+                style={{'--team-color': team.color}}
+                onClick={() => {
+                  setSelectedTeam(team.id);
+                  setActiveView('projects');
+                }}
+              >
+                <div className="team-header">
+                  <h3 className="team-name">{team.name}</h3>
+                  <div className="team-badge" style={{backgroundColor: 'var(--accent)'}}>
+                    {team.totalProjects}
                   </div>
                 </div>
-              ))}
-            </div>
+                <div className="team-progress">
+                  <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.9rem'}}>
+                    <span>Progress</span>
+                    <span style={{fontWeight: 'bold'}}>{team.avgProgress}%</span>
+                  </div>
+                  <div className="progress-bar">
+                    <div 
+                      className="progress-fill"
+                      style={{ 
+                        width: `${team.avgProgress}%`,
+                        backgroundColor: 'var(--accent)'
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="team-stats">
+                  <div className="team-stat">
+                    <div className="team-stat-value" style={{color: 'var(--subtxt)'}}>{team.completed}</div>
+                    <div className="team-stat-label">Done</div>
+                  </div>
+                  <div className="team-stat">
+                    <div className="team-stat-value" style={{color: 'var(--text)'}}>{team.inProgress}</div>
+                    <div className="team-stat-label">Active</div>
+                  </div>
+                  <div className="team-stat">
+                    <div className="team-stat-value" style={{color: 'var(--accent)'}}>{team.overdue}</div>
+                    <div className="team-stat-label">Overdue</div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Upcoming Deadlines */}
           <div className="upcoming-deadlines">
-            <h2 className="section-title">Upcoming Deadlines (Next 7 Days)</h2>
-            {getUpcomingDeadlines().length === 0 ? (
-              <p style={{color: 'var(--subtxt)', textAlign: 'center', padding: '2rem'}}>
-                No upcoming deadlines in the next week
-              </p>
-            ) : (
-              getUpcomingDeadlines().map(project => (
+            <h2 className="section-title">Upcoming Deadlines</h2>
+            {(() => {
+              // Get the 4 closest upcoming projects (not completed, due date in the future), sorted by due date
+              const upcoming = scheduleData.projects
+                .filter(p => p.status !== 'completed' && p.dueDate)
+                .sort((a, b) => parseDateLocal(a.dueDate) - parseDateLocal(b.dueDate))
+                .slice(0, 4);
+              if (upcoming.length === 0) {
+                return (
+                  <p style={{color: 'var(--subtxt)', textAlign: 'center', padding: '2rem'}}>
+                    No upcoming deadlines
+                  </p>
+                );
+              }
+              return upcoming.map(project => (
                 <div 
                   key={project.id} 
                   className="deadline-item"
@@ -1595,11 +1797,11 @@ const ScheduleManager = forwardRef((props, ref) => {
                     </div>
                   </div>
                   <div className="deadline-date">
-                    {new Date(project.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {formatDateLocalWithOptions(project.dueDate, { month: 'short', day: 'numeric' })}
                   </div>
                 </div>
-              ))
-            )}
+              ));
+            })()}
           </div>
         </div>
       )}
@@ -1654,17 +1856,22 @@ const ScheduleManager = forwardRef((props, ref) => {
               const isToday = date.toDateString() === new Date().toDateString();
               
               return (
-                <div key={date.toISOString()} className={`calendar-day ${isToday ? 'today' : ''}`}>
+                <div 
+                  key={date.toISOString()} 
+                  className={`calendar-day ${isToday ? 'today' : ''}`}
+                  onClick={() => openDateModal(date)}
+                >
                   <div className="calendar-date">{date.getDate()}</div>
                   <div className="calendar-items">
-                    {items.slice(0, 3).map(item => (
+                    {items.slice(0, 1).map(item => (
                       <div 
                         key={`${item.itemType}-${item.id}`}
                         className="calendar-item"
                         style={{
                           backgroundColor: 'var(--accent)'
                         }}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           if (item.itemType === 'project') {
                             setSelectedProject(item);
                           }
@@ -1674,9 +1881,12 @@ const ScheduleManager = forwardRef((props, ref) => {
                         {item.title}
                       </div>
                     ))}
-                    {items.length > 3 && (
-                      <div style={{fontSize: '0.7rem', color: 'var(--subtxt)', marginTop: '0.25rem'}}>
-                        +{items.length - 3} more
+                    {items.length > 1 && (
+                      <div 
+                        className="calendar-more"
+                        onClick={(e) => { e.stopPropagation(); openDateModal(date); }}
+                      >
+                        +{items.length - 1} more
                       </div>
                     )}
                   </div>
@@ -1706,6 +1916,21 @@ const ScheduleManager = forwardRef((props, ref) => {
                   <option key={team.id} value={team.id}>{team.name}</option>
                 ))}
               </select>
+
+              <label htmlFor="status-filter" style={{fontWeight: 600, color: 'var(--text)'}}>
+                Status:
+              </label>
+              <select 
+                id="status-filter"
+                className="team-filter"
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+              >
+                <option value="all">All Statuses</option>
+                {PROJECT_STATUSES.map(st => (
+                  <option key={st} value={st}>{getStatusLabel(st)}</option>
+                ))}
+              </select>
             </div>
             {canEdit && (
               <button className="add-button" onClick={handleAddProject}>
@@ -1715,7 +1940,9 @@ const ScheduleManager = forwardRef((props, ref) => {
           </div>
 
           <div className="projects-grid">
-            {filterItemsByTeam(scheduleData.projects).map(project => (
+            {filterItemsByTeam(scheduleData.projects)
+              .filter(p => selectedStatus === 'all' ? true : p.status === selectedStatus)
+              .map(project => (
               <div 
                 key={project.id} 
                 className={`project-card ${isOverdue(project.dueDate, project.status) ? 'overdue' : ''}`}
@@ -1766,11 +1993,11 @@ const ScheduleManager = forwardRef((props, ref) => {
                 </div>
               </div>
 
-              <div className="project-meta">
-                <div><strong>Assigned:</strong> {project.assignedTo}</div>
-                <div><strong>Due:</strong> {new Date(project.dueDate).toLocaleDateString()}</div>
-                <div><strong>Priority:</strong> {project.priority}</div>
-                <div><strong>Hours:</strong> {project.actualHours}/{project.estimatedHours}</div>
+              <div className="project-meta" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', margin: '1rem 0', fontSize: '0.9rem', color: 'var(--subtxt)' }}>
+                <div style={{ gridColumn: '1 / 2' }}><strong>Assigned:</strong> {project.assignedTo}</div>
+                <div style={{ gridColumn: '2 / 3' }}><strong>Due:</strong> {formatDateLocal(project.dueDate)}</div>
+                <div style={{ gridColumn: '1 / 2', gridRow: '2 / 3' }}><strong>Priority:</strong> {project.priority}</div>
+                <div style={{ gridColumn: '2 / 3', gridRow: '2 / 3' }}><strong>Hours:</strong> {project.actualHours}/{project.estimatedHours}</div>
               </div>
 
               {project.tasks.length > 0 && (
@@ -1804,8 +2031,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                           <div className="task-info">
                             <div className="task-title">{task.title}</div>
                             <div className="task-meta">
-                              Due: {new Date(task.dueDate).toLocaleDateString()} | 
-                              Status: {task.status} | 
+                              Due: {formatDateLocal(task.dueDate)} | 
                               Progress: {calculateProgress(task.startDate, task.dueDate, task.status)}%
                             </div>
                           </div>
@@ -1862,51 +2088,43 @@ const ScheduleManager = forwardRef((props, ref) => {
                 </div>
               )}
 
-              {project.weeklyNotes && (
-                <div className="weekly-notes-section" style={{ 
-                  marginTop: '1rem',
-                  padding: '0.75rem',
-                  background: 'var(--card)',
-                  borderRadius: '8px',
-                  border: '1px solid var(--muted)'
+              <div className="weekly-notes-section" onClick={(e) => e.stopPropagation()} style={{ 
+                marginTop: '1rem',
+                padding: '0.75rem',
+                background: 'var(--card)',
+                borderRadius: '8px',
+                border: '1px solid var(--muted)'
+              }}>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.5rem',
+                  marginBottom: '0.5rem',
+                  fontWeight: 600,
+                  fontSize: '0.9rem',
+                  color: 'var(--text)'
                 }}>
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '0.5rem',
-                    marginBottom: '0.5rem',
-                    fontWeight: 600,
-                    fontSize: '0.9rem',
-                    color: 'var(--text)'
-                  }}>
-                    <i className="fas fa-clipboard-list" style={{ color: 'var(--accent)' }}></i>
-                    Weekly Notes
-                  </div>
-                  <div style={{ 
-                    fontSize: '0.85rem',
-                    color: 'var(--subtxt)',
-                    whiteSpace: 'pre-wrap',
-                    maxHeight: '4em',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 3,
-                    WebkitBoxOrient: 'vertical'
-                  }}>
-                    {project.weeklyNotes}
-                  </div>
+                  <i className="fas fa-clipboard-list" style={{ color: 'var(--accent)' }}></i>
+                  Weekly Notes
                 </div>
-              )}
+                <InlineNotesEditor
+                  value={project.weeklyNotes}
+                  onSave={(val) => handleWeeklyNotesSave(project, val)}
+                  disabled={!canEdit}
+                  rows={4}
+                  placeholder="Add weekly notes..."
+                />
+              </div>
 
               {canEdit && (
                 <div className="action-buttons" style={{ marginTop: '1rem' }}>
-                  <button className="icon-btn edit" title="Edit project" onClick={() => handleEditProject(project)}>
+                  <button className="icon-btn edit" title="Edit project" onClick={(e) => { e.stopPropagation(); handleEditProject(project); }}>
                     <i className="fas fa-edit"></i>
                   </button>
                   <button 
                     className="icon-btn delete"
                     title="Delete project"
-                    onClick={() => handleDeleteItem('project', project.id)}
+                    onClick={(e) => { e.stopPropagation(); handleDeleteItem('project', project.id); }}
                   >
                     <i className="fas fa-trash"></i>
                   </button>
@@ -1918,6 +2136,53 @@ const ScheduleManager = forwardRef((props, ref) => {
         </div>
       )}
 
+      {/* Project Detail Modal */}
+      {/* Day Details Modal */}
+      {selectedDateInfo && !isEditing && !selectedProject && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setSelectedDateInfo(null); }}>
+          <div className="modal">
+            <div className="modal-header">
+              <h2 className="modal-title">
+                {selectedDateInfo.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+              </h2>
+              <button className="close-btn" onClick={() => setSelectedDateInfo(null)}>×</button>
+            </div>
+            {selectedDateInfo.items.length === 0 ? (
+              <p style={{ color: 'var(--subtxt)', textAlign: 'center', padding: '1rem' }}>No projects due on this day.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {selectedDateInfo.items.map((project) => (
+                  <div 
+                    key={project.id}
+                    className="deadline-item"
+                    style={{ '--team-color': getTeamColor(project.team) }}
+                    onClick={() => { setSelectedProject(project); setSelectedDateInfo(null); }}
+                  >
+                    <div className="deadline-info">
+                      <div className="deadline-title">{project.title}</div>
+                      <div className="deadline-meta">
+                        {getTeamName(project.team)} • {project.assignedTo} • {calculateProgress(project.startDate, project.dueDate, project.status)}% complete
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <div
+                        className="project-status"
+                        style={{ backgroundColor: getStatusColor(project.status, project.dueDate) }}
+                      >
+                        {isOverdue(project.dueDate, project.status) ? 'OVERDUE' : project.status.toUpperCase()}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="modal-actions">
+              <button className="cancel-btn" onClick={() => setSelectedDateInfo(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Project Detail Modal */}
       {selectedProject && !isEditing && (
         <div className="modal-overlay" onClick={(e) => {
@@ -1969,11 +2234,11 @@ const ScheduleManager = forwardRef((props, ref) => {
               </div>
               <div className="meta-item">
                 <div className="meta-label">Start Date</div>
-                <div className="meta-value">{new Date(selectedProject.startDate).toLocaleDateString()}</div>
+                <div className="meta-value">{formatDateLocal(selectedProject.startDate)}</div>
               </div>
               <div className="meta-item">
                 <div className="meta-label">Due Date</div>
-                <div className="meta-value">{new Date(selectedProject.dueDate).toLocaleDateString()}</div>
+                <div className="meta-value">{formatDateLocal(selectedProject.dueDate)}</div>
               </div>
               <div className="meta-item">
                 <div className="meta-label">Progress</div>
@@ -2039,7 +2304,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                       
                       <div style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', fontSize: '0.85rem', color: 'var(--subtxt)', marginTop: '0.75rem'}}>
                         <div><strong>Assigned:</strong> {task.assignedTo}</div>
-                        <div><strong>Due:</strong> {new Date(task.dueDate).toLocaleDateString()}</div>
+                        <div><strong>Due:</strong> {formatDateLocal(task.dueDate)}</div>
                         <div><strong>Priority:</strong> {task.priority}</div>
                         <div><strong>Est. Hours:</strong> {task.estimatedHours}</div>
                       </div>
@@ -2065,36 +2330,33 @@ const ScheduleManager = forwardRef((props, ref) => {
               </div>
             )}
 
-            {selectedProject.weeklyNotes && (
-              <div className="modal-weekly-notes-section" style={{ 
-                marginTop: '1.5rem',
-                padding: '1rem',
-                background: 'var(--card)',
-                borderRadius: '8px',
-                border: '1px solid var(--muted)'
+            <div className="modal-weekly-notes-section" onClick={(e) => e.stopPropagation()} style={{ 
+              marginTop: '1.5rem',
+              padding: '1rem',
+              background: 'var(--card)',
+              borderRadius: '8px',
+              border: '1px solid var(--muted)'
+            }}>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.5rem',
+                marginBottom: '0.75rem',
+                fontWeight: 600,
+                fontSize: '1rem',
+                color: 'var(--text)'
               }}>
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.5rem',
-                  marginBottom: '0.75rem',
-                  fontWeight: 600,
-                  fontSize: '1rem',
-                  color: 'var(--text)'
-                }}>
-                  <i className="fas fa-clipboard-list" style={{ color: 'var(--accent)' }}></i>
-                  Weekly Notes
-                </div>
-                <div style={{ 
-                  fontSize: '0.9rem',
-                  color: 'var(--subtxt)',
-                  whiteSpace: 'pre-wrap',
-                  lineHeight: '1.6'
-                }}>
-                  {selectedProject.weeklyNotes}
-                </div>
+                <i className="fas fa-clipboard-list" style={{ color: 'var(--accent)' }}></i>
+                Weekly Notes
               </div>
-            )}
+              <InlineNotesEditor
+                value={selectedProject.weeklyNotes}
+                onSave={(val) => handleWeeklyNotesSave(selectedProject, val)}
+                disabled={!canEdit}
+                rows={6}
+                placeholder="Add weekly notes..."
+              />
+            </div>
 
             <div className="modal-actions">
               {canEdit && (
@@ -2187,11 +2449,14 @@ const ScheduleManager = forwardRef((props, ref) => {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Priority</label>
+                    <label className="form-label">
+                      Priority <span style={{color: 'var(--accent)'}}>*</span>
+                    </label>
                     <select
                       className="form-select"
                       value={editingItem.priority}
                       onChange={(e) => setEditingItem({...editingItem, priority: e.target.value})}
+                      required
                     >
                       <option value="low">Low</option>
                       <option value="medium">Medium</option>
@@ -2203,55 +2468,66 @@ const ScheduleManager = forwardRef((props, ref) => {
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label">Status</label>
+                    <label className="form-label">
+                      Status <span style={{color: 'var(--accent)'}}>*</span>
+                    </label>
                     <select
                       className="form-select"
                       value={editingItem.status}
                       onChange={(e) => setEditingItem({...editingItem, status: e.target.value})}
+                      required
                     >
                       <option value="planning">Planning</option>
                       <option value="pending">Pending</option>
                       <option value="in-progress">In Progress</option>
                       <option value="completed">Completed</option>
+                      <option value="on-hold">On Hold</option>
+                      <option value="cancelled">Canceled</option>
                     </select>
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Assigned To</label>
+                    <label className="form-label">
+                      Assigned To <span style={{color: 'var(--accent)'}}>*</span>
+                    </label>
                     <input
                       type="text"
                       className="form-input"
                       placeholder="Team Lead / Owner Name"
                       value={editingItem.assignedTo}
                       onChange={(e) => setEditingItem({...editingItem, assignedTo: e.target.value})}
+                      required
                     />
                   </div>
                 </div>
 
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label">Start Date</label>
+                    <label className="form-label">
+                      Start Date <span style={{color: 'var(--accent)'}}>*</span>
+                    </label>
                     <input
                       type="date"
                       className="form-input"
                       value={editingItem.startDate}
                       onChange={(e) => setEditingItem({...editingItem, startDate: e.target.value})}
-                      disabled={!!editingItem.id}
-                      style={editingItem.id ? { 
+                      required
+                      disabled={editingItem.id && !canEditDates}
+                      style={editingItem.id && !canEditDates ? { 
                         backgroundColor: 'var(--card)',
                         cursor: 'not-allowed',
                         opacity: 0.7 
                       } : {}}
                     />
-                    {editingItem.id && (
+                    {editingItem.id && !canEditDates && (
                       <div style={{ 
                         fontSize: '0.75rem', 
-                        color: 'var(--subtxt)', 
+                        color: 'var(--accent)', 
                         marginTop: '0.25rem',
                         fontStyle: 'italic'
                       }}>
                         <i className="fas fa-lock" style={{ marginRight: '0.25rem' }}></i>
-                        Dates cannot be changed after project creation
+                        Only directors can edit dates after project creation
                       </div>
                     )}
                   </div>
@@ -2266,22 +2542,22 @@ const ScheduleManager = forwardRef((props, ref) => {
                       value={editingItem.dueDate}
                       onChange={(e) => setEditingItem({...editingItem, dueDate: e.target.value})}
                       required
-                      disabled={!!editingItem.id}
-                      style={editingItem.id ? { 
+                      disabled={editingItem.id && !canEditDates}
+                      style={editingItem.id && !canEditDates ? { 
                         backgroundColor: 'var(--card)',
                         cursor: 'not-allowed',
                         opacity: 0.7 
                       } : {}}
                     />
-                    {editingItem.id && (
+                    {editingItem.id && !canEditDates && (
                       <div style={{ 
                         fontSize: '0.75rem', 
-                        color: 'var(--subtxt)', 
+                        color: 'var(--accent)', 
                         marginTop: '0.25rem',
                         fontStyle: 'italic'
                       }}>
                         <i className="fas fa-lock" style={{ marginRight: '0.25rem' }}></i>
-                        Dates cannot be changed after project creation
+                        Only directors can edit dates after project creation
                       </div>
                     )}
                   </div>
@@ -2290,15 +2566,17 @@ const ScheduleManager = forwardRef((props, ref) => {
                 {!editingItem.id && (
                   <div style={{ 
                     fontSize: '0.85rem', 
-                    color: 'var(--accent)', 
+                    color: 'var(--subtxt)', 
                     marginBottom: '1rem',
                     padding: '0.5rem',
-                    background: 'rgba(239, 68, 68, 0.1)',
+                    background: 'var(--card)',
                     borderRadius: '4px',
-                    border: '1px solid var(--accent)'
+                    border: '1px solid var(--muted)'
                   }}>
-                    <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
-                    <strong>Important:</strong> Once this project is created, the start and due dates cannot be changed. Choose them carefully.
+                    <i className="fas fa-info-circle" style={{ marginRight: '0.5rem' }}></i>
+                    {canEditDates 
+                      ? 'As a director, you can edit project dates even after creation.'
+                      : 'As a team leader, you can set dates when creating this project. Once created, only directors can edit project dates. Please be thorough and careful when setting these dates.'}
                   </div>
                 )}
 
@@ -2424,21 +2702,23 @@ const ScheduleManager = forwardRef((props, ref) => {
                         {(!task.id || typeof task.id !== 'number') && (
                           <div style={{ 
                             fontSize: '0.8rem', 
-                            color: 'var(--accent)', 
+                            color: 'var(--subtxt)', 
                             marginBottom: '0.75rem',
                             padding: '0.5rem',
-                            background: 'rgba(239, 68, 68, 0.1)',
+                            background: 'var(--card)',
                             borderRadius: '4px',
-                            border: '1px solid var(--accent)'
+                            border: '1px solid var(--muted)'
                           }}>
-                            <i className="fas fa-exclamation-triangle" style={{ marginRight: '0.5rem' }}></i>
-                            Task dates cannot be changed after creation. Choose carefully.
+                            <i className="fas fa-info-circle" style={{ marginRight: '0.5rem' }}></i>
+                            {canEditDates ? 'As a director, you can edit task dates at any time.' : 'As a team leader, you can set dates when creating this task. Once created, only directors can edit task dates. Please be thorough and careful when setting these dates.'}
                           </div>
                         )}
 
                         <div className="form-row">
                           <div className="form-group">
-                            <label className="form-label">Start Date</label>
+                            <label className="form-label">
+                              Start Date <span style={{color: 'var(--accent)'}}>*</span>
+                            </label>
                             <input
                               type="date"
                               className="form-input"
@@ -2448,22 +2728,23 @@ const ScheduleManager = forwardRef((props, ref) => {
                                 newTasks[index] = {...task, startDate: e.target.value};
                                 setEditingItem({...editingItem, tasks: newTasks});
                               }}
-                              disabled={!!task.id && typeof task.id === 'number'}
-                              style={task.id && typeof task.id === 'number' ? { 
+                              required
+                              disabled={(task.id && typeof task.id === 'number') && !canEditDates}
+                              style={(task.id && typeof task.id === 'number') && !canEditDates ? { 
                                 backgroundColor: 'var(--card)',
                                 cursor: 'not-allowed',
                                 opacity: 0.7 
                               } : {}}
                             />
-                            {task.id && typeof task.id === 'number' && (
+                            {(task.id && typeof task.id === 'number') && !canEditDates && (
                               <div style={{ 
                                 fontSize: '0.75rem', 
-                                color: 'var(--subtxt)', 
+                                color: 'var(--accent)', 
                                 marginTop: '0.25rem',
                                 fontStyle: 'italic'
                               }}>
                                 <i className="fas fa-lock" style={{ marginRight: '0.25rem' }}></i>
-                                Dates locked after creation
+                                Only directors can edit dates after task creation
                               </div>
                             )}
                           </div>
@@ -2482,22 +2763,22 @@ const ScheduleManager = forwardRef((props, ref) => {
                                 setEditingItem({...editingItem, tasks: newTasks});
                               }}
                               required
-                              disabled={!!task.id && typeof task.id === 'number'}
-                              style={task.id && typeof task.id === 'number' ? { 
+                              disabled={(task.id && typeof task.id === 'number') && !canEditDates}
+                              style={(task.id && typeof task.id === 'number') && !canEditDates ? { 
                                 backgroundColor: 'var(--card)',
                                 cursor: 'not-allowed',
                                 opacity: 0.7 
                               } : {}}
                             />
-                            {task.id && typeof task.id === 'number' && (
+                            {(task.id && typeof task.id === 'number') && !canEditDates && (
                               <div style={{ 
                                 fontSize: '0.75rem', 
-                                color: 'var(--subtxt)', 
+                                color: 'var(--accent)', 
                                 marginTop: '0.25rem',
                                 fontStyle: 'italic'
                               }}>
                                 <i className="fas fa-lock" style={{ marginRight: '0.25rem' }}></i>
-                                Dates locked after creation
+                                Only directors can edit dates after task creation
                               </div>
                             )}
                           </div>
@@ -2505,7 +2786,9 @@ const ScheduleManager = forwardRef((props, ref) => {
 
                         <div className="form-row">
                           <div className="form-group">
-                            <label className="form-label">Status</label>
+                            <label className="form-label">
+                              Status <span style={{color: 'var(--accent)'}}>*</span>
+                            </label>
                             <select
                               className="form-select"
                               value={task.status}
@@ -2514,6 +2797,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                                 newTasks[index] = {...task, status: e.target.value};
                                 setEditingItem({...editingItem, tasks: newTasks});
                               }}
+                              required
                             >
                               <option value="pending">Pending</option>
                               <option value="in-progress">In Progress</option>
@@ -2522,7 +2806,9 @@ const ScheduleManager = forwardRef((props, ref) => {
                           </div>
 
                           <div className="form-group">
-                            <label className="form-label">Priority</label>
+                            <label className="form-label">
+                              Priority <span style={{color: 'var(--accent)'}}>*</span>
+                            </label>
                             <select
                               className="form-select"
                               value={task.priority}
@@ -2531,6 +2817,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                                 newTasks[index] = {...task, priority: e.target.value};
                                 setEditingItem({...editingItem, tasks: newTasks});
                               }}
+                              required
                             >
                               <option value="low">Low</option>
                               <option value="medium">Medium</option>
@@ -2542,7 +2829,9 @@ const ScheduleManager = forwardRef((props, ref) => {
 
                         <div className="form-row">
                           <div className="form-group">
-                            <label className="form-label">Assigned To</label>
+                            <label className="form-label">
+                              Assigned To <span style={{color: 'var(--accent)'}}>*</span>
+                            </label>
                             <input
                               type="text"
                               className="form-input"
@@ -2553,6 +2842,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                                 newTasks[index] = {...task, assignedTo: e.target.value};
                                 setEditingItem({...editingItem, tasks: newTasks});
                               }}
+                              required
                             />
                           </div>
 
@@ -2597,7 +2887,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                     className="add-button"
                     onClick={() => {
                       const newTask = {
-                        id: Date.now(),
+                        id: 'temp-' + Date.now(), // Use string ID for new tasks being created
                         title: '',
                         description: '',
                         startDate: new Date().toISOString().split('T')[0],
