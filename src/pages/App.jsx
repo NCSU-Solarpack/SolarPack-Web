@@ -341,7 +341,7 @@ const App = () => {
       `}</style>
 
       <section className="section" style={{ textAlign: 'center' }}>
-        <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '3rem', color: 'var(--accent)', marginBottom: '1.2rem' }}>
+        <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2.5rem, 7vw, 4.5rem)', letterSpacing: '0.04em', margin: '2.5rem 0 0.5rem' }}>
           SolarPack App
         </h1>
         <p style={{ color: 'var(--subtxt)', fontSize: '1.2rem', maxWidth: '600px', margin: '0 auto 2.2rem' }}>

@@ -41,10 +41,10 @@ const Sponsors = () => {
         
         h1 {
           font-family: 'Bebas Neue', sans-serif;
-          font-size: 3rem;
-          color: #e53935;
+          font-size: clamp(2.5rem, 7vw, 4.5rem);
+          letter-spacing: 0.04em;
+          margin: 2.5rem 0 0.5rem;
           text-align: center;
-          margin-bottom: 2rem;
         }
         
         .tier {

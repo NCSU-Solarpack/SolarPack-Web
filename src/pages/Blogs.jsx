@@ -65,10 +65,10 @@ const Blogs = () => {
 
         .blogs-title {
           font-family: "Bebas Neue", sans-serif;
-          font-size: 3rem;
-          color: var(--accent);
-          margin: 0 0 1rem 0;
-          letter-spacing: 0.05em;
+          font-size: clamp(2.5rem, 7vw, 4.5rem);
+          letter-spacing: 0.04em;
+          margin: 2.5rem 0 0.5rem;
+          text-align: center;
         }
 
         .blogs-subtitle {
@@ -316,10 +316,6 @@ const Blogs = () => {
         }
 
         @media (max-width: 768px) {
-          .blogs-title {
-            font-size: 2rem;
-          }
-
           .blogs-grid {
             grid-template-columns: 1fr;
             gap: 1.5rem;

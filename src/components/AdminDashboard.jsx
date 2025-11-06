@@ -361,9 +361,9 @@ const DashboardOverview = ({ onNavigate, teamManagerRef, scheduleManagerRef, ord
       // ordersData returns { orders: [], lastUpdated: '' }
       const ordersArray = ordersData?.orders || [];
       const pendingOrdersCount = ordersArray.filter(o => 
-        o.status === 'pending_approval' || 
-        o.status === 'ready_to_purchase' || 
-        o.status === 'in_transit'
+        o.status === 'pending_technical_approval' || 
+        o.status === 'approved' || 
+        o.status === 'shipped'
       ).length;
 
       setStats({
@@ -409,12 +409,11 @@ const DashboardOverview = ({ onNavigate, teamManagerRef, scheduleManagerRef, ord
       // Order status breakdown with counts and percentages - INCLUDE ALL STATUSES
       // Define all possible statuses so they always appear in the legend
       const allStatuses = [
-        'pending_approval',
-        'pending_director_approval',
+        'pending_technical_approval',
+        'pending_project_approval',
         'approved',
-        'ready_to_purchase',
         'purchased',
-        'in_transit',
+        'shipped',
         'delivered',
         'denied'
       ];
@@ -614,11 +613,11 @@ const DashboardOverview = ({ onNavigate, teamManagerRef, scheduleManagerRef, ord
           flex-shrink: 0;
         }
 
-        .legend-color.status-pending_approval {
+        .legend-color.status-pending_technical_approval {
           background: #ffc107;
         }
 
-        .legend-color.status-pending_director_approval {
+        .legend-color.status-pending_project_approval {
           background: #fd7e14;
         }
 
@@ -626,15 +625,11 @@ const DashboardOverview = ({ onNavigate, teamManagerRef, scheduleManagerRef, ord
           background: #20c997;
         }
 
-        .legend-color.status-ready_to_purchase {
-          background: #17a2b8;
-        }
-
         .legend-color.status-purchased {
           background: #6c757d;
         }
 
-        .legend-color.status-in_transit {
+        .legend-color.status-shipped {
           background: #007bff;
         }
 
@@ -884,12 +879,11 @@ const DashboardOverview = ({ onNavigate, teamManagerRef, scheduleManagerRef, ord
                 {(() => {
                   let cumulativePercent = 0;
                   const statusColors = {
-                    pending_approval: '#ffc107',
-                    pending_director_approval: '#fd7e14',
+                    pending_technical_approval: '#ffc107',
+                    pending_project_approval: '#fd7e14',
                     approved: '#20c997',
-                    ready_to_purchase: '#17a2b8',
                     purchased: '#6c757d',
-                    in_transit: '#007bff',
+                    shipped: '#007bff',
                     delivered: '#28a745',
                     denied: '#dc3545'
                   };
