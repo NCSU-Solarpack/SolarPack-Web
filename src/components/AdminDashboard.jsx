@@ -6,8 +6,9 @@ import ScheduleManager from './admin/ScheduleManager';
 import AlumniManager from './admin/AlumniManager';
 import SponsorsManager from './admin/SponsorsManager';
 import OrderManager from './admin/OrderManager';
+import BlogManager from './admin/BlogManager';
 // import GitHubSettings from './admin/GitHubSettings'; // Removed - no longer using GitHub for data storage
-import { BarChart3, Users, Calendar, Package, GraduationCap, Award } from 'lucide-react';
+import { BarChart3, Users, Calendar, Package, GraduationCap, Award, BookOpen } from 'lucide-react';
 
 const AdminDashboard = ({ onLogout }) => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -62,7 +63,8 @@ const AdminDashboard = ({ onLogout }) => {
     { id: 'orders', label: 'Orders', icon: Package, permission: 'view_orders' },
     { id: 'team', label: 'Team', icon: Users, permission: 'view_team' },
     { id: 'alumni', label: 'Alumni', icon: GraduationCap, permission: 'view_alumni' },
-    { id: 'sponsors', label: 'Sponsors', icon: Award, permission: 'view_sponsors' }
+    { id: 'sponsors', label: 'Sponsors', icon: Award, permission: 'view_sponsors' },
+    { id: 'blogs', label: 'Blogs', icon: BookOpen, permission: 'edit_announcements' }
     // Settings tab removed - GitHub integration no longer needed for data storage
   ];
 
@@ -80,6 +82,8 @@ const AdminDashboard = ({ onLogout }) => {
         return <AlumniManager />;
       case 'sponsors':
         return <SponsorsManager />;
+      case 'blogs':
+        return <BlogManager />;
       // Settings case removed - no longer needed
       default:
         return <DashboardOverview 

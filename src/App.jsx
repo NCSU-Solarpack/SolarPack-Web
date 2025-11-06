@@ -3,6 +3,7 @@ import Layout from './components/Layout'
 import Home from './pages/Home'
 import App from './pages/App'
 import Alumni from './pages/Alumni'
+import Blogs from './pages/Blogs'
 import Contact from './pages/Contact'
 import Donate from './pages/Donate'
 import PrivacyPolicy from './pages/PrivacyPolicy'
@@ -27,6 +28,7 @@ function AppRouter() {
             <Route path="/" element={<Home />} />
             <Route path="/app" element={<App />} />
             <Route path="/alumni" element={<Alumni />} />
+            <Route path="/blogs" element={<Blogs />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/donate" element={<Donate />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />

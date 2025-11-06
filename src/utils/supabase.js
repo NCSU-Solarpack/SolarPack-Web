@@ -1011,6 +1011,185 @@ class SupabaseService {
     }
   }
 
+  // ===== BLOGS DATA =====
+  
+  async getBlogs() {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { data, error } = await this.client
+      .from('blogs')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getBlog(id) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { data, error } = await this.client
+      .from('blogs')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+
+  async getPublishedBlogs() {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { data, error } = await this.client
+      .from('blogs')
+      .select('*')
+      .eq('published', true)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data || [];
+  }
+
+  async createBlog(blogData) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { data, error } = await this.client
+      .from('blogs')
+      .insert({
+        title: blogData.title,
+        author: blogData.author,
+        body: blogData.body,
+        image_url: blogData.image_url || null,
+        link_url: blogData.link_url || null,
+        link_text: blogData.link_text || null,
+        published: blogData.published || false
+      })
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+
+  async updateBlog(id, blogData) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { data, error } = await this.client
+      .from('blogs')
+      .update({
+        title: blogData.title,
+        author: blogData.author,
+        body: blogData.body,
+        image_url: blogData.image_url || null,
+        link_url: blogData.link_url || null,
+        link_text: blogData.link_text || null,
+        published: blogData.published
+      })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+
+  async deleteBlog(id) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    // First, get the blog to find its image URL
+    const { data: blog } = await this.client
+      .from('blogs')
+      .select('image_url')
+      .eq('id', id)
+      .single();
+    
+    // Delete the image from storage if it exists and is a Supabase URL
+    if (blog?.image_url && blog.image_url.includes('supabase')) {
+      try {
+        await this.deleteBlogImage(blog.image_url);
+      } catch (error) {
+        console.warn('Failed to delete image from storage:', error);
+      }
+    }
+    
+    const { error } = await this.client
+      .from('blogs')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+  }
+
+  /**
+   * Upload a blog image to Supabase Storage
+   * @param {File} file - The image file to upload
+   * @param {string} blogId - The blog's ID (used for unique filename)
+   * @returns {Promise<string>} - The public URL of the uploaded image
+   */
+  async uploadBlogImage(file, blogId) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+      throw new Error('Invalid file type. Please upload a JPEG, PNG, WebP, or GIF image.');
+    }
+    
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      throw new Error('File size too large. Maximum size is 5MB.');
+    }
+    
+    // Create a unique filename with timestamp to avoid caching issues
+    const fileExt = file.name.split('.').pop();
+    const timestamp = Date.now();
+    const fileName = `${blogId}-${timestamp}.${fileExt}`;
+    const filePath = `blog-headers/${fileName}`;
+    
+    // Upload the file
+    const { data, error } = await this.client.storage
+      .from('blog-images')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+    
+    if (error) throw error;
+    
+    // Get the public URL
+    const { data: { publicUrl } } = this.client.storage
+      .from('blog-images')
+      .getPublicUrl(filePath);
+    
+    return publicUrl;
+  }
+
+  /**
+   * Delete a blog image from Supabase Storage
+   * @param {string} imageUrl - The public URL of the image to delete
+   */
+  async deleteBlogImage(imageUrl) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    // Extract the file path from the URL
+    // URL format: https://[project].supabase.co/storage/v1/object/public/blog-images/blog-headers/filename.jpg
+    const urlParts = imageUrl.split('/blog-images/');
+    if (urlParts.length < 2) {
+      console.warn('Invalid image URL format:', imageUrl);
+      return;
+    }
+    
+    const filePath = urlParts[1];
+    
+    const { error } = await this.client.storage
+      .from('blog-images')
+      .remove([filePath]);
+    
+    if (error) throw error;
+  }
+
   // ===== AUTHENTICATION (Optional) =====
   // You can use Supabase Auth to replace your custom auth system
   
