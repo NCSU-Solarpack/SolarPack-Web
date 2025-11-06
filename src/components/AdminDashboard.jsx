@@ -744,7 +744,6 @@ const DashboardOverview = ({ onNavigate, teamManagerRef, scheduleManagerRef, ord
           {authService.hasPermission('edit_schedules') && (
             <button className="action-button" onClick={() => {
               onNavigate('schedules');
-              // Trigger add project after navigation
               setTimeout(() => {
                 scheduleManagerRef.current?.handleAddProject?.();
               }, 100);
@@ -756,7 +755,6 @@ const DashboardOverview = ({ onNavigate, teamManagerRef, scheduleManagerRef, ord
           {authService.hasPermission('submit_orders') && (
             <button className="action-button" onClick={() => {
               onNavigate('orders');
-              // Trigger submit order after navigation
               setTimeout(() => {
                 orderManagerRef.current?.handleSubmitOrder?.();
               }, 100);
@@ -765,46 +763,9 @@ const DashboardOverview = ({ onNavigate, teamManagerRef, scheduleManagerRef, ord
               New Order
             </button>
           )}
-          {authService.hasPermission('edit_team') && (
-            <button className="action-button" onClick={() => {
-              onNavigate('team');
-              // Trigger add member after navigation
-              setTimeout(() => {
-                teamManagerRef.current?.handleAddMember?.();
-              }, 100);
-            }}>
-              <UserPlus size={18} />
-              Add Team Member
-            </button>
-          )}
-          {authService.hasPermission('edit_sponsors') && (
-            <button className="action-button" onClick={() => {
-              onNavigate('sponsors');
-              // Trigger add sponsor after navigation
-              setTimeout(() => {
-                sponsorsManagerRef.current?.handleAddSponsor?.();
-              }, 100);
-            }}>
-              <Award size={18} />
-              Add Sponsor
-            </button>
-          )}
-          {authService.hasPermission('edit_schedules') && (
-            <button className="action-button" onClick={() => {
-              onNavigate('schedules');
-              // Trigger change teams functionality after navigation
-              setTimeout(() => {
-                scheduleManagerRef.current?.handleManageTeams?.();
-              }, 100);
-            }}>
-              <Users size={18} />
-              Manage Teams
-            </button>
-          )}
           {(authService.hasPermission('edit_announcements') || authService.getLevel() === 'leader') && (
             <button className="action-button" onClick={() => {
               onNavigate('blogs');
-              // Trigger add blog after navigation
               setTimeout(() => {
                 blogManagerRef.current?.handleAddBlog?.();
               }, 100);
@@ -813,16 +774,37 @@ const DashboardOverview = ({ onNavigate, teamManagerRef, scheduleManagerRef, ord
               New Blog Post
             </button>
           )}
+          {authService.hasPermission('edit_sponsors') && (
+            <button className="action-button" onClick={() => {
+              onNavigate('sponsors');
+              setTimeout(() => {
+                sponsorsManagerRef.current?.handleAddSponsor?.();
+              }, 100);
+            }}>
+              <Award size={18} />
+              Add Sponsor
+            </button>
+          )}
+          {authService.hasPermission('edit_team') && (
+            <button className="action-button" onClick={() => {
+              onNavigate('team');
+              setTimeout(() => {
+                teamManagerRef.current?.handleAddMember?.();
+              }, 100);
+            }}>
+              <Users size={18} />
+              Add Member
+            </button>
+          )}
           {authService.hasPermission('edit_alumni') && (
             <button className="action-button" onClick={() => {
               onNavigate('alumni');
-              // Trigger add alumni after navigation
               setTimeout(() => {
-                alumniManagerRef.current?.handleAddAlumni?.();
+                alumniManagerRef.current?.handleAddSemester?.();
               }, 100);
             }}>
               <GraduationCap size={18} />
-              Add Alumni
+              Add Semester
             </button>
           )}
         </div>
