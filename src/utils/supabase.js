@@ -639,6 +639,8 @@ class SupabaseService {
       progress: dbProject.progress || 0,
       assignedTo: dbProject.assigned_to,
       notes: dbProject.notes,
+      // Map weekly_notes (DB) -> weeklyNotes (app)
+      weeklyNotes: dbProject.weekly_notes || '',
       tasks: [] // Tasks will be populated separately
     };
   }
@@ -657,7 +659,9 @@ class SupabaseService {
       actual_hours: project.actualHours || 0,
       progress: project.progress || 0,
       assigned_to: project.assignedTo,
-      notes: project.notes
+      notes: project.notes,
+      // Map weeklyNotes (app) -> weekly_notes (DB)
+      weekly_notes: project.weeklyNotes || null
     };
     
     // Only include id if it exists (for updates)

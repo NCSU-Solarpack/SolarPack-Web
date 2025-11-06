@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS schedule_projects (
   progress INTEGER DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
   assigned_to TEXT NOT NULL,
   notes TEXT,
+  weekly_notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   created_by TEXT,

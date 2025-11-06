@@ -65,13 +65,29 @@ export const AlertProvider = ({ children }) => {
     return showAlert({ title, message, type: 'confirm', confirmText, cancelText });
   }, [showAlert]);
 
+  // Convenience function that accepts (message, type) format
+  const showAlertSimple = useCallback((message, type = 'info') => {
+    const titleMap = {
+      'error': 'Error',
+      'warning': 'Warning',
+      'success': 'Success',
+      'info': 'Information'
+    };
+    return showAlert({ 
+      title: titleMap[type] || 'Alert', 
+      message, 
+      type 
+    });
+  }, [showAlert]);
+
   const value = useMemo(() => ({
-    showAlert,
+    showAlert: showAlertSimple,  // Use the simple version by default
+    showAlertAdvanced: showAlert,  // Keep advanced version available
     showError,
     showWarning,
     showSuccess,
     showConfirm
-  }), [showAlert, showError, showWarning, showSuccess, showConfirm]);
+  }), [showAlertSimple, showAlert, showError, showWarning, showSuccess, showConfirm]);
 
   return (
     <AlertContext.Provider value={value}>
