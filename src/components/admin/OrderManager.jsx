@@ -19,9 +19,6 @@ const OrderManager = forwardRef((props, ref) => {
   const [editedOrderData, setEditedOrderData] = useState(null);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [purchasingOrder, setPurchasingOrder] = useState(null);
-  const [showApprovalModal, setShowApprovalModal] = useState(false);
-  const [approvingOrder, setApprovingOrder] = useState(null);
-  const [approvalComments, setApprovalComments] = useState('');
   const [purchaseFormData, setPurchaseFormData] = useState({
     expectedDeliveryDate: '',
     deliveryNotes: '',
@@ -125,13 +122,15 @@ const OrderManager = forwardRef((props, ref) => {
       };
     }
 
-    // Handle old projectDirectorPurchaseApproval or directorApproval -> purchaseApproval migration
+    // Handle old projectDirectorPurchaseApproval or directorApproval -> projectDirectorPurchaseApproval migration
     if (migratedOrder.approvalWorkflow.projectDirectorPurchaseApproval) {
-      // Migrate old projectDirectorPurchaseApproval to purchaseApproval
-      migratedOrder.approvalWorkflow.purchaseApproval = {
-        ...migratedOrder.approvalWorkflow.projectDirectorPurchaseApproval
+      // Already has the correct field, no migration needed
+    } else if (migratedOrder.approvalWorkflow.purchaseApproval) {
+      // Migrate old purchaseApproval to projectDirectorPurchaseApproval
+      migratedOrder.approvalWorkflow.projectDirectorPurchaseApproval = {
+        ...migratedOrder.approvalWorkflow.purchaseApproval
       };
-      delete migratedOrder.approvalWorkflow.projectDirectorPurchaseApproval;
+      delete migratedOrder.approvalWorkflow.purchaseApproval;
     } else if (migratedOrder.approvalWorkflow.directorApproval) {
       // Migrate single directorApproval to technicalDirectorApproval
       migratedOrder.approvalWorkflow.technicalDirectorApproval = {
@@ -140,13 +139,13 @@ const OrderManager = forwardRef((props, ref) => {
       delete migratedOrder.approvalWorkflow.directorApproval;
     }
 
-    // Ensure purchaseApproval exists
-    if (!migratedOrder.approvalWorkflow.purchaseApproval) {
+    // Ensure projectDirectorPurchaseApproval exists
+    if (!migratedOrder.approvalWorkflow.projectDirectorPurchaseApproval) {
       // Default to pending unless sponsorship was successful
       const sponsorshipSuccessful = migratedOrder.sponsorshipInfo?.sponsorshipSearchStatus === 'successful' || 
                                       migratedOrder.sponsorshipInfo?.sponsorshipSuccessful === true;
       
-      migratedOrder.approvalWorkflow.purchaseApproval = {
+      migratedOrder.approvalWorkflow.projectDirectorPurchaseApproval = {
         status: sponsorshipSuccessful ? 'not_required' : 'pending',
         approvedBy: null,
         approvalDate: null,
@@ -235,8 +234,8 @@ const OrderManager = forwardRef((props, ref) => {
           denialReason: ''
         };
       }
-      if (!updatedOrder.approvalWorkflow.purchaseApproval) {
-        updatedOrder.approvalWorkflow.purchaseApproval = {
+      if (!updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval) {
+        updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval = {
           status: 'pending',
           approvedBy: null,
           approvalDate: null,
@@ -275,12 +274,12 @@ const OrderManager = forwardRef((props, ref) => {
           if (sponsorshipStatus === 'successful') {
             // Obtained for free - skip purchase approval entirely
             updatedOrder.status = 'approved_for_purchase';
-            updatedOrder.approvalWorkflow.purchaseApproval.status = 'not_required';
-            updatedOrder.approvalWorkflow.purchaseApproval.comments = 'Material obtained through sponsorship - no purchase needed';
+            updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval.status = 'not_required';
+            updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval.comments = 'Material obtained through sponsorship - no purchase needed';
           } else if (sponsorshipStatus === 'failed' || sponsorshipStatus === 'not_applicable') {
             // Need to purchase - require purchase approval
             updatedOrder.status = 'pending_purchase_approval';
-            updatedOrder.approvalWorkflow.purchaseApproval.status = 'pending';
+            updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval.status = 'pending';
           } else {
             // in_progress or not_started - still awaiting sponsorship
             updatedOrder.status = 'awaiting_sponsorship';
@@ -289,8 +288,8 @@ const OrderManager = forwardRef((props, ref) => {
           updatedOrder.status = 'denied';
         }
       } else if (statusUpdate.type === 'purchase_approval') {
-        updatedOrder.approvalWorkflow.purchaseApproval = {
-          ...updatedOrder.approvalWorkflow.purchaseApproval,
+        updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval = {
+          ...updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval,
           status: statusUpdate.approved ? 'approved' : 'denied',
           approvedBy: statusUpdate.approvedBy,
           approvalDate: now,
@@ -307,19 +306,19 @@ const OrderManager = forwardRef((props, ref) => {
         // Update purchase approval status based on sponsorship search status
         if (statusUpdate.searchStatus === 'successful') {
           // Sponsorship successful - obtained for free, no purchase approval needed
-          updatedOrder.approvalWorkflow.purchaseApproval.status = 'not_required';
-          updatedOrder.approvalWorkflow.purchaseApproval.comments = 'Obtained through sponsorship - no purchase needed';
+          updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval.status = 'not_required';
+          updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval.comments = 'Obtained through sponsorship - no purchase needed';
           // Don't auto-change the order status - let tech director approve normally
           // The status will be set when they click approve/deny
         } else if (statusUpdate.searchStatus === 'failed' || statusUpdate.searchStatus === 'not_applicable') {
           // Sponsorship failed or not applicable - will need purchase approval after tech director approves
-          updatedOrder.approvalWorkflow.purchaseApproval.status = 'pending';
-          updatedOrder.approvalWorkflow.purchaseApproval.comments = '';
+          updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval.status = 'pending';
+          updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval.comments = '';
           // Keep status as is - tech director still needs to approve
         } else if (statusUpdate.searchStatus === 'in_progress' || statusUpdate.searchStatus === 'not_started') {
           // Sponsorship search is ongoing or hasn't started - will need purchase approval if it fails
-          updatedOrder.approvalWorkflow.purchaseApproval.status = 'pending';
-          updatedOrder.approvalWorkflow.purchaseApproval.comments = '';
+          updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval.status = 'pending';
+          updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval.comments = '';
           // Move to awaiting_sponsorship if search is in progress
           if (statusUpdate.searchStatus === 'in_progress') {
             updatedOrder.status = 'awaiting_sponsorship';
@@ -661,15 +660,15 @@ const OrderManager = forwardRef((props, ref) => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'pending_technical_approval': return '#f59e0b'; // Warm amber for pending
+      case 'pending_technical_approval': return '#ef4444'; // Red for pending
       case 'awaiting_sponsorship': return '#8b5cf6'; // Purple for sponsorship process
-      case 'pending_purchase_approval': return '#f59e0b'; // Same amber for consistency
+      case 'pending_purchase_approval': return '#ef4444'; // Same red for consistency
       case 'approved_for_purchase': return '#10b981'; // Emerald green for approved
       case 'in_transit': return '#3b82f6'; // Clean blue for in-transit
       case 'delivered': return '#059669'; // Darker green for completion
       case 'denied': return '#ef4444'; // Clean red for denied
       // Legacy statuses
-      case 'pending_approval': return '#f59e0b';
+      case 'pending_approval': return '#ef4444';
       case 'purchased': return '#3b82f6';
       default: return '#6b7280';
     }
@@ -1308,7 +1307,7 @@ const OrderManager = forwardRef((props, ref) => {
 
             {/* Step 1: Technical Director - Sponsorship Search Status Update */}
             {isDirector && (order.status === 'pending_approval' || order.status === 'pending_technical_approval' || order.status === 'awaiting_sponsorship') && (
-              <div className="detail-section approval-actions">
+              <div className="detail-section">
                 <h4>Step 1: Sponsorship Search Status</h4>
                 {(order.sponsorshipInfo?.sponsorshipSearchStatus === 'not_applicable' || 
                   order.sponsorshipInfo?.sponsorshipSearchStatus === 'failed' ||
@@ -1318,20 +1317,18 @@ const OrderManager = forwardRef((props, ref) => {
                     <p className="approval-help-text" style={{marginBottom: '1rem'}}>
                       ✓ Sponsorship status has been set and locked. Proceed to Step 2 below to approve or deny the order.
                     </p>
-                    <div className="sponsorship-summary">
-                      <div className="summary-item">
-                        <strong>Status:</strong>
-                        <span className={`sponsorship-status ${order.sponsorshipInfo?.sponsorshipSearchStatus || 'not_started'}`}>
-                          {(order.sponsorshipInfo?.sponsorshipSearchStatus || 'not_started').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                        </span>
-                      </div>
-                      {order.sponsorshipInfo?.sponsorshipResponse && (
-                        <div className="summary-item">
-                          <strong>Notes:</strong>
-                          <p style={{margin: '0.25rem 0 0 0', color: 'var(--subtxt)'}}>{order.sponsorshipInfo.sponsorshipResponse}</p>
-                        </div>
-                      )}
+                    <div className="summary-item">
+                      <strong>Status:</strong>
+                      <span className={`sponsorship-status ${order.sponsorshipInfo?.sponsorshipSearchStatus || 'not_started'}`}>
+                        {(order.sponsorshipInfo?.sponsorshipSearchStatus || 'not_started').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      </span>
                     </div>
+                    {order.sponsorshipInfo?.sponsorshipResponse && (
+                      <div className="summary-item">
+                        <strong>Notes:</strong>
+                        <p style={{margin: '0.25rem 0 0 0', color: 'var(--subtxt)'}}>{order.sponsorshipInfo.sponsorshipResponse}</p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   // Editable view for initial sponsorship status setting
@@ -2163,12 +2160,12 @@ const OrderManager = forwardRef((props, ref) => {
         }
 
         .approve-deny-btn {
-          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
           color: white;
         }
 
         .approve-deny-btn:hover {
-          background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+          background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
         }
 
         .sponsorship-btn {
@@ -2475,7 +2472,7 @@ const OrderManager = forwardRef((props, ref) => {
         }
 
         .approval-status.pending {
-          background: #f59e0b;
+          background: #ef4444;
           color: white;
         }
 
@@ -2544,10 +2541,25 @@ const OrderManager = forwardRef((props, ref) => {
 
         /* Approval Actions */
         .approval-actions {
-          background: rgba(245, 158, 11, 0.08);
-          border: 2px solid #f59e0b;
+          background: rgba(239, 68, 68, 0.08);
+          border: 2px solid #ef4444;
           padding: 1.5rem;
           border-radius: 8px;
+        }
+
+        .sponsorship-finalized {
+          background: rgba(239, 68, 68, 0.08);
+          border: 2px solid #ef4444;
+          padding: 1.5rem;
+          border-radius: 8px;
+        }
+
+        .summary-item {
+          margin-bottom: 0.75rem;
+        }
+
+        .summary-item:last-child {
+          margin-bottom: 0;
         }
 
         .approval-help-text {
@@ -2621,15 +2633,15 @@ const OrderManager = forwardRef((props, ref) => {
 
         /* Approval Modal Styles */
         .approval-order-summary {
-          background: rgba(245, 158, 11, 0.08);
+          background: rgba(239, 68, 68, 0.08);
           padding: 1rem;
           border-radius: 6px;
           margin-bottom: 1.5rem;
-          border: 1px solid rgba(245, 158, 11, 0.3);
+          border: 1px solid rgba(239, 68, 68, 0.3);
         }
 
         .approval-order-summary h4 {
-          color: #f59e0b;
+          color: #ef4444;
           margin: 0 0 0.5rem 0;
         }
 
@@ -3130,93 +3142,6 @@ const OrderManager = forwardRef((props, ref) => {
         </div>
       )}
 
-      {/* Approval Modal */}
-      {showApprovalModal && approvingOrder && (
-        <div className="modal-overlay" onClick={() => setShowApprovalModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Approve or Deny Order</h3>
-              <button className="modal-close" onClick={() => setShowApprovalModal(false)}>×</button>
-            </div>
-            
-            <div className="modal-body">
-              <div className="approval-order-summary">
-                <h4>{approvingOrder.materialDetails.materialName}</h4>
-                <p><strong>Subteam:</strong> {approvingOrder.submissionDetails.subteam}</p>
-                <p><strong>Submitter:</strong> {approvingOrder.submissionDetails.submitterName}</p>
-                <p><strong>Total Cost:</strong> ${approvingOrder.costBreakdown.totalCost.toFixed(2)}</p>
-                <p><strong>Purpose:</strong> {approvingOrder.projectDetails?.purpose || 'N/A'}</p>
-              </div>
-
-              <div className="form-section">
-                <div className="form-group">
-                  <label>Comments / Reason</label>
-                  <textarea 
-                    value={approvalComments}
-                    onChange={(e) => setApprovalComments(e.target.value)}
-                    placeholder="Add comments for approval or reason for denial..."
-                    rows="4"
-                  />
-                </div>
-              </div>
-
-              <div className="modal-actions">
-                <button 
-                  type="button" 
-                  className="btn-cancel" 
-                  onClick={() => setShowApprovalModal(false)}
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="button"
-                  className="btn-deny"
-                  onClick={async () => {
-                    if (!approvalComments.trim()) {
-                      await showError('Please provide a reason for denial', 'Denial Reason Required');
-                      return;
-                    }
-                    const confirmed = await showConfirm(
-                      'Are you sure you want to deny this order? This action will notify the submitter.',
-                      'Confirm Denial'
-                    );
-                    if (!confirmed) return;
-                    
-                    await updateOrderStatus(approvingOrder.id, {
-                      type: 'director_approval',
-                      approved: false,
-                      approvedBy: authService.currentUser?.level || 'director',
-                      denialReason: approvalComments
-                    });
-                    setShowApprovalModal(false);
-                    setApprovingOrder(null);
-                    setApprovalComments('');
-                  }}
-                >
-                  ✗ Deny Order
-                </button>
-                <button 
-                  type="button"
-                  className="btn-approve"
-                  onClick={async () => {
-                    await updateOrderStatus(approvingOrder.id, {
-                      type: 'director_approval',
-                      approved: true,
-                      approvedBy: authService.currentUser?.level || 'director',
-                      comments: approvalComments || 'Approved by director'
-                    });
-                    setShowApprovalModal(false);
-                    setApprovingOrder(null);
-                    setApprovalComments('');
-                  }}
-                >
-                  ✓ Approve Order
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 });

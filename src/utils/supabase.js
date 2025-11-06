@@ -842,7 +842,8 @@ class SupabaseService {
         sponsorshipRequestDate: dbOrder.sponsorship_request_date,
         sponsorshipSuccessful: dbOrder.sponsorship_successful || false,
         sponsorshipResponse: dbOrder.sponsorship_response || '',
-        sponsorshipResponseDate: dbOrder.sponsorship_response_date
+        sponsorshipResponseDate: dbOrder.sponsorship_response_date,
+        sponsorshipSearchStatus: dbOrder.sponsorship_search_status || 'not_started'
       },
       purchaseStatus: {
         purchased: dbOrder.purchased || false,
@@ -938,6 +939,7 @@ class SupabaseService {
       sponsorship_successful: order.sponsorshipInfo?.sponsorshipSuccessful || false,
       sponsorship_response: order.sponsorshipInfo?.sponsorshipResponse || '',
       sponsorship_response_date: order.sponsorshipInfo?.sponsorshipResponseDate,
+      sponsorship_search_status: order.sponsorshipInfo?.sponsorshipSearchStatus || 'not_started',
       
       // Purchase Status
       purchased: order.purchaseStatus?.purchased || false,
