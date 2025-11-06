@@ -11,7 +11,7 @@ const OrderManager = forwardRef((props, ref) => {
   const formScrollRef = useRef(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterTeam, setFilterTeam] = useState('all');
-  const [filterTimeline, setFilterTimeline] = useState('6months');
+  const [filterTimeline, setFilterTimeline] = useState('current');
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -75,6 +75,61 @@ const OrderManager = forwardRef((props, ref) => {
       setShowOrderForm(true);
     }
   }));
+
+  // Helper function to get semester information
+  const getSemesterInfo = (date = new Date()) => {
+    const month = date.getMonth(); // 0-11
+    const year = date.getFullYear();
+    
+    // Fall: August (7) to December (11)
+    // Spring: January (0) to May (4)
+    if (month >= 7 && month <= 11) {
+      return { semester: 'fall', year };
+    } else if (month >= 0 && month <= 4) {
+      return { semester: 'spring', year };
+    } else {
+      // June (5) and July (6) - consider as part of summer/upcoming fall
+      return { semester: 'fall', year };
+    }
+  };
+
+  // Helper function to get date range for a semester
+  const getSemesterDateRange = (semester, year) => {
+    let startDate, endDate;
+    
+    if (semester === 'fall') {
+      startDate = new Date(year, 7, 1); // August 1
+      endDate = new Date(year, 11, 31, 23, 59, 59); // December 31
+    } else { // spring
+      startDate = new Date(year, 0, 1); // January 1
+      endDate = new Date(year, 4, 31, 23, 59, 59); // May 31
+    }
+    
+    return { startDate, endDate };
+  };
+
+  // Generate semester filter options
+  const getSemesterOptions = () => {
+    const currentSemester = getSemesterInfo();
+    const options = [{ value: 'current', label: `${currentSemester.semester.charAt(0).toUpperCase() + currentSemester.semester.slice(1)} ${currentSemester.year}` }];
+    
+    // Get previous semester
+    let prevSemester, prevYear;
+    if (currentSemester.semester === 'fall') {
+      prevSemester = 'spring';
+      prevYear = currentSemester.year;
+    } else {
+      prevSemester = 'fall';
+      prevYear = currentSemester.year - 1;
+    }
+    
+    options.push({ value: `${prevSemester}_${prevYear}`, label: `${prevSemester.charAt(0).toUpperCase() + prevSemester.slice(1)} ${prevYear}` });
+    
+    // Add past year option (rolling 12 months)
+    options.push({ value: 'past_year', label: 'Year' });
+    
+    return options;
+  };
 
   useEffect(() => {
     loadOrders();
@@ -641,28 +696,38 @@ const OrderManager = forwardRef((props, ref) => {
     if (filterStatus !== 'all' && order.status !== filterStatus) return false;
     if (filterTeam !== 'all' && order.submissionDetails.subteam !== filterTeam) return false;
     
-    // Timeline filter
+    // Timeline filter - semester-based or past year
     if (filterTimeline !== 'all') {
       const orderDate = new Date(order.submissionTimestamp);
-      const now = new Date();
-      const monthsAgo = new Date();
       
-      switch (filterTimeline) {
-        case '1month':
-          monthsAgo.setMonth(now.getMonth() - 1);
-          if (orderDate < monthsAgo) return false;
-          break;
-        case '6months':
-          monthsAgo.setMonth(now.getMonth() - 6);
-          if (orderDate < monthsAgo) return false;
-          break;
-        case '1year':
-          monthsAgo.setFullYear(now.getFullYear() - 1);
-          if (orderDate < monthsAgo) return false;
-          break;
-        case 'all':
-          // Show all orders
-          break;
+      if (filterTimeline === 'current') {
+        // Use current semester
+        const currentSemester = getSemesterInfo();
+        const { startDate, endDate } = getSemesterDateRange(currentSemester.semester, currentSemester.year);
+        if (orderDate < startDate || orderDate > endDate) {
+          return false;
+        }
+      } else if (filterTimeline === 'past_year') {
+        // Past 12 months from today
+        const now = new Date();
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(now.getFullYear() - 1);
+        if (orderDate < oneYearAgo) {
+          return false;
+        }
+      } else {
+        // Parse semester_year format (e.g., 'fall_2024' or 'spring_2025')
+        const parts = filterTimeline.split('_');
+        const semesterToFilter = parts[0];
+        const yearToFilter = parseInt(parts[1]);
+        
+        // Get date range for the selected semester
+        const { startDate, endDate } = getSemesterDateRange(semesterToFilter, yearToFilter);
+        
+        // Filter orders within this semester
+        if (orderDate < startDate || orderDate > endDate) {
+          return false;
+        }
       }
     }
     
@@ -2915,9 +2980,11 @@ const OrderManager = forwardRef((props, ref) => {
             value={filterTimeline}
             onChange={(e) => setFilterTimeline(e.target.value)}
           >
-            <option value="1month">Past Month</option>
-            <option value="6months">Past 6 Months</option>
-            <option value="1year">Past Year</option>
+            {getSemesterOptions().map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
             <option value="all">All Time</option>
           </select>
         </div>

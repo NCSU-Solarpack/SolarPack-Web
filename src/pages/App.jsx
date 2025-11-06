@@ -1,31 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
 const App = () => {
-  const [activeModal, setActiveModal] = useState(null)
-
   useEffect(() => {
     document.title = 'SolarPack · App'
-  }, [])
-
-  const openModal = (modalId) => {
-    setActiveModal(modalId)
-    document.body.style.overflow = 'hidden'
-  }
-
-  const closeModal = () => {
-    setActiveModal(null)
-    document.body.style.overflow = ''
-  }
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        closeModal()
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
   }, [])
 
   const modalData = {
@@ -95,345 +72,405 @@ const App = () => {
     <>
       <style>{`
         /* Page-specific styles */
-        :root {
-          --card: #1a1a1a;
-          --subtxt: #c9c9c9;
-        }
-        
-        .section {
-          background: var(--card);
+        .app-hero {
+          position: relative;
+          background: linear-gradient(135deg, #1a1a1a 0%, #0c0c0c 100%);
           border-radius: var(--radius);
-          padding: 2rem 1.5rem;
-          margin: 2.5rem auto 0;
-          max-width: 1200px;
-          box-shadow: 0 1px 6px #0003;
-        }
-        
-        .footer {
-          text-align: center;
-          color: #888;
-          font-size: 1rem;
-          margin: 3.5rem 0 1.5rem;
+          padding: 4rem 2rem;
+          margin-bottom: 3rem;
+          overflow: hidden;
+          box-shadow: 0 8px 32px rgba(227, 27, 35, 0.15);
         }
 
-        /* App Screenshots Grid */
-        .screenshots-container {
-          width: 100%;
+        .app-hero::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          right: -20%;
+          width: 600px;
+          height: 600px;
+          background: radial-gradient(circle, rgba(227, 27, 35, 0.15) 0%, transparent 70%);
+          border-radius: 50%;
+          animation: pulse 8s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); opacity: 0.3; }
+          50% { transform: scale(1.1); opacity: 0.5; }
+        }
+
+        .app-hero-content {
+          position: relative;
+          z-index: 1;
+          text-align: center;
+          max-width: 800px;
+          margin: 0 auto;
+        }
+
+        .app-hero h1 {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: clamp(3rem, 10vw, 5rem);
+          color: var(--accent);
+          margin-bottom: 1rem;
+          letter-spacing: 0.08em;
+          text-shadow: 0 0 40px rgba(227, 27, 35, 0.4);
+        }
+
+        .app-hero-subtitle {
+          font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+          color: var(--subtxt);
+          line-height: 1.7;
+          margin-bottom: 2.5rem;
+          max-width: 700px;
+          margin-left: auto;
+          margin-right: auto;
+        }
+
+        /* App Buttons */
+        .app-buttons {
           display: flex;
           justify-content: center;
+          align-items: center;
+          gap: 1.5rem;
+          flex-wrap: wrap;
+          margin-top: 2rem;
+        }
+
+        .app-store-badge {
+          height: 56px;
+          width: auto;
+          transition: transform 0.3s ease, filter 0.3s ease;
+          filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
+        }
+
+        .app-store-badge:hover {
+          transform: translateY(-4px);
+          filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.4));
+        }
+
+        .telemetry-btn {
+          background: linear-gradient(135deg, var(--accent) 0%, #c41920 100%);
+          color: #fff;
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: 1.2rem;
+          font-weight: bold;
+          letter-spacing: 2px;
+          padding: 1.1rem 2.5rem;
+          display: flex;
+          align-items: center;
+          gap: 0.8rem;
+          border: none;
+          border-radius: 10px;
+          box-shadow: 0 4px 20px rgba(227, 27, 35, 0.4);
+          cursor: pointer;
+          transition: all 0.3s ease;
+          text-transform: uppercase;
+          text-decoration: none;
+        }
+
+        .telemetry-btn:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 8px 30px rgba(227, 27, 35, 0.6);
+          background: linear-gradient(135deg, #ff2831 0%, #e31b23 100%);
+        }
+
+        .telemetry-btn:active {
+          transform: translateY(-2px);
+        }
+
+        /* Features Section */
+        .features-section {
+          margin: 4rem 0;
+        }
+
+        .features-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+          gap: 2rem;
           margin-top: 3rem;
+        }
+
+        .feature-card {
+          background: linear-gradient(135deg, #1a1a1a 0%, #141414 100%);
+          border-radius: var(--radius);
+          padding: 2rem;
+          text-align: center;
+          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          border: 1px solid transparent;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .feature-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(135deg, rgba(227, 27, 35, 0.1) 0%, transparent 100%);
+          opacity: 0;
+          transition: opacity 0.4s ease;
+        }
+
+        .feature-card:hover {
+          transform: translateY(-8px);
+          border-color: rgba(227, 27, 35, 0.3);
+          box-shadow: 0 12px 40px rgba(227, 27, 35, 0.2);
+        }
+
+        .feature-card:hover::before {
+          opacity: 1;
+        }
+
+        .feature-icon {
+          font-size: 3rem;
+          color: var(--accent);
+          margin-bottom: 1rem;
+          position: relative;
+          z-index: 1;
+          display: inline-block;
+          transition: transform 0.4s ease;
+        }
+
+        .feature-card:hover .feature-icon {
+          transform: scale(1.1) rotateY(360deg);
+        }
+
+        .feature-card h3 {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: 1.6rem;
+          color: var(--accent);
+          margin: 1rem 0 0.8rem;
+          letter-spacing: 0.05em;
+          position: relative;
+          z-index: 1;
+        }
+
+        .feature-card p {
+          font-size: 1rem;
+          color: var(--subtxt);
+          line-height: 1.6;
+          position: relative;
+          z-index: 1;
+        }
+
+        /* Section Titles */
+        .section-title {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: clamp(2.5rem, 6vw, 3.5rem);
+          text-align: center;
+          color: var(--text);
+          margin-bottom: 1rem;
+          letter-spacing: 0.06em;
+        }
+
+        .section-subtitle {
+          text-align: center;
+          color: var(--subtxt);
+          font-size: 1.15rem;
+          max-width: 700px;
+          margin: 0 auto 2rem;
+          line-height: 1.6;
+        }
+
+        /* Screenshots Grid */
+        .screenshots-section {
+          margin: 4rem 0;
         }
 
         .screenshots-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          gap: 2rem;
-          max-width: 1200px;
-          width: 100%;
-          justify-content: center;
-          padding: 0 1rem;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 2.5rem;
+          margin-top: 3rem;
         }
 
         .screenshot-card {
-          position: relative;
-          cursor: pointer;
-          transition: transform 0.3s ease;
-          border-radius: var(--radius);
+          border-radius: 12px;
           overflow: hidden;
-          background: #222;
-        }
-
-        .screenshot-card:hover {
-          transform: translateY(-8px) scale(1.02);
+          background: #1a1a1a;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
         }
 
         .screenshot-card img {
           width: 100%;
           height: auto;
-          max-width: 100%;
-          border-radius: var(--radius);
           display: block;
         }
 
-        .screenshot-overlay {
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          background: linear-gradient(transparent, rgba(0,0,0,0.9));
-          color: white;
-          padding: 1.5rem;
-          transform: translateY(100%);
-          transition: transform 0.3s ease;
+        /* Privacy Link */
+        .privacy-link {
+          text-align: center;
+          margin: 4rem 0 2rem;
+          font-size: 1rem;
         }
 
-        .screenshot-card:hover .screenshot-overlay {
-          transform: translateY(0);
-        }
-
-        .screenshot-title {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 1.5rem;
+        .privacy-link a {
           color: var(--accent);
-          margin-bottom: 0.5rem;
+          text-decoration: none;
+          opacity: 0.8;
+          transition: all 0.3s ease;
+          padding: 0.5rem 1rem;
+          border-radius: 6px;
         }
 
-        .screenshot-preview {
-          font-size: 0.9rem;
-          color: #ccc;
-        }
-
-        /* Modal Styles */
-        .modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: rgba(0, 0, 0, 0.9);
-          display: ${activeModal ? 'flex' : 'none'};
-          justify-content: center;
-          align-items: center;
-          z-index: 1000;
-          padding: 2rem;
-        }
-
-        .modal-content {
-          background: var(--surface);
-          border-radius: var(--radius);
-          max-width: 900px;
-          width: 100%;
-          max-height: 90vh;
-          overflow-y: auto;
-          position: relative;
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 2rem;
-          padding: 2rem;
-        }
-
-        .modal-image {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-        }
-
-        .modal-image img {
-          max-width: 100%;
-          max-height: 500px;
-          border-radius: var(--radius);
-          box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-        }
-
-        .modal-details {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-        }
-
-        .modal-title {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: 2.5rem;
-          color: var(--accent);
-          margin-bottom: 1rem;
-        }
-
-        .modal-description {
-          color: var(--muted);
-          line-height: 1.6;
-          font-size: 1.1rem;
-          margin-bottom: 1.5rem;
-        }
-
-        .modal-features {
-          list-style: none;
-          padding: 0;
-        }
-
-        .modal-features li {
-          display: flex;
-          align-items: center;
-          margin-bottom: 0.8rem;
-          color: var(--text);
-        }
-
-        .modal-features li::before {
-          content: "✓";
-          color: var(--accent);
-          font-weight: bold;
-          margin-right: 0.8rem;
-          font-size: 1.2rem;
-        }
-
-        .close-btn {
-          position: absolute;
-          top: 1rem;
-          right: 1rem;
-          background: none;
-          border: none;
-          color: var(--text);
-          font-size: 2rem;
-          cursor: pointer;
-          transition: color 0.3s ease;
-          z-index: 1001;
-        }
-
-        .close-btn:hover {
-          color: var(--accent);
-        }
-
-        .app-buttons-row {
-          width: 100%;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          gap: 1.2rem;
-          margin-bottom: 2.5rem;
-          flex-wrap: wrap;
-        }
-
-        .app-buttons-row a {
-          display: flex;
-          align-items: center;
+        .privacy-link a:hover {
+          opacity: 1;
+          background: rgba(227, 27, 35, 0.1);
         }
 
         /* Responsive Design */
-        @media (max-width: 768px) {
-          .modal-content {
-            grid-template-columns: 1fr;
-            gap: 1.5rem;
-            padding: 1.5rem;
+        @media (max-width: 968px) {
+          .app-hero {
+            padding: 3rem 1.5rem;
           }
 
-          .modal-title {
-            font-size: 2rem;
+          .features-grid {
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+          }
+
+          .screenshots-grid {
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .app-buttons {
+            flex-direction: column;
+            gap: 1.2rem;
+          }
+
+          .features-grid {
+            grid-template-columns: 1fr;
           }
 
           .screenshots-grid {
             grid-template-columns: 1fr;
             gap: 1.5rem;
           }
-
-          .section {
-            margin: 1.5rem auto 0;
-            padding: 1.5rem;
-          }
         }
 
         @media (max-width: 480px) {
-          .modal-overlay {
-            padding: 1rem;
+          .app-hero {
+            padding: 2.5rem 1rem;
           }
 
-          .modal-content {
-            padding: 1rem;
-          }
-
-          .app-buttons-row {
-            flex-direction: column;
-            gap: 1rem;
-          }
-
-          .app-buttons-row a {
-            justify-content: center;
+          .feature-card {
+            padding: 1.5rem;
           }
         }
       `}</style>
 
-      <section className="section" style={{ textAlign: 'center' }}>
-        <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2.5rem, 7vw, 4.5rem)', letterSpacing: '0.04em', margin: '2.5rem 0 0.5rem' }}>
-          SolarPack App
-        </h1>
-        <p style={{ color: 'var(--subtxt)', fontSize: '1.2rem', maxWidth: '600px', margin: '0 auto 2.2rem' }}>
-          Welcome to the SolarPack App page! Here you'll find information about our mobile and web applications, features, and how to get involved as a user or developer.
+      {/* Hero Section */}
+      <div className="app-hero">
+        <div className="app-hero-content">
+          <h1>SolarPack App</h1>
+          <p className="app-hero-subtitle">
+            Experience real-time vehicle telemetry, comprehensive system monitoring, and cutting-edge solar data visualization. 
+            Built for performance, designed for insight.
+          </p>
+          
+          <div className="app-buttons">
+            <a href="https://apps.apple.com/us/app/solarpack/id6748289347" aria-label="Download on the App Store">
+              <img 
+                src="/images/app_store.png" 
+                alt="Download on the App Store" 
+                className="app-store-badge"
+              />
+            </a>
+            <a 
+              href="https://solarpack-app-server-alyv.onrender.com/#" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="telemetry-btn"
+            >
+              <i className="fas fa-satellite-dish"></i>
+              VIEW LIVE TELEMETRY
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Features Section */}
+      <section className="features-section">
+        <h2 className="section-title">Powerful Features</h2>
+        <p className="section-subtitle">
+          Our app delivers professional-grade monitoring and analytics for solar vehicle performance
         </p>
         
-        {/* App Store and Telemetry Buttons Row */}
-        <div className="app-buttons-row">
-          <a href="https://apps.apple.com/us/app/solarpack/id6748289347">
-            <img 
-              src="/images/app_store.png" 
-              alt="Download on the App Store" 
-              style={{ height: '60px', width: 'auto', boxShadow: 'none', background: 'none' }} 
-            />
-          </a>
-          <a 
-            href="https://solarpack-app-server-alyv.onrender.com/#" 
-            style={{ textDecoration: 'none' }} 
-            target="_blank" 
-            rel="noopener noreferrer"
-          >
-            <button style={{
-              background: 'var(--accent)',
-              color: '#fff',
-              fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: '1.3rem',
-              fontWeight: 'bold',
-              letterSpacing: '2px',
-              padding: '1.0rem 2.2rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.7rem',
-              border: 'none',
-              borderRadius: '10px',
-              boxShadow: '0 2px 12px #0003',
-              cursor: 'pointer',
-              transition: 'background 0.2s',
-              textTransform: 'uppercase'
-            }}>
-              <i className="fas fa-satellite-dish" style={{ fontSize: '1.5rem' }}></i>
-              VIEW LIVE TELEMETRY
-            </button>
-          </a>
-        </div>
-        
-        {/* App Screenshots Grid: Interactive iPad Screenshots */}
-        <div className="screenshots-container">
-          <div className="screenshots-grid">
-            {Object.entries(modalData).map(([key, data]) => (
-              <div key={key} className="screenshot-card" onClick={() => openModal(key)}>
-                <img src={data.image} alt={`iPad Screenshot ${key.slice(-1)}`} />
-                <div className="screenshot-overlay">
-                  <div className="screenshot-title">{data.title}</div>
-                  <div className="screenshot-preview">Click to learn more about the {data.title.toLowerCase()} features...</div>
-                </div>
-              </div>
-            ))}
+        <div className="features-grid">
+          <div className="feature-card">
+            <i className="fas fa-tachometer-alt feature-icon"></i>
+            <h3>Real-Time Data</h3>
+            <p>
+              Monitor vehicle speed, RPM, current draw, and battery metrics with live-updating gauges and visualizations.
+            </p>
           </div>
-        </div>
 
-        {/* Modal Popup */}
-        {activeModal && modalData[activeModal] && (
-          <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && closeModal()}>
-            <div className="modal-content">
-              <button className="close-btn" onClick={closeModal}>&times;</button>
-              <div className="modal-image">
-                <img src={modalData[activeModal].image} alt={modalData[activeModal].title} />
-              </div>
-              <div className="modal-details">
-                <h2 className="modal-title">{modalData[activeModal].title}</h2>
-                <p className="modal-description">
-                  {modalData[activeModal].description}
-                </p>
-                <ul className="modal-features">
-                  {modalData[activeModal].features.map((feature, index) => (
-                    <li key={index}>{feature}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+          <div className="feature-card">
+            <i className="fas fa-solar-panel feature-icon"></i>
+            <h3>Solar Monitoring</h3>
+            <p>
+              Track solar voltage, power output, and charging status with dedicated solar system analytics.
+            </p>
           </div>
-        )}
+
+          <div className="feature-card">
+            <i className="fas fa-battery-full feature-icon"></i>
+            <h3>Battery Management</h3>
+            <p>
+              Cell-level voltage and temperature monitoring with a comprehensive 100-cell grid display and fault detection.
+            </p>
+          </div>
+
+          <div className="feature-card">
+            <i className="fas fa-microchip feature-icon"></i>
+            <h3>System Health</h3>
+            <p>
+              Complete board health monitoring with status indicators for all auxiliary systems and ignition control.
+            </p>
+          </div>
+
+          <div className="feature-card">
+            <i className="fas fa-chart-line feature-icon"></i>
+            <h3>Analytics</h3>
+            <p>
+              Rolling line charts and historical data visualization for charge rates and performance metrics.
+            </p>
+          </div>
+
+          <div className="feature-card">
+            <i className="fas fa-cog feature-icon"></i>
+            <h3>Motor Control</h3>
+            <p>
+              Monitor motor and controller temperatures, voltages, and cooling system status with precision gauges.
+            </p>
+          </div>
+        </div>
       </section>
 
-      {/* Minimalistic Privacy Policy Link */}
-      <div style={{ textAlign: 'center', margin: '2.5rem 0 0', fontSize: '0.98rem' }}>
-        <a 
-          href="/privacy-policy" 
-          style={{ color: 'var(--accent)', textDecoration: 'none', opacity: '0.8', transition: 'opacity 0.2s' }}
-        >
-          Privacy & Data Policy
-        </a>
+      {/* Screenshots Section */}
+      <section className="screenshots-section">
+        <h2 className="section-title">App Interface</h2>
+        <p className="section-subtitle">
+          A comprehensive look at our dashboard pages and monitoring systems
+        </p>
+        
+        <div className="screenshots-grid">
+          {Object.entries(modalData).map(([key, data]) => (
+            <div key={key} className="screenshot-card">
+              <img src={data.image} alt={data.title} />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Privacy Policy Link */}
+      <div className="privacy-link">
+        <a href="/privacy-policy">Privacy & Data Policy</a>
       </div>
     </>
   )

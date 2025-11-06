@@ -22,7 +22,7 @@ const ScheduleManager = forwardRef((props, ref) => {
         type: 'project',
         title: '',
         description: '',
-        team: 'director',
+        team: selectedTeam !== 'all' ? selectedTeam : 'director',
         priority: 'medium',
         status: 'planning',
         startDate: new Date().toISOString().split('T')[0],
@@ -93,15 +93,37 @@ const ScheduleManager = forwardRef((props, ref) => {
   };
 
   const getStatusColor = (status, dueDate) => {
-    if (isOverdue(dueDate, status)) return '#dc3545'; // Red for overdue
+    if (isOverdue(dueDate, status)) return 'var(--accent)'; // Red for overdue
     switch (status) {
-      case 'completed': return '#28a745';
-      case 'in-progress': return '#007bff';
-      case 'pending': return '#ffc107';
-      case 'planning': return '#6c757d';
-      case 'critical': return '#dc3545';
-      default: return '#6c757d';
+      case 'completed': return 'var(--muted)';
+      case 'in-progress': return 'var(--subtxt)';
+      case 'pending': return 'var(--muted)';
+      case 'planning': return 'var(--muted)';
+      case 'critical': return 'var(--accent)';
+      default: return 'var(--muted)';
     }
+  };
+
+  const calculateProgress = (startDate, dueDate, status) => {
+    if (status === 'completed') return 100;
+    if (!startDate || !dueDate) return 0;
+    
+    const start = new Date(startDate);
+    const due = new Date(dueDate);
+    const today = new Date();
+    
+    // If project hasn't started yet
+    if (today < start) return 0;
+    
+    // If project is overdue
+    if (today > due) return 100;
+    
+    // Calculate percentage based on time elapsed
+    const totalDuration = due - start;
+    const elapsed = today - start;
+    const progress = Math.round((elapsed / totalDuration) * 100);
+    
+    return Math.max(0, Math.min(100, progress));
   };
 
   const handleAddProject = () => {
@@ -110,7 +132,7 @@ const ScheduleManager = forwardRef((props, ref) => {
       // Don't set id - let Supabase auto-generate it
       title: '',
       description: '',
-      team: 'director',
+      team: selectedTeam !== 'all' ? selectedTeam : 'director',
       priority: 'medium',
       status: 'planning',
       startDate: new Date().toISOString().split('T')[0], // Default to today
@@ -161,11 +183,9 @@ const ScheduleManager = forwardRef((props, ref) => {
       startDate: new Date().toISOString().split('T')[0], // Default to today
       dueDate: '',
       estimatedHours: 0,
-      actualHours: 0,
       status: 'pending',
       priority: 'medium',
-      assignedTo: '',
-      progress: 0
+      assignedTo: ''
     };
     
     setEditingItem({
@@ -184,6 +204,9 @@ const ScheduleManager = forwardRef((props, ref) => {
         const projectData = { ...editingItem };
         delete projectData.type;
         
+        // Calculate progress based on dates
+        projectData.progress = calculateProgress(projectData.startDate, projectData.dueDate, projectData.status);
+        
         // Save project to Supabase
         const savedProject = await supabaseService.saveProject(projectData);
         
@@ -191,6 +214,8 @@ const ScheduleManager = forwardRef((props, ref) => {
         if (projectData.tasks && projectData.tasks.length > 0) {
           for (const task of projectData.tasks) {
             const taskData = { ...task, projectId: savedProject.id };
+            // Calculate progress for task based on dates
+            taskData.progress = calculateProgress(taskData.startDate, taskData.dueDate, taskData.status);
             await supabaseService.saveTask(taskData);
           }
         }
@@ -276,7 +301,7 @@ const ScheduleManager = forwardRef((props, ref) => {
       const inProgress = teamProjects.filter(p => p.status === 'in-progress').length;
       const overdue = teamProjects.filter(p => isOverdue(p.dueDate, p.status)).length;
       const avgProgress = teamProjects.length > 0 
-        ? Math.round(teamProjects.reduce((sum, p) => sum + p.progress, 0) / teamProjects.length)
+        ? Math.round(teamProjects.reduce((sum, p) => sum + calculateProgress(p.startDate, p.dueDate, p.status), 0) / teamProjects.length)
         : 0;
       
       return {
@@ -296,7 +321,7 @@ const ScheduleManager = forwardRef((props, ref) => {
     const inProgress = scheduleData.projects.filter(p => p.status === 'in-progress').length;
     const overdue = scheduleData.projects.filter(p => isOverdue(p.dueDate, p.status)).length;
     const avgProgress = totalProjects > 0
-      ? Math.round(scheduleData.projects.reduce((sum, p) => sum + p.progress, 0) / totalProjects)
+      ? Math.round(scheduleData.projects.reduce((sum, p) => sum + calculateProgress(p.startDate, p.dueDate, p.status), 0) / totalProjects)
       : 0;
     
     return { totalProjects, completed, inProgress, overdue, avgProgress };
@@ -600,7 +625,7 @@ const ScheduleManager = forwardRef((props, ref) => {
         }
 
         .calendar-nav-btn:hover {
-          background: #ff4a45;
+          background: var(--surface);
           transform: translateY(-2px);
         }
 
@@ -729,7 +754,7 @@ const ScheduleManager = forwardRef((props, ref) => {
         }
 
         .add-button:hover {
-          background: #ff4a45;
+          opacity: 0.9;
           transform: translateY(-2px);
           box-shadow: 0 4px 12px rgba(227, 27, 35, 0.4);
         }
@@ -966,17 +991,17 @@ const ScheduleManager = forwardRef((props, ref) => {
         }
 
         .delete-btn {
-          background: #dc3545;
+          background: var(--muted);
           color: white;
         }
 
         .edit-btn:hover {
-          background: #ff4a45;
+          opacity: 0.9;
           transform: translateY(-1px);
         }
 
         .delete-btn:hover {
-          background: #c82333;
+          opacity: 0.8;
           transform: translateY(-1px);
         }
 
@@ -1000,17 +1025,17 @@ const ScheduleManager = forwardRef((props, ref) => {
         }
 
         .icon-btn.delete {
-          background: #dc3545;
+          background: var(--muted);
           color: white;
         }
 
         .icon-btn.edit:hover {
-          background: #ff4a45;
+          opacity: 0.9;
           transform: translateY(-1px);
         }
 
         .icon-btn.delete:hover {
-          background: #c82333;
+          opacity: 0.8;
           transform: translateY(-1px);
         }
 
@@ -1234,6 +1259,18 @@ const ScheduleManager = forwardRef((props, ref) => {
           border-color: var(--accent);
         }
 
+        /* Make date picker icons white */
+        .form-input[type="date"]::-webkit-calendar-picker-indicator {
+          filter: invert(1);
+          cursor: pointer;
+        }
+
+        /* Placeholder text styling */
+        .form-input::placeholder {
+          color: var(--subtxt);
+          opacity: 0.6;
+        }
+
         .form-textarea {
           resize: vertical;
           min-height: 100px;
@@ -1269,7 +1306,7 @@ const ScheduleManager = forwardRef((props, ref) => {
         }
 
         .save-btn:hover {
-          background: #ff4a45;
+          opacity: 0.9;
           transform: translateY(-1px);
         }
 
@@ -1284,7 +1321,7 @@ const ScheduleManager = forwardRef((props, ref) => {
         }
 
         .overdue {
-          border-left: 4px solid #dc3545;
+          border-left: 4px solid var(--accent);
         }
 
         .loading {
@@ -1333,16 +1370,16 @@ const ScheduleManager = forwardRef((props, ref) => {
             </div>
             <div className="stat-card">
               <div className="stat-label">Completed</div>
-              <div className="stat-value" style={{color: '#28a745'}}>{overallStats.completed}</div>
+              <div className="stat-value" style={{color: 'var(--subtxt)'}}>{overallStats.completed}</div>
               <div className="stat-sublabel">{overallStats.totalProjects > 0 ? Math.round(overallStats.completed / overallStats.totalProjects * 100) : 0}%</div>
             </div>
             <div className="stat-card">
               <div className="stat-label">In Progress</div>
-              <div className="stat-value" style={{color: '#007bff'}}>{overallStats.inProgress}</div>
+              <div className="stat-value" style={{color: 'var(--text)'}}>{overallStats.inProgress}</div>
             </div>
             <div className="stat-card">
               <div className="stat-label">Overdue</div>
-              <div className="stat-value" style={{color: '#dc3545'}}>{overallStats.overdue}</div>
+              <div className="stat-value" style={{color: 'var(--accent)'}}>{overallStats.overdue}</div>
             </div>
             <div className="stat-card">
               <div className="stat-label">Avg Progress</div>
@@ -1352,7 +1389,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                   className="progress-fill"
                   style={{ 
                     width: `${overallStats.avgProgress}%`,
-                    backgroundColor: '#6366f1'
+                    backgroundColor: 'var(--accent)'
                   }}
                 />
               </div>
@@ -1375,7 +1412,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                 >
                   <div className="team-header">
                     <h3 className="team-name">{team.name}</h3>
-                    <div className="team-badge" style={{backgroundColor: team.color}}>
+                    <div className="team-badge" style={{backgroundColor: 'var(--accent)'}}>
                       {team.totalProjects}
                     </div>
                   </div>
@@ -1390,7 +1427,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                         className="progress-fill"
                         style={{ 
                           width: `${team.avgProgress}%`,
-                          backgroundColor: team.color
+                          backgroundColor: 'var(--accent)'
                         }}
                       />
                     </div>
@@ -1398,15 +1435,15 @@ const ScheduleManager = forwardRef((props, ref) => {
 
                   <div className="team-stats">
                     <div className="team-stat">
-                      <div className="team-stat-value" style={{color: '#28a745'}}>{team.completed}</div>
+                      <div className="team-stat-value" style={{color: 'var(--subtxt)'}}>{team.completed}</div>
                       <div className="team-stat-label">Done</div>
                     </div>
                     <div className="team-stat">
-                      <div className="team-stat-value" style={{color: '#007bff'}}>{team.inProgress}</div>
+                      <div className="team-stat-value" style={{color: 'var(--text)'}}>{team.inProgress}</div>
                       <div className="team-stat-label">Active</div>
                     </div>
                     <div className="team-stat">
-                      <div className="team-stat-value" style={{color: '#dc3545'}}>{team.overdue}</div>
+                      <div className="team-stat-value" style={{color: 'var(--accent)'}}>{team.overdue}</div>
                       <div className="team-stat-label">Overdue</div>
                     </div>
                   </div>
@@ -1433,7 +1470,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                   <div className="deadline-info">
                     <div className="deadline-title">{project.title}</div>
                     <div className="deadline-meta">
-                      {getTeamName(project.team)} • {project.assignedTo} • {project.progress}% complete
+                      {getTeamName(project.team)} • {project.assignedTo} • {calculateProgress(project.startDate, project.dueDate, project.status)}% complete
                     </div>
                   </div>
                   <div className="deadline-date">
@@ -1504,9 +1541,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                         key={`${item.itemType}-${item.id}`}
                         className="calendar-item"
                         style={{
-                          backgroundColor: item.itemType === 'project' 
-                            ? getTeamColor(item.team)
-                            : '#6c757d'
+                          backgroundColor: 'var(--accent)'
                         }}
                         onClick={() => {
                           if (item.itemType === 'project') {
@@ -1571,7 +1606,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                   <h3 className="project-title">{project.title}</h3>
                   <div 
                     className="project-team"
-                    style={{ backgroundColor: getTeamColor(project.team) }}
+                    style={{ backgroundColor: 'var(--muted)' }}
                   >
                     {getTeamName(project.team)}
                   </div>
@@ -1591,13 +1626,13 @@ const ScheduleManager = forwardRef((props, ref) => {
                   <div 
                     className="progress-fill"
                     style={{ 
-                      width: `${project.progress}%`,
-                      backgroundColor: getTeamColor(project.team)
+                      width: `${calculateProgress(project.startDate, project.dueDate, project.status)}%`,
+                      backgroundColor: 'var(--accent)'
                     }}
                   />
                 </div>
                 <div style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
-                  Progress: {project.progress}%
+                  Progress: {calculateProgress(project.startDate, project.dueDate, project.status)}%
                 </div>
               </div>
 
@@ -1629,7 +1664,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                         <div className="task-meta">
                           Due: {new Date(task.dueDate).toLocaleDateString()} | 
                           Status: {task.status} | 
-                          Progress: {task.progress}%
+                          Progress: {calculateProgress(task.startDate, task.dueDate, task.status)}%
                         </div>
                       </div>
                       <div className="task-actions">
@@ -1705,7 +1740,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                 <div className="modal-badges">
                   <div 
                     className="project-team"
-                    style={{ backgroundColor: getTeamColor(selectedProject.team) }}
+                    style={{ backgroundColor: 'var(--muted)' }}
                   >
                     {getTeamName(selectedProject.team)}
                   </div>
@@ -1717,7 +1752,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                   </div>
                   <div
                     className="project-status"
-                    style={{ backgroundColor: selectedProject.priority === 'critical' ? '#dc3545' : selectedProject.priority === 'high' ? '#ff6b6b' : selectedProject.priority === 'medium' ? '#ffc107' : '#6c757d' }}
+                    style={{ backgroundColor: selectedProject.priority === 'critical' ? 'var(--accent)' : 'var(--muted)' }}
                   >
                     {selectedProject.priority.toUpperCase()}
                   </div>
@@ -1743,7 +1778,7 @@ const ScheduleManager = forwardRef((props, ref) => {
               </div>
               <div className="meta-item">
                 <div className="meta-label">Progress</div>
-                <div className="meta-value">{selectedProject.progress}%</div>
+                <div className="meta-value">{calculateProgress(selectedProject.startDate, selectedProject.dueDate, selectedProject.status)}%</div>
               </div>
               <div className="meta-item">
                 <div className="meta-label">Hours</div>
@@ -1754,14 +1789,14 @@ const ScheduleManager = forwardRef((props, ref) => {
             <div className="project-progress">
               <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem'}}>
                 <span style={{fontWeight: 600, color: 'var(--text)'}}>Overall Progress</span>
-                <span style={{fontWeight: 700, color: 'var(--accent)'}}>{selectedProject.progress}%</span>
+                <span style={{fontWeight: 700, color: 'var(--accent)'}}>{calculateProgress(selectedProject.startDate, selectedProject.dueDate, selectedProject.status)}%</span>
               </div>
               <div className="progress-bar" style={{height: '12px'}}>
                 <div 
                   className="progress-fill"
                   style={{ 
-                    width: `${selectedProject.progress}%`,
-                    backgroundColor: getTeamColor(selectedProject.team)
+                    width: `${calculateProgress(selectedProject.startDate, selectedProject.dueDate, selectedProject.status)}%`,
+                    backgroundColor: 'var(--accent)'
                   }}
                 />
               </div>
@@ -1797,20 +1832,20 @@ const ScheduleManager = forwardRef((props, ref) => {
                         <div><strong>Assigned:</strong> {task.assignedTo}</div>
                         <div><strong>Due:</strong> {new Date(task.dueDate).toLocaleDateString()}</div>
                         <div><strong>Priority:</strong> {task.priority}</div>
-                        <div><strong>Hours:</strong> {task.actualHours}/{task.estimatedHours}</div>
+                        <div><strong>Est. Hours:</strong> {task.estimatedHours}</div>
                       </div>
 
                       <div className="task-progress-section">
                         <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.9rem'}}>
                           <span>Progress</span>
-                          <span style={{fontWeight: 'bold'}}>{task.progress}%</span>
+                          <span style={{fontWeight: 'bold'}}>{calculateProgress(task.startDate, task.dueDate, task.status)}%</span>
                         </div>
                         <div className="progress-bar">
                           <div 
                             className="progress-fill"
                             style={{ 
-                              width: `${task.progress}%`,
-                              backgroundColor: getTeamColor(selectedProject.team)
+                              width: `${calculateProgress(task.startDate, task.dueDate, task.status)}%`,
+                              backgroundColor: 'var(--accent)'
                             }}
                           />
                         </div>
@@ -1938,6 +1973,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                     <input
                       type="text"
                       className="form-input"
+                      placeholder="Team Lead / Owner Name"
                       value={editingItem.assignedTo}
                       onChange={(e) => setEditingItem({...editingItem, assignedTo: e.target.value})}
                     />
@@ -1976,19 +2012,25 @@ const ScheduleManager = forwardRef((props, ref) => {
                       onChange={(e) => setEditingItem({...editingItem, estimatedHours: parseInt(e.target.value) || 0})}
                     />
                   </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Progress (%)</label>
-                    <input
-                      type="number"
-                      className="form-input"
-                      min="0"
-                      max="100"
-                      value={editingItem.progress}
-                      onChange={(e) => setEditingItem({...editingItem, progress: parseInt(e.target.value) || 0})}
-                    />
-                  </div>
                 </div>
+
+                {/* Progress is auto-calculated based on start date, due date, and current date */}
+                {editingItem.startDate && editingItem.dueDate && (
+                  <div className="form-group">
+                    <label className="form-label">Calculated Progress</label>
+                    <div style={{
+                      padding: '0.75rem',
+                      background: 'var(--card)',
+                      borderRadius: '8px',
+                      color: 'var(--text)'
+                    }}>
+                      {calculateProgress(editingItem.startDate, editingItem.dueDate, editingItem.status)}% 
+                      <span style={{ color: 'var(--subtxt)', fontSize: '0.9rem', marginLeft: '0.5rem' }}>
+                        (Auto-calculated based on timeline)
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Tasks Management */}
                 <div className="tasks-management-section">
@@ -2111,6 +2153,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                             <input
                               type="text"
                               className="form-input"
+                              placeholder="Team Lead / Owner Name"
                               value={task.assignedTo}
                               onChange={(e) => {
                                 const newTasks = [...editingItem.tasks];
@@ -2120,24 +2163,6 @@ const ScheduleManager = forwardRef((props, ref) => {
                             />
                           </div>
 
-                          <div className="form-group">
-                            <label className="form-label">Progress (%)</label>
-                            <input
-                              type="number"
-                              className="form-input"
-                              min="0"
-                              max="100"
-                              value={task.progress}
-                              onChange={(e) => {
-                                const newTasks = [...editingItem.tasks];
-                                newTasks[index] = {...task, progress: parseInt(e.target.value) || 0};
-                                setEditingItem({...editingItem, tasks: newTasks});
-                              }}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="form-row">
                           <div className="form-group">
                             <label className="form-label">Estimated Hours</label>
                             <input
@@ -2151,21 +2176,25 @@ const ScheduleManager = forwardRef((props, ref) => {
                               }}
                             />
                           </div>
-
-                          <div className="form-group">
-                            <label className="form-label">Actual Hours</label>
-                            <input
-                              type="number"
-                              className="form-input"
-                              value={task.actualHours}
-                              onChange={(e) => {
-                                const newTasks = [...editingItem.tasks];
-                                newTasks[index] = {...task, actualHours: parseInt(e.target.value) || 0};
-                                setEditingItem({...editingItem, tasks: newTasks});
-                              }}
-                            />
-                          </div>
                         </div>
+
+                        {/* Progress is auto-calculated based on start date, due date, and current date */}
+                        {task.startDate && task.dueDate && (
+                          <div className="form-group">
+                            <label className="form-label">Calculated Progress</label>
+                            <div style={{
+                              padding: '0.75rem',
+                              background: 'var(--card)',
+                              borderRadius: '8px',
+                              color: 'var(--text)'
+                            }}>
+                              {calculateProgress(task.startDate, task.dueDate, task.status)}% 
+                              <span style={{ color: 'var(--subtxt)', fontSize: '0.9rem', marginLeft: '0.5rem' }}>
+                                (Auto-calculated based on timeline)
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -2178,14 +2207,12 @@ const ScheduleManager = forwardRef((props, ref) => {
                         id: Date.now(),
                         title: '',
                         description: '',
-                        startDate: '',
+                        startDate: new Date().toISOString().split('T')[0],
                         dueDate: '',
                         estimatedHours: 0,
-                        actualHours: 0,
                         status: 'pending',
                         priority: 'medium',
-                        assignedTo: '',
-                        progress: 0
+                        assignedTo: ''
                       };
                       setEditingItem({...editingItem, tasks: [...editingItem.tasks, newTask]});
                     }}
