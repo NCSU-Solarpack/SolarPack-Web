@@ -475,8 +475,34 @@ const ScheduleManager = forwardRef((props, ref) => {
     }
     
     const itemTypeName = itemType === 'project' ? 'project' : 'item';
+    const deleteMessage = itemType === 'project' 
+      ? (
+          <div className="alert-message-section">
+            <div className="alert-message-main">
+              Are you sure you want to delete this project?
+            </div>
+            <div className="alert-message-details">
+              This action cannot be undone and will delete all associated tasks.
+            </div>
+            <div className="alert-message-note">
+              <svg className="alert-message-note-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+              <div className="alert-message-note-content">
+                <div className="alert-message-note-title">Note:</div>
+                <div className="alert-message-note-text">
+                  We prefer not to delete projects as it's valuable to keep a record of past work for tracking and reference purposes. Consider marking the project as "Completed" or "Cancelled" instead, unless deletion is absolutely necessary.
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      : `Are you sure you want to delete this ${itemTypeName}? This action cannot be undone.`;
+    
     const confirmed = await showConfirm(
-      `Are you sure you want to delete this ${itemTypeName}? This will also delete all associated tasks and cannot be undone.`,
+      deleteMessage,
       `Delete ${itemTypeName.charAt(0).toUpperCase() + itemTypeName.slice(1)}`,
       'Delete',
       'Cancel'
@@ -626,6 +652,13 @@ const ScheduleManager = forwardRef((props, ref) => {
           border-radius: 12px;
           border: none;
           box-shadow: 0 4px 24px #0006;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .view-tabs-left {
+          display: flex;
+          gap: 0.5rem;
         }
 
         .view-tab {
@@ -1623,8 +1656,27 @@ const ScheduleManager = forwardRef((props, ref) => {
           background: var(--card);
         }
 
+        @keyframes pulseBorder {
+          0%, 100% {
+            box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7), 0 4px 24px #0006;
+          }
+          50% {
+            box-shadow: 0 0 0 8px rgba(220, 53, 69, 0), 0 4px 24px rgba(220, 53, 69, 0.4);
+          }
+        }
+
         .overdue {
-          border-left: 4px solid var(--accent);
+          border: 3px solid #dc3545;
+          animation: pulseBorder 2s ease-in-out infinite;
+        }
+
+        .overdue:hover {
+          animation: pulseBorder 2s ease-in-out infinite;
+        }
+
+        .due-date-overdue {
+          color: #dc3545;
+          font-weight: 700;
         }
 
         .loading {
@@ -1642,24 +1694,31 @@ const ScheduleManager = forwardRef((props, ref) => {
       </div>
 
       <div className="view-tabs">
-        <button 
-          className={`view-tab ${activeView === 'overview' ? 'active' : ''}`}
-          onClick={() => setActiveView('overview')}
-        >
-          Overview
-        </button>
-        <button 
-          className={`view-tab ${activeView === 'calendar' ? 'active' : ''}`}
-          onClick={() => setActiveView('calendar')}
-        >
-          Calendar
-        </button>
-        <button 
-          className={`view-tab ${activeView === 'projects' ? 'active' : ''}`}
-          onClick={() => setActiveView('projects')}
-        >
-          Projects
-        </button>
+        <div className="view-tabs-left">
+          <button 
+            className={`view-tab ${activeView === 'overview' ? 'active' : ''}`}
+            onClick={() => setActiveView('overview')}
+          >
+            Overview
+          </button>
+          <button 
+            className={`view-tab ${activeView === 'calendar' ? 'active' : ''}`}
+            onClick={() => setActiveView('calendar')}
+          >
+            Calendar
+          </button>
+          <button 
+            className={`view-tab ${activeView === 'projects' ? 'active' : ''}`}
+            onClick={() => setActiveView('projects')}
+          >
+            Projects
+          </button>
+        </div>
+        {canEdit && (
+          <button className="add-button" onClick={handleAddProject}>
+            <i className="fas fa-plus"></i> New Project
+          </button>
+        )}
       </div>
 
       {/* Overview Dashboard */}
@@ -1667,24 +1726,73 @@ const ScheduleManager = forwardRef((props, ref) => {
         <div className="overview-dashboard">
           {/* Overall Statistics */}
           <div className="stats-grid">
-            <div className="stat-card">
+            <div 
+              className="stat-card"
+              onClick={() => {
+                setActiveView('projects');
+                setSelectedTeam('all');
+                setSelectedStatus('all');
+              }}
+              style={{cursor: 'pointer'}}
+              title="Click to view all projects"
+            >
               <div className="stat-label">Total Projects</div>
               <div className="stat-value">{overallStats.totalProjects}</div>
             </div>
-            <div className="stat-card">
+            <div 
+              className="stat-card"
+              onClick={() => {
+                setActiveView('projects');
+                setSelectedTeam('all');
+                setSelectedStatus('completed');
+              }}
+              style={{cursor: 'pointer'}}
+              title="Click to view completed projects"
+            >
               <div className="stat-label">Completed</div>
-              <div className="stat-value" style={{color: 'var(--subtxt)'}}>{overallStats.completed}</div>
-              <div className="stat-sublabel">{overallStats.totalProjects > 0 ? Math.round(overallStats.completed / overallStats.totalProjects * 100) : 0}%</div>
+              <div className="stat-value" style={{color: 'var(--subtxt)', display: 'flex', alignItems: 'baseline', gap: '0.5rem'}}>
+                {overallStats.completed}
+                <span style={{fontSize: '0.9rem', color: 'var(--muted)'}}>
+                  {overallStats.totalProjects > 0 ? Math.round(overallStats.completed / overallStats.totalProjects * 100) : 0}%
+                </span>
+              </div>
             </div>
-            <div className="stat-card">
+            <div 
+              className="stat-card"
+              onClick={() => {
+                setActiveView('projects');
+                setSelectedTeam('all');
+                setSelectedStatus('in-progress');
+              }}
+              style={{cursor: 'pointer'}}
+              title="Click to view in-progress projects"
+            >
               <div className="stat-label">In Progress</div>
               <div className="stat-value" style={{color: 'var(--text)'}}>{overallStats.inProgress}</div>
             </div>
-            <div className="stat-card">
+            <div 
+              className="stat-card" 
+              onClick={() => {
+                setActiveView('projects');
+                setSelectedTeam('all');
+                setSelectedStatus('overdue');
+              }}
+              style={{cursor: 'pointer'}}
+              title="Click to view overdue projects"
+            >
               <div className="stat-label">Overdue</div>
               <div className="stat-value" style={{color: 'var(--accent)'}}>{overallStats.overdue}</div>
             </div>
-            <div className="stat-card">
+            <div 
+              className="stat-card"
+              onClick={() => {
+                setActiveView('projects');
+                setSelectedTeam('all');
+                setSelectedStatus('all');
+              }}
+              style={{cursor: 'pointer'}}
+              title="Click to view all projects"
+            >
               <div className="stat-label">Avg Progress</div>
               <div className="stat-value">{overallStats.avgProgress}%</div>
               <div className="progress-bar" style={{marginTop: '0.75rem'}}>
@@ -1700,23 +1808,7 @@ const ScheduleManager = forwardRef((props, ref) => {
           </div>
 
           {/* Team Overview Cards */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h2 className="section-title" style={{ marginBottom: 0 }}>Teams Overview</h2>
-            {canEdit && (
-              <button
-                className="add-button"
-                style={{ marginLeft: '1rem', whiteSpace: 'nowrap' }}
-                onClick={() => {
-                  setActiveView('projects');
-                  setSelectedTeam('all');
-                  setSelectedStatus('all');
-                  handleAddProject();
-                }}
-              >
-                <i className="fas fa-plus"></i> New Project
-              </button>
-            )}
-          </div>
+          <h2 className="section-title">Teams Overview</h2>
           <div className="teams-overview">
             {teamStats.map(team => (
               <div 
@@ -1725,14 +1817,12 @@ const ScheduleManager = forwardRef((props, ref) => {
                 style={{'--team-color': team.color}}
                 onClick={() => {
                   setSelectedTeam(team.id);
+                  setSelectedStatus('all');
                   setActiveView('projects');
                 }}
               >
                 <div className="team-header">
                   <h3 className="team-name">{team.name}</h3>
-                  <div className="team-badge" style={{backgroundColor: 'var(--accent)'}}>
-                    {team.totalProjects}
-                  </div>
                 </div>
                 <div className="team-progress">
                   <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.9rem'}}>
@@ -1868,7 +1958,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                         key={`${item.itemType}-${item.id}`}
                         className="calendar-item"
                         style={{
-                          backgroundColor: 'var(--accent)'
+                          backgroundColor: getTeamColor(item.team)
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1930,18 +2020,18 @@ const ScheduleManager = forwardRef((props, ref) => {
                 {PROJECT_STATUSES.map(st => (
                   <option key={st} value={st}>{getStatusLabel(st)}</option>
                 ))}
+                <option value="overdue">Overdue</option>
               </select>
             </div>
-            {canEdit && (
-              <button className="add-button" onClick={handleAddProject}>
-                <i className="fas fa-plus"></i> Add Project
-              </button>
-            )}
           </div>
 
           <div className="projects-grid">
             {filterItemsByTeam(scheduleData.projects)
-              .filter(p => selectedStatus === 'all' ? true : p.status === selectedStatus)
+              .filter(p => {
+                if (selectedStatus === 'all') return true;
+                if (selectedStatus === 'overdue') return isOverdue(p.dueDate, p.status);
+                return p.status === selectedStatus;
+              })
               .map(project => (
               <div 
                 key={project.id} 
@@ -1995,7 +2085,9 @@ const ScheduleManager = forwardRef((props, ref) => {
 
               <div className="project-meta" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', margin: '1rem 0', fontSize: '0.9rem', color: 'var(--subtxt)' }}>
                 <div style={{ gridColumn: '1 / 2' }}><strong>Assigned:</strong> {project.assignedTo}</div>
-                <div style={{ gridColumn: '2 / 3' }}><strong>Due:</strong> {formatDateLocal(project.dueDate)}</div>
+                <div style={{ gridColumn: '2 / 3' }}>
+                  <strong>Due:</strong> <span className={isOverdue(project.dueDate, project.status) ? 'due-date-overdue' : ''}>{formatDateLocal(project.dueDate)}</span>
+                </div>
                 <div style={{ gridColumn: '1 / 2', gridRow: '2 / 3' }}><strong>Priority:</strong> {project.priority}</div>
                 <div style={{ gridColumn: '2 / 3', gridRow: '2 / 3' }}><strong>Hours:</strong> {project.actualHours}/{project.estimatedHours}</div>
               </div>

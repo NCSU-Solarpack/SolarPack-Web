@@ -156,7 +156,7 @@ const Alert = ({ isOpen, onClose, onConfirm, title, message, type = 'info', conf
         }
 
         .alert-icon.confirm {
-          color: #f59e0b;
+          color: #dc2626;
         }
 
         .alert-title {
@@ -172,6 +172,62 @@ const Alert = ({ isOpen, onClose, onConfirm, title, message, type = 'info', conf
           line-height: 1.6;
           margin-bottom: 2rem;
           font-size: 0.95rem;
+        }
+
+        .alert-message-section {
+          margin-bottom: 1.25rem;
+        }
+
+        .alert-message-section:last-child {
+          margin-bottom: 0;
+        }
+
+        .alert-message-main {
+          font-size: 1rem;
+          color: var(--text);
+          font-weight: 500;
+          margin-bottom: 0.75rem;
+        }
+
+        .alert-message-details {
+          font-size: 0.9rem;
+          color: var(--subtxt);
+          margin-bottom: 0.5rem;
+        }
+
+        .alert-message-note {
+          display: flex;
+          gap: 0.75rem;
+          padding: 1rem;
+          background: rgba(220, 38, 38, 0.1);
+          border-left: 3px solid #dc2626;
+          border-radius: 6px;
+          margin-top: 1rem;
+        }
+
+        .alert-message-note-icon {
+          width: 20px;
+          height: 20px;
+          color: #dc2626;
+          flex-shrink: 0;
+          margin-top: 2px;
+        }
+
+        .alert-message-note-content {
+          flex: 1;
+        }
+
+        .alert-message-note-title {
+          font-weight: 600;
+          color: #dc2626;
+          margin-bottom: 0.25rem;
+          font-size: 0.9rem;
+        }
+
+        .alert-message-note-text {
+          font-size: 0.85rem;
+          color: var(--subtxt);
+          line-height: 1.5;
         }
 
         .alert-actions {
@@ -232,7 +288,9 @@ const Alert = ({ isOpen, onClose, onConfirm, title, message, type = 'info', conf
             <h3 className="alert-title">{title}</h3>
           </div>
           
-          <p className="alert-message">{message}</p>
+          <div className="alert-message">
+            {typeof message === 'string' ? <p>{message}</p> : message}
+          </div>
           
           <div className="alert-actions">
             {isConfirm && (
