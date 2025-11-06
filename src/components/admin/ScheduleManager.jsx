@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from 'r
 import { authService } from '../../utils/auth';
 import { supabaseService } from '../../utils/supabase';
 import { useAlert } from '../../contexts/AlertContext';
+import StatusDropdown from '../StatusDropdown';
 
 const ScheduleManager = forwardRef((props, ref) => {
   const { showAlert } = useAlert();
@@ -103,6 +104,52 @@ const ScheduleManager = forwardRef((props, ref) => {
       case 'planning': return '#6c757d'; // Gray for planning
       case 'critical': return '#dc3545'; // Red for critical
       default: return '#6c757d'; // Gray default
+    }
+  };
+
+  const PROJECT_STATUSES = ['planning', 'pending', 'in-progress', 'completed', 'on-hold', 'cancelled'];
+  const TASK_STATUSES = ['pending', 'in-progress', 'completed', 'blocked', 'cancelled'];
+
+  const handleProjectStatusChange = async (project, newStatus) => {
+    try {
+      // Optimistic UI update
+      const newProgress = newStatus === 'completed' 
+        ? 100 
+        : calculateProgress(project.startDate, project.dueDate, newStatus);
+
+      setScheduleData(prev => ({
+        ...prev,
+        projects: prev.projects.map(p => p.id === project.id ? { ...p, status: newStatus, progress: newProgress } : p)
+      }));
+
+      await supabaseService.updateProjectFields(project.id, { status: newStatus, progress: newProgress });
+    } catch (error) {
+      console.error('Failed to update project status:', error);
+      showAlert(`Failed to update status: ${error.message}`, 'error');
+      // Reload to revert optimistic update
+      await loadScheduleData();
+    }
+  };
+
+  const handleTaskStatusChange = async (projectId, task, newStatus) => {
+    try {
+      const newProgress = newStatus === 'completed' 
+        ? 100 
+        : calculateProgress(task.startDate, task.dueDate, newStatus);
+
+      // Optimistic UI update
+      setScheduleData(prev => ({
+        ...prev,
+        projects: prev.projects.map(p => p.id === projectId 
+          ? { ...p, tasks: (p.tasks || []).map(t => t.id === task.id ? { ...t, status: newStatus, progress: newProgress } : t) } 
+          : p)
+      }));
+
+      await supabaseService.updateTaskFields(task.id, { status: newStatus, progress: newProgress });
+    } catch (error) {
+      console.error('Failed to update task status:', error);
+      showAlert(`Failed to update task status: ${error.message}`, 'error');
+      await loadScheduleData();
     }
   };
 
@@ -1685,12 +1732,21 @@ const ScheduleManager = forwardRef((props, ref) => {
                     {getTeamName(project.team)}
                   </div>
                 </div>
-                <div
-                  className="project-status"
-                  style={{ backgroundColor: getStatusColor(project.status, project.dueDate) }}
-                >
-                  {isOverdue(project.dueDate, project.status) ? 'OVERDUE' : project.status.toUpperCase()}
-                </div>
+                {canEdit ? (
+                  <StatusDropdown
+                    value={project.status}
+                    options={PROJECT_STATUSES}
+                    color={getStatusColor(project.status, project.dueDate)}
+                    onChange={(status) => handleProjectStatusChange(project, status)}
+                  />
+                ) : (
+                  <div
+                    className="project-status"
+                    style={{ backgroundColor: getStatusColor(project.status, project.dueDate) }}
+                  >
+                    {isOverdue(project.dueDate, project.status) ? 'OVERDUE' : project.status.toUpperCase()}
+                  </div>
+                )}
               </div>
 
               <p>{project.description}</p>
@@ -1754,16 +1810,26 @@ const ScheduleManager = forwardRef((props, ref) => {
                             </div>
                           </div>
                           <div className="task-actions">
-                            <div
-                              className="project-status"
-                              style={{ 
-                                backgroundColor: getStatusColor(task.status, task.dueDate),
-                                fontSize: '0.7rem',
-                                padding: '0.25rem 0.5rem'
-                              }}
-                            >
-                              {isOverdue(task.dueDate, task.status) ? 'OVERDUE' : task.status.toUpperCase()}
-                            </div>
+                            {canEdit ? (
+                              <StatusDropdown
+                                value={task.status}
+                                options={TASK_STATUSES}
+                                color={getStatusColor(task.status, task.dueDate)}
+                                onChange={(status) => handleTaskStatusChange(project.id, task, status)}
+                                className="task-status"
+                              />
+                            ) : (
+                              <div
+                                className="project-status"
+                                style={{ 
+                                  backgroundColor: getStatusColor(task.status, task.dueDate),
+                                  fontSize: '0.7rem',
+                                  padding: '0.25rem 0.5rem'
+                                }}
+                              >
+                                {isOverdue(task.dueDate, task.status) ? 'OVERDUE' : task.status.toUpperCase()}
+                              </div>
+                            )}
                             {canEdit && (
                               <div className="task-buttons">
                                 <button 
@@ -1868,12 +1934,21 @@ const ScheduleManager = forwardRef((props, ref) => {
                   >
                     {getTeamName(selectedProject.team)}
                   </div>
-                  <div
-                    className="project-status"
-                    style={{ backgroundColor: getStatusColor(selectedProject.status, selectedProject.dueDate) }}
-                  >
-                    {isOverdue(selectedProject.dueDate, selectedProject.status) ? 'OVERDUE' : selectedProject.status.toUpperCase()}
-                  </div>
+                  {canEdit ? (
+                    <StatusDropdown
+                      value={selectedProject.status}
+                      options={PROJECT_STATUSES}
+                      color={getStatusColor(selectedProject.status, selectedProject.dueDate)}
+                      onChange={(status) => handleProjectStatusChange(selectedProject, status)}
+                    />
+                  ) : (
+                    <div
+                      className="project-status"
+                      style={{ backgroundColor: getStatusColor(selectedProject.status, selectedProject.dueDate) }}
+                    >
+                      {isOverdue(selectedProject.dueDate, selectedProject.status) ? 'OVERDUE' : selectedProject.status.toUpperCase()}
+                    </div>
+                  )}
                   <div
                     className="project-status"
                     style={{ backgroundColor: selectedProject.priority === 'critical' ? 'var(--accent)' : 'var(--muted)' }}
@@ -1939,17 +2014,27 @@ const ScheduleManager = forwardRef((props, ref) => {
                           <h4>{task.title}</h4>
                           <div className="task-description">{task.description}</div>
                         </div>
-                        <div
-                          className="project-status"
-                          style={{ 
-                            backgroundColor: getStatusColor(task.status, task.dueDate),
-                            fontSize: '0.75rem',
-                            padding: '0.4rem 0.75rem',
-                            marginLeft: '1rem'
-                          }}
-                        >
-                          {isOverdue(task.dueDate, task.status) ? 'OVERDUE' : task.status.toUpperCase()}
-                        </div>
+                        {canEdit ? (
+                          <StatusDropdown
+                            value={task.status}
+                            options={TASK_STATUSES}
+                            color={getStatusColor(task.status, task.dueDate)}
+                            onChange={(status) => handleTaskStatusChange(selectedProject.id, task, status)}
+                            className="task-status"
+                          />
+                        ) : (
+                          <div
+                            className="project-status"
+                            style={{ 
+                              backgroundColor: getStatusColor(task.status, task.dueDate),
+                              fontSize: '0.75rem',
+                              padding: '0.4rem 0.75rem',
+                              marginLeft: '1rem'
+                            }}
+                          >
+                            {isOverdue(task.dueDate, task.status) ? 'OVERDUE' : task.status.toUpperCase()}
+                          </div>
+                        )}
                       </div>
                       
                       <div style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', fontSize: '0.85rem', color: 'var(--subtxt)', marginTop: '0.75rem'}}>

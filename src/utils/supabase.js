@@ -570,6 +570,26 @@ class SupabaseService {
     
     if (error) throw error;
   }
+
+  /**
+   * Update specific fields on a project row (e.g. status, progress, priority)
+   * Avoids needing the full object/upsert when doing inline edits.
+   * @param {number} id
+   * @param {Object} fields
+   */
+  async updateProjectFields(id, fields) {
+    if (!this.client) throw new Error('Supabase not configured');
+    if (typeof id !== 'number') throw new Error('updateProjectFields: id must be a number');
+    if (!fields || typeof fields !== 'object') throw new Error('updateProjectFields: fields must be an object');
+    const { data, error } = await this.client
+      .from('schedule_projects')
+      .update(fields)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return this.transformProjectFromDB(data);
+  }
   
   // ===== TASKS =====
   
@@ -615,6 +635,25 @@ class SupabaseService {
       .eq('id', id);
     
     if (error) throw error;
+  }
+
+  /**
+   * Update specific fields on a task row (e.g. status, progress)
+   * @param {number} id
+   * @param {Object} fields
+   */
+  async updateTaskFields(id, fields) {
+    if (!this.client) throw new Error('Supabase not configured');
+    if (typeof id !== 'number') throw new Error('updateTaskFields: id must be a number');
+    if (!fields || typeof fields !== 'object') throw new Error('updateTaskFields: fields must be an object');
+    const { data, error } = await this.client
+      .from('schedule_tasks')
+      .update(fields)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return this.transformTaskFromDB(data);
   }
   
 
