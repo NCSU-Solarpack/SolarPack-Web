@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { authService } from '../../utils/auth';
 import { supabaseService } from '../../utils/supabase';
 import { useSupabaseSyncStatus } from '../../hooks/useSupabaseSyncStatus';
@@ -6,7 +6,7 @@ import SyncStatusBadge from '../SyncStatusBadge';
 import { useAlert } from '../../contexts/AlertContext';
 import { Plus, Edit2, Trash2, Save, X, GripVertical } from 'lucide-react';
 
-const AlumniManager = () => {
+const AlumniManager = forwardRef((props, ref) => {
   const [alumniData, setAlumniData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingIndex, setEditingIndex] = useState(null);
@@ -42,6 +42,13 @@ const AlumniManager = () => {
     await loadAlumniData();
     acknowledgeNewData(); // Reset status to 'synced'
   };
+
+  // Expose methods to parent component via ref
+  useImperativeHandle(ref, () => ({
+    handleAddSemester: () => {
+      setShowAddSemester(true);
+    }
+  }));
 
   const loadAlumniData = async () => {
     console.log('Loading alumni data from Supabase...');
@@ -728,6 +735,8 @@ const AlumniManager = () => {
       )}
     </div>
   );
-};
+});
+
+AlumniManager.displayName = 'AlumniManager';
 
 export default AlumniManager;

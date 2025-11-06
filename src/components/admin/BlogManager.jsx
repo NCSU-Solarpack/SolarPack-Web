@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { supabaseService } from '../../utils/supabase';
 import { useSupabaseSyncStatus } from '../../hooks/useSupabaseSyncStatus';
 import SyncStatusBadge from '../SyncStatusBadge';
 import { useAlert } from '../../contexts/AlertContext';
 
-const BlogManager = () => {
+const BlogManager = forwardRef((props, ref) => {
   const [blogs, setBlogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showBlogForm, setShowBlogForm] = useState(false);
@@ -54,6 +54,13 @@ const BlogManager = () => {
     await loadBlogs();
     acknowledgeNewData();
   };
+
+  // Expose methods to parent component via ref
+  useImperativeHandle(ref, () => ({
+    handleAddBlog: () => {
+      openBlogForm();
+    }
+  }));
 
   const openBlogForm = (blog = null) => {
     if (blog) {
@@ -909,6 +916,8 @@ const BlogManager = () => {
       )}
     </div>
   );
-};
+});
+
+BlogManager.displayName = 'BlogManager';
 
 export default BlogManager;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { authService } from '../../utils/auth';
 import { supabaseService } from '../../utils/supabase';
 import { useSupabaseSyncStatus } from '../../hooks/useSupabaseSyncStatus';
@@ -6,7 +6,7 @@ import SyncStatusBadge from '../SyncStatusBadge';
 import { useAlert } from '../../contexts/AlertContext';
 import { Plus, Edit2, Trash2, Upload, X } from 'lucide-react';
 
-const SponsorsManager = () => {
+const SponsorsManager = forwardRef((props, ref) => {
   const [sponsorData, setSponsorData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingSponsor, setEditingSponsor] = useState(null);
@@ -27,6 +27,13 @@ const SponsorsManager = () => {
   useEffect(() => {
     loadSponsorData();
   }, []);
+
+  // Expose methods to parent component via ref
+  useImperativeHandle(ref, () => ({
+    handleAddSponsor: () => {
+      handleAddSponsor();
+    }
+  }));
 
   const loadSponsorData = async () => {
     console.log('Loading sponsor data from Supabase...');
@@ -831,6 +838,8 @@ const SponsorsManager = () => {
       )}
     </div>
   );
-};
+});
+
+SponsorsManager.displayName = 'SponsorsManager';
 
 export default SponsorsManager;

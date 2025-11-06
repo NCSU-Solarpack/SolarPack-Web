@@ -9,7 +9,7 @@ const AUTH_LEVELS = {
 
 const PERMISSIONS = {
   [AUTH_LEVELS.MEMBER]: ['view_schedules', 'view_team', 'view_announcements', 'view_sponsors', 'view_alumni', 'view_orders'],
-  [AUTH_LEVELS.LEADER]: ['view_schedules', 'view_team', 'view_announcements', 'view_sponsors', 'view_alumni', 'view_orders', 'edit_schedules', 'edit_team', 'edit_sponsors', 'edit_alumni', 'submit_orders'],
+  [AUTH_LEVELS.LEADER]: ['view_schedules', 'view_team', 'view_announcements', 'view_sponsors', 'view_alumni', 'view_orders', 'edit_schedules', 'edit_team', 'edit_sponsors', 'edit_alumni', 'submit_orders', 'edit_announcements'],
   [AUTH_LEVELS.DIRECTOR]: ['view_schedules', 'view_team', 'view_announcements', 'view_sponsors', 'view_alumni', 'view_orders', 'edit_schedules', 'edit_team', 'edit_sponsors', 'edit_alumni', 'edit_orders', 'edit_announcements', 'approve_orders', 'manage_users', 'submit_orders']
 };
 
@@ -22,9 +22,9 @@ const hashPassword = (password, salt = 'solarpack2024') => {
 // Predefined password hashes (you'll want to change these)
 const PASSWORD_HASHES = {
   // Default passwords - CHANGE THESE!
-  [hashPassword('director@2025')]: AUTH_LEVELS.DIRECTOR,
-  [hashPassword('teamlead2025!')]: AUTH_LEVELS.LEADER,
-  [hashPassword('solarpack2025')]: AUTH_LEVELS.MEMBER
+  [hashPassword('director@pack')]: AUTH_LEVELS.DIRECTOR,
+  [hashPassword('solarteamlead!')]: AUTH_LEVELS.LEADER,
+  [hashPassword('solarpack@ncsu')]: AUTH_LEVELS.MEMBER
 };
 
 class AuthService {
