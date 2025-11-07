@@ -6,6 +6,8 @@ import './Home.css'
 const Home = () => {
   const [progress, setProgress] = useState(0)
   const [upcomingProjects, setUpcomingProjects] = useState([])
+  const [totalProjects, setTotalProjects] = useState(0)
+  const [completedCount, setCompletedCount] = useState(0)
 
   useEffect(() => {
     document.title = 'SolarPack'
@@ -20,8 +22,12 @@ const Home = () => {
           const completed = projects.filter(p => p.status === 'completed').length
           const percentCompleted = Math.round((completed / totalProjects) * 100)
           setProgress(percentCompleted)
+          setTotalProjects(totalProjects)
+          setCompletedCount(completed)
         } else {
           setProgress(0)
+          setTotalProjects(0)
+          setCompletedCount(0)
         }
         // Filter upcoming projects: not completed, not overdue
         const now = new Date()
@@ -64,7 +70,12 @@ const Home = () => {
 
 
       <div style={{ width: '100%', background: 'transparent', marginBottom: 0 }}>
-        <ProgressTracker percentage={progress} upcomingProjects={upcomingProjects} />
+        <ProgressTracker
+          percentage={progress}
+          upcomingProjects={upcomingProjects}
+          totalProjects={totalProjects}
+          completedCount={completedCount}
+        />
       </div>
 
       <section className="section">
@@ -137,7 +148,7 @@ const Home = () => {
 }
 
 const RaceCarousel = () => {
-  const [currentIndex, setCurrentIndex] = useState(0)
+  const [currentIndex, setCurrentIndex] = useState(4)
   const trackRef = useRef(null)
   const viewportRef = useRef(null)
   const [slideWidth, setSlideWidth] = useState(320)

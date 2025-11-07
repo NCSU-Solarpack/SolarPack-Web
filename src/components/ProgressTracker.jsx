@@ -61,7 +61,12 @@ const styles = {
 };
 
 
-const ProgressTracker = ({ percentage = 0, upcomingProjects = [] }) => {
+const ProgressTracker = ({
+  percentage = 0,
+  upcomingProjects = [],
+  totalProjects = 0,
+  completedCount = 0,
+}) => {
   return (
     <div style={styles.container}>
       <div style={styles.label}>
@@ -91,33 +96,41 @@ const ProgressTracker = ({ percentage = 0, upcomingProjects = [] }) => {
             gap: '0.8rem',
             width: '100%',
             marginInline: 'auto',
-            paddingInline: '1rem', // add horizontal padding to the group
+            paddingInline: '1rem',
           }}
         >
-          {upcomingProjects.map((project) => (
-            <div
-              key={project.id}
-              style={{
-                background: 'rgba(255, 255, 255, 0.03)',
-                borderRadius: '10px',
-                boxShadow: '0 1px 4px #0001',
-                padding: '0.85rem 1.2rem 0.85rem 1.6rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                color: 'var(--text)',
-                border: '1px solid rgba(255, 255, 255, 0.03)',
-                borderLeft: '4px solid var(--accent)',
-                width: '100%', // make each card fill the available width
-                marginInline: 'auto', // center the card
-              }}
-            >
-              <span style={{ fontWeight: 600, fontSize: '1rem' }}>
-                {project.title}
-              </span>
-              {/* no due date shown here */}
-            </div>
-          ))}
+          {upcomingProjects.map((project) => {
+            // how much ONE project is worth
+            const increment = totalProjects > 0 ? (100 / totalProjects) : 0
+            return (
+              <div
+                key={project.id}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  borderRadius: '10px',
+                  boxShadow: '0 1px 4px #0001',
+                  padding: '0.85rem 1.2rem 0.85rem 1.6rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  color: 'var(--text)',
+                  border: '1px solid rgba(255, 255, 255, 0.03)',
+                  borderLeft: '4px solid var(--accent)',
+                  width: '100%',
+                  marginInline: 'auto',
+                  justifyContent: 'space-between', // title left, percent right
+                }}
+              >
+                <span style={{ fontWeight: 600, fontSize: '1rem' }}>
+                  {project.title}
+                </span>
+                {/* right side: how much the bar would go up if this project got done */}
+                <span style={{ fontSize: '0.9rem', color: 'var(--accent)' }}>
+                  +{increment.toFixed(1)}%
+                </span>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
