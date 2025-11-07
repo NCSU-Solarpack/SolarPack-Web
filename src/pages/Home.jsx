@@ -5,11 +5,12 @@ import './Home.css'
 
 const Home = () => {
   const [progress, setProgress] = useState(0)
+  const [upcomingProjects, setUpcomingProjects] = useState([])
 
   useEffect(() => {
     document.title = 'SolarPack'
-    // Fetch schedule data and calculate average progress
-    const fetchProgress = async () => {
+    // Fetch schedule data and calculate average progress and upcoming projects
+    const fetchProgressAndUpcoming = async () => {
       try {
         const data = await supabaseService.getScheduleData()
         const projects = data.projects || []
@@ -22,11 +23,19 @@ const Home = () => {
         } else {
           setProgress(0)
         }
+        // Filter upcoming projects: not completed, not overdue
+        const now = new Date()
+        const upcoming = projects
+          .filter(p => p.status !== 'completed' && new Date(p.dueDate) >= now)
+          .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+          .slice(0, 3)
+        setUpcomingProjects(upcoming)
       } catch (err) {
         setProgress(0)
+        setUpcomingProjects([])
       }
     }
-    fetchProgress()
+    fetchProgressAndUpcoming()
   }, [])
 
   return (
@@ -53,8 +62,9 @@ const Home = () => {
         </div>
       </section>
 
+
       <div style={{ width: '100%', background: 'transparent', marginBottom: 0 }}>
-        <ProgressTracker percentage={progress} />
+        <ProgressTracker percentage={progress} upcomingProjects={upcomingProjects} />
       </div>
 
       <section className="section">

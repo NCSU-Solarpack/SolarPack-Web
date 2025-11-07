@@ -60,7 +60,8 @@ const styles = {
   },
 };
 
-const ProgressTracker = ({ percentage = 0 }) => {
+
+const ProgressTracker = ({ percentage = 0, upcomingProjects = [] }) => {
   return (
     <div style={styles.container}>
       <div style={styles.label}>
@@ -81,6 +82,44 @@ const ProgressTracker = ({ percentage = 0 }) => {
           }}
         />
       </div>
+      {upcomingProjects.length > 0 && (
+        <div
+          style={{
+            marginTop: '2rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.8rem',
+            width: '100%',
+            marginInline: 'auto',
+            paddingInline: '1rem', // add horizontal padding to the group
+          }}
+        >
+          {upcomingProjects.map((project) => (
+            <div
+              key={project.id}
+              style={{
+                background: 'rgba(255, 255, 255, 0.03)',
+                borderRadius: '10px',
+                boxShadow: '0 1px 4px #0001',
+                padding: '0.85rem 1.2rem 0.85rem 1.6rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                color: 'var(--text)',
+                border: '1px solid rgba(255, 255, 255, 0.03)',
+                borderLeft: '4px solid var(--accent)',
+                width: '100%', // make each card fill the available width
+                marginInline: 'auto', // center the card
+              }}
+            >
+              <span style={{ fontWeight: 600, fontSize: '1rem' }}>
+                {project.title}
+              </span>
+              {/* no due date shown here */}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
