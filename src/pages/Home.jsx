@@ -1,9 +1,32 @@
 import { useState, useEffect, useRef } from 'react'
+import ProgressTracker from '../components/ProgressTracker'
+import { supabaseService } from '../utils/supabase'
 import './Home.css'
 
 const Home = () => {
+  const [progress, setProgress] = useState(0)
+
   useEffect(() => {
     document.title = 'SolarPack'
+    // Fetch schedule data and calculate average progress
+    const fetchProgress = async () => {
+      try {
+        const data = await supabaseService.getScheduleData()
+        const projects = data.projects || []
+        const totalProjects = projects.length
+        if (totalProjects > 0) {
+          // Calculate percent completed projects
+          const completed = projects.filter(p => p.status === 'completed').length
+          const percentCompleted = Math.round((completed / totalProjects) * 100)
+          setProgress(percentCompleted)
+        } else {
+          setProgress(0)
+        }
+      } catch (err) {
+        setProgress(0)
+      }
+    }
+    fetchProgress()
   }, [])
 
   return (
@@ -29,6 +52,10 @@ const Home = () => {
           </a>
         </div>
       </section>
+
+      <div style={{ width: '100%', background: 'transparent', marginBottom: 0 }}>
+        <ProgressTracker percentage={progress} />
+      </div>
 
       <section className="section">
         <img src="/hero_shot.jpg" alt="SolarPack Team" />
