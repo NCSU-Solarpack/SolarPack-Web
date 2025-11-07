@@ -143,10 +143,10 @@ const Header = () => {
   return (
     <>
       <header className="header">
-        <Link to="/" className="logo">
+        <button className="logo" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }} onClick={() => { navigate('/'); }}>
           <img src="/solarpack_logo.png" alt="SolarPack logo" />
           SolarPack
-        </Link>
+        </button>
 
         <nav className="nav">
           {navItems.map(({ path, label }) => (

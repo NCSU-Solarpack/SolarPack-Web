@@ -157,8 +157,8 @@ const ScheduleManager = forwardRef((props, ref) => {
     }
   };
 
-  const PROJECT_STATUSES = ['planning', 'pending', 'in-progress', 'completed', 'on-hold', 'cancelled'];
-  const TASK_STATUSES = ['pending', 'in-progress', 'completed', 'blocked', 'cancelled'];
+  const PROJECT_STATUSES = ['planning', 'in-progress', 'completed', 'on-hold', 'cancelled'];
+  const TASK_STATUSES = ['in-progress', 'completed', 'blocked', 'cancelled'];
 
   const handleProjectStatusChange = async (project, newStatus) => {
     if (!canEdit) {
@@ -578,7 +578,8 @@ const ScheduleManager = forwardRef((props, ref) => {
     return scheduleData.teams.map(team => {
       const teamProjects = scheduleData.projects.filter(p => p.team === team.id);
       const completed = teamProjects.filter(p => p.status === 'completed').length;
-      const inProgress = teamProjects.filter(p => p.status === 'in-progress').length;
+      // Count both 'in-progress' and 'planning' as active
+      const active = teamProjects.filter(p => p.status === 'in-progress' || p.status === 'planning').length;
       const overdue = teamProjects.filter(p => isOverdue(p.dueDate, p.status)).length;
       const avgProgress = teamProjects.length > 0 
         ? Math.round(teamProjects.reduce((sum, p) => sum + calculateProgress(p.startDate, p.dueDate, p.status), 0) / teamProjects.length)
@@ -588,7 +589,7 @@ const ScheduleManager = forwardRef((props, ref) => {
         ...team,
         totalProjects: teamProjects.length,
         completed,
-        inProgress,
+        active,
         overdue,
         avgProgress
       };
@@ -1793,7 +1794,15 @@ const ScheduleManager = forwardRef((props, ref) => {
               style={{cursor: 'pointer'}}
               title="Click to view all projects"
             >
-              <div className="stat-label">Avg Progress</div>
+              <div className="stat-label" style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                Avg Progress
+                <span
+                  title="Average progress is calculated by averaging the percent completion of all projects, based on their start and due dates, and current status. Completed projects are 100%. Projects in progress or planning are calculated by how far along the timeline they are."
+                  style={{ cursor: 'help', color: 'var(--accent)', fontSize: '1.1rem' }}
+                >
+                  <i className="fas fa-info-circle"></i>
+                </span>
+              </div>
               <div className="stat-value">{overallStats.avgProgress}%</div>
               <div className="progress-bar" style={{marginTop: '0.75rem'}}>
                 <div 
@@ -1845,7 +1854,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                     <div className="team-stat-label">Done</div>
                   </div>
                   <div className="team-stat">
-                    <div className="team-stat-value" style={{color: 'var(--text)'}}>{team.inProgress}</div>
+                    <div className="team-stat-value" style={{color: 'var(--text)'}}>{team.active}</div>
                     <div className="team-stat-label">Active</div>
                   </div>
                   <div className="team-stat">
@@ -2570,7 +2579,6 @@ const ScheduleManager = forwardRef((props, ref) => {
                       required
                     >
                       <option value="planning">Planning</option>
-                      <option value="pending">Pending</option>
                       <option value="in-progress">In Progress</option>
                       <option value="completed">Completed</option>
                       <option value="on-hold">On Hold</option>
@@ -2891,7 +2899,6 @@ const ScheduleManager = forwardRef((props, ref) => {
                               }}
                               required
                             >
-                              <option value="pending">Pending</option>
                               <option value="in-progress">In Progress</option>
                               <option value="completed">Completed</option>
                             </select>
