@@ -96,6 +96,36 @@ const OrderManager = forwardRef((props, ref) => {
     }
   };
 
+  // Download a receipt file (tries fetch -> blob download; falls back to opening URL)
+  const downloadReceipt = async (fileUrl, suggestedName) => {
+    if (!fileUrl) {
+      await showError('No receipt file available to download', 'Download Error');
+      return;
+    }
+
+    try {
+      // Try fetching the file and force a download via blob (more reliable for cross-origin)
+      const resp = await fetch(fileUrl);
+      if (!resp.ok) throw new Error('Failed to fetch file');
+      const blob = await resp.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = suggestedName || (fileUrl.split('/').pop() || 'receipt.pdf');
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      // If fetching fails (CORS or other), open the URL in a new tab as fallback
+      try {
+        window.open(fileUrl, '_blank');
+      } catch (e) {
+        await showError('Unable to download or open receipt file', 'Download Error');
+      }
+    }
+  };
+
   // Helper function to get date range for a semester
   const getSemesterDateRange = (semester, year) => {
     let startDate, endDate;
@@ -714,6 +744,8 @@ const OrderManager = forwardRef((props, ref) => {
   const isDirector = authService.hasPermission('approve_orders');
   const isMember = authService.getLevel() === 'member';
   const isLead = authService.getLevel() === 'leader';
+  // Strict director-level check (user must be authenticated and have director level)
+  const isDirectorLevel = authService.isAuthenticated() && authService.getLevel() === 'director';
 
   const filteredOrders = orders.filter(order => {
     if (filterStatus !== 'all' && order.status !== filterStatus) return false;
@@ -1321,7 +1353,30 @@ const OrderManager = forwardRef((props, ref) => {
 
             {order.purchaseStatus.purchased && (
               <div className="detail-section">
-                <h4>Purchase Information</h4>
+                <div className="detail-header">
+                  <h4>Purchase Information</h4>
+
+                  {isDirectorLevel && order.documentation?.receiptInvoice?.uploaded && order.documentation?.receiptInvoice?.fileName && (
+                    <button
+                      className="receipt-icon-button"
+                      title="Download receipt"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const fileUrl = order.documentation.receiptInvoice.fileName;
+                        const suggested = `order-${order.id}-receipt.pdf`;
+                        downloadReceipt(fileUrl, suggested);
+                      }}
+                      aria-label="Download receipt"
+                    >
+                      {/* Simple paper/receipt SVG icon */}
+                      <svg className="receipt-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 2v20l3-2 3 2 3-2 3 2 3-2V2z" />
+                        <path d="M7 7h10M7 11h6" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+
                 <div className="detail-grid">
                   <div><strong>Purchase Date:</strong> {new Date(order.purchaseStatus.purchaseDate).toLocaleDateString()}</div>
                   <div><strong>PO Number:</strong> {order.purchaseStatus.purchaseOrderNumber}</div>
@@ -2078,6 +2133,34 @@ const OrderManager = forwardRef((props, ref) => {
         .filter-select:focus {
           outline: none;
           border-color: var(--accent);
+        }
+
+        .detail-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+        }
+
+        .receipt-icon-button {
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          padding: 0.35rem;
+          border-radius: 6px;
+          color: var(--text);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .receipt-icon-button:hover {
+          background: rgba(255,255,255,0.04);
+        }
+
+        .receipt-icon {
+          display: block;
+          color: var(--accent);
         }
 
         .orders-grid {
