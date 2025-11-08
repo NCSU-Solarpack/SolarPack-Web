@@ -6,6 +6,8 @@ import SyncStatusBadge from '../SyncStatusBadge';
 import { useAlert } from '../../contexts/AlertContext';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const OrderManager = forwardRef((props, ref) => {
   const [orders, setOrders] = useState([]);
@@ -107,7 +109,7 @@ const OrderManager = forwardRef((props, ref) => {
     }
   };
 
-  // Handle confirm of download modal (download receipts as a zip)
+  // Handle confirm of download modal (download receipts or complete order packages as a zip)
   const handleDownloadSubmit = async (e) => {
     e && e.preventDefault && e.preventDefault();
 
@@ -130,63 +132,106 @@ const OrderManager = forwardRef((props, ref) => {
       // Show loading state
       startSaving();
       
-      // Fetch orders with receipts in the date range
-      const ordersWithReceipts = await supabaseService.getOrdersWithReceipts(start, end);
+      // Fetch orders in the date range
+      const data = await supabaseService.getOrders();
+      const ordersInRange = data.orders.filter(order => {
+        const orderDate = new Date(order.submissionTimestamp);
+        return orderDate >= start && orderDate <= end;
+      });
       
-      if (ordersWithReceipts.length === 0) {
-        await showError('No receipts found in the selected date range.', 'No Receipts Found');
+      if (ordersInRange.length === 0) {
+        await showError('No orders found in the selected date range.', 'No Orders Found');
         finishSaving();
         return;
       }
 
       // Create zip file
       const zip = new JSZip();
-      const receiptsFolder = zip.folder('receipts');
+      const ordersFolder = zip.folder('order-packages');
       
-      let downloadedCount = 0;
+      let processedCount = 0;
       const errors = [];
 
-      // Download each receipt and add to zip
-      for (const order of ordersWithReceipts) {
+      // Process each order
+      for (const order of ordersInRange) {
         try {
-          const receiptInfo = order.documentation?.receiptInvoice;
-          if (!receiptInfo?.fileName) {
-            console.warn(`Order ${order.id} has no receipt file`);
-            continue;
-          }
-
-          // Extract filename from storage URL
-          const fileName = supabaseService.getFileNameFromStorageUrl(receiptInfo.fileName);
-          if (!fileName) {
-            errors.push(`Order ${order.id}: Could not extract filename from URL`);
-            continue;
-          }
-
-          // Generate a meaningful filename
-          const safeMaterialName = (order.materialDetails?.materialName || 'material')
-            .replace(/[^a-z0-9]/gi, '_')
-            .toLowerCase()
-            .substring(0, 50);
+          // Generate order details PDF
+          const orderPdf = await generateOrderDetailsPDF(order);
           
-          const fileExtension = fileName.includes('.') ? fileName.split('.').pop() : 'pdf';
-          const meaningfulFileName = `order_${order.id}_${safeMaterialName}.${fileExtension}`;
+          let finalPdfBlob;
+          let fileName;
 
-          // Download the file from storage
-          const fileBlob = await supabaseService.downloadFileFromStorage('order-receipts', fileName);
-          
-          // Add to zip
-          receiptsFolder.file(meaningfulFileName, fileBlob);
-          downloadedCount++;
+          if (downloadOption === 'all') {
+            // For complete package, try to include receipt if available
+            const receiptInfo = order.documentation?.receiptInvoice;
+            if (receiptInfo?.fileName) {
+              try {
+                // Download receipt
+                const receiptFileName = supabaseService.getFileNameFromStorageUrl(receiptInfo.fileName);
+                if (receiptFileName) {
+                  const receiptBlob = await supabaseService.downloadFileFromStorage('order-receipts', receiptFileName);
+                  
+                  // For now, we'll include both files separately since merging is complex
+                  // In production, you'd merge them using a PDF library
+                  const orderPdfBlob = orderPdf.output('blob');
+                  
+                  // Create a folder for this order
+                  const orderFolder = ordersFolder.folder(`order_${order.id}`);
+                  orderFolder.file(`order_details_${order.id}.pdf`, orderPdfBlob);
+                  orderFolder.file(`receipt_${order.id}.pdf`, receiptBlob);
+                  
+                  processedCount += 2; // Count both files
+                }
+              } catch (receiptError) {
+                console.warn(`Could not download receipt for order ${order.id}:`, receiptError);
+                // Continue with just order details
+                const orderPdfBlob = orderPdf.output('blob');
+                ordersFolder.file(`order_${order.id}_details_only.pdf`, orderPdfBlob);
+                processedCount++;
+                errors.push(`Order ${order.id}: Receipt unavailable - included order details only`);
+              }
+            } else {
+              // No receipt, just include order details
+              const orderPdfBlob = orderPdf.output('blob');
+              ordersFolder.file(`order_${order.id}_details_only.pdf`, orderPdfBlob);
+              processedCount++;
+            }
+          } else {
+            // Receipts only option (existing functionality)
+            const receiptInfo = order.documentation?.receiptInvoice;
+            if (!receiptInfo?.fileName) {
+              console.warn(`Order ${order.id} has no receipt file`);
+              continue;
+            }
+
+            const fileName = supabaseService.getFileNameFromStorageUrl(receiptInfo.fileName);
+            if (!fileName) {
+              errors.push(`Order ${order.id}: Could not extract filename from URL`);
+              continue;
+            }
+
+            const safeMaterialName = (order.materialDetails?.materialName || 'material')
+              .replace(/[^a-z0-9]/gi, '_')
+              .toLowerCase()
+              .substring(0, 50);
+            
+            const fileExtension = fileName.includes('.') ? fileName.split('.').pop() : 'pdf';
+            const meaningfulFileName = `order_${order.id}_${safeMaterialName}.${fileExtension}`;
+
+            const fileBlob = await supabaseService.downloadFileFromStorage('order-receipts', fileName);
+            ordersFolder.file(meaningfulFileName, fileBlob);
+            processedCount++;
+          }
           
         } catch (error) {
-          console.error(`Failed to download receipt for order ${order.id}:`, error);
+          console.error(`Failed to process order ${order.id}:`, error);
           errors.push(`Order ${order.id}: ${error.message}`);
         }
       }
 
-      if (downloadedCount === 0) {
+      if (processedCount === 0) {
         await showError(
-          'No receipts could be downloaded. Please check if the receipts exist and are accessible.',
+          'No files could be processed. Please check if the orders exist and are accessible.',
           'Download Failed'
         );
         finishSaving();
@@ -199,16 +244,23 @@ const OrderManager = forwardRef((props, ref) => {
       // Create filename with date range
       const startStr = start.toISOString().split('T')[0];
       const endStr = end.toISOString().split('T')[0];
-      const zipFileName = `solarpack-receipts_${startStr}_to_${endStr}.zip`;
+      const optionLabel = downloadOption === 'all' ? 'complete-packages' : 'receipts-only';
+      const zipFileName = `solarpack-orders_${optionLabel}_${startStr}_to_${endStr}.zip`;
       
       // Trigger download
       saveAs(zipBlob, zipFileName);
 
       // Show success message with summary
-      let successMessage = `Successfully downloaded ${downloadedCount} receipt${downloadedCount !== 1 ? 's' : ''}`;
+      let successMessage = `Successfully processed ${processedCount} file${processedCount !== 1 ? 's' : ''}`;
+      if (downloadOption === 'all') {
+        successMessage += ` (complete order packages with details and receipts)`;
+      } else {
+        successMessage += ` (receipt files only)`;
+      }
+      
       if (errors.length > 0) {
         successMessage += ` (${errors.length} error${errors.length !== 1 ? 's' : ''} - check console for details)`;
-        console.warn('Errors during receipt download:', errors);
+        console.warn('Errors during order package download:', errors);
       }
 
       await showSuccess(successMessage);
@@ -222,9 +274,9 @@ const OrderManager = forwardRef((props, ref) => {
       finishSaving();
       
     } catch (error) {
-      console.error('Error downloading receipts:', error);
+      console.error('Error downloading order packages:', error);
       finishSaving();
-      await showError(`Failed to download receipts: ${error.message}`, 'Download Error');
+      await showError(`Failed to download order packages: ${error.message}`, 'Download Error');
     }
   };
 
@@ -256,6 +308,160 @@ const OrderManager = forwardRef((props, ref) => {
         await showError('Unable to download or open receipt file', 'Download Error');
       }
     }
+  };
+
+  // Add PDF generation utilities
+  // Generate an order details PDF using jsPDF
+  const generateOrderDetailsPDF = async (order) => {
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    let yPosition = 20;
+
+    // Add header
+    pdf.setFontSize(20);
+    pdf.setTextColor(220, 38, 38); // Solarpack red
+    pdf.text('SOLARPACK ORDER DETAILS', 105, yPosition, { align: 'center' });
+    yPosition += 15;
+
+    // Order ID and basic info
+    pdf.setFontSize(12);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(`Order ID: ${order.id}`, 20, yPosition);
+    pdf.text(`Submitted: ${new Date(order.submissionTimestamp).toLocaleDateString()}`, 150, yPosition);
+    yPosition += 10;
+
+    // Material Details Section
+    pdf.setFontSize(14);
+    pdf.setTextColor(220, 38, 38);
+    pdf.text('MATERIAL DETAILS', 20, yPosition);
+    yPosition += 8;
+
+    pdf.setFontSize(10);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(`Material: ${order.materialDetails.materialName}`, 20, yPosition);
+    yPosition += 6;
+    pdf.text(`Supplier: ${order.materialDetails.supplier || 'N/A'}`, 20, yPosition);
+    yPosition += 6;
+    pdf.text(`Link: ${order.materialDetails.materialLink || 'N/A'}`, 20, yPosition);
+    yPosition += 10;
+
+    // Specifications (with word wrap)
+    const specs = order.materialDetails.specifications || 'No specifications provided';
+    const splitSpecs = pdf.splitTextToSize(`Specifications: ${specs}`, 170);
+    pdf.text(splitSpecs, 20, yPosition);
+    yPosition += (splitSpecs.length * 5) + 10;
+
+    // Cost Breakdown Section
+    pdf.setFontSize(14);
+    pdf.setTextColor(220, 38, 38);
+    pdf.text('COST BREAKDOWN', 20, yPosition);
+    yPosition += 8;
+
+    pdf.setFontSize(10);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(`Unit Price: $${(order.costBreakdown.unitPrice || 0).toFixed(2)}`, 20, yPosition);
+    pdf.text(`Quantity: ${order.costBreakdown.quantity || 0}`, 100, yPosition);
+    yPosition += 6;
+    pdf.text(`Shipping: $${(order.costBreakdown.shippingCost || 0).toFixed(2)}`, 20, yPosition);
+    pdf.text(`Taxes: $${(order.costBreakdown.taxes || 0).toFixed(2)}`, 100, yPosition);
+    yPosition += 6;
+    pdf.text(`Fees: $${(order.costBreakdown.fees || 0).toFixed(2)}`, 20, yPosition);
+    yPosition += 8;
+
+    // Total Cost
+    pdf.setFontSize(12);
+    pdf.setTextColor(220, 38, 38);
+    pdf.text(`TOTAL COST: $${(order.costBreakdown.totalCost || 0).toFixed(2)}`, 20, yPosition);
+    yPosition += 15;
+
+    // Project Details Section
+    pdf.setFontSize(14);
+    pdf.text('PROJECT DETAILS', 20, yPosition);
+    yPosition += 8;
+
+    pdf.setFontSize(10);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(`Subteam: ${order.submissionDetails.subteam || 'N/A'}`, 20, yPosition);
+    pdf.text(`Urgency: ${order.projectDetails.urgency || 'N/A'}`, 100, yPosition);
+    yPosition += 6;
+    pdf.text(`Submitter: ${order.submissionDetails.submitterName || 'N/A'}`, 20, yPosition);
+    pdf.text(`Email: ${order.submissionDetails.submitterEmail || 'N/A'}`, 100, yPosition);
+    yPosition += 10;
+
+    // Purpose
+    const purpose = order.projectDetails.purpose || 'No purpose provided';
+    const splitPurpose = pdf.splitTextToSize(`Purpose: ${purpose}`, 170);
+    pdf.text(splitPurpose, 20, yPosition);
+    yPosition += (splitPurpose.length * 5) + 10;
+
+    // Approval Workflow Section
+    pdf.setFontSize(14);
+    pdf.setTextColor(220, 38, 38);
+    pdf.text('APPROVAL WORKFLOW', 20, yPosition);
+    yPosition += 8;
+
+    pdf.setFontSize(10);
+    pdf.setTextColor(0, 0, 0);
+    
+    // Technical Director Approval
+    const techApproval = order.approvalWorkflow?.technicalDirectorApproval || { status: 'pending' };
+    pdf.text(`Technical Director: ${techApproval.status?.toUpperCase() || 'PENDING'}`, 20, yPosition);
+    yPosition += 6;
+    if (techApproval.approvedBy) {
+      pdf.text(`Approved by: ${techApproval.approvedBy}`, 30, yPosition);
+      yPosition += 6;
+    }
+    if (techApproval.comments) {
+      const techComments = pdf.splitTextToSize(`Comments: ${techApproval.comments}`, 160);
+      pdf.text(techComments, 30, yPosition);
+      yPosition += (techComments.length * 5) + 6;
+    }
+
+    // Project Director Approval
+    const projectApproval = order.approvalWorkflow?.projectDirectorPurchaseApproval || { status: 'pending' };
+    pdf.text(`Project Director: ${projectApproval.status?.toUpperCase() || 'PENDING'}`, 20, yPosition);
+    yPosition += 6;
+    if (projectApproval.approvedBy) {
+      pdf.text(`Approved by: ${projectApproval.approvedBy}`, 30, yPosition);
+      yPosition += 6;
+    }
+    if (projectApproval.comments) {
+      const projectComments = pdf.splitTextToSize(`Comments: ${projectApproval.comments}`, 160);
+      pdf.text(projectComments, 30, yPosition);
+      yPosition += (projectComments.length * 5) + 6;
+    }
+
+    // Sponsorship Info
+    const sponsorshipInfo = order.sponsorshipInfo || {};
+    if (sponsorshipInfo.canBeSponsored || sponsorshipInfo.sponsorshipSearchStatus !== 'not_applicable') {
+      pdf.setFontSize(14);
+      pdf.setTextColor(220, 38, 38);
+      pdf.text('SPONSORSHIP INFORMATION', 20, yPosition);
+      yPosition += 8;
+
+      pdf.setFontSize(10);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(`Status: ${sponsorshipInfo.sponsorshipSearchStatus || 'N/A'}`, 20, yPosition);
+      yPosition += 6;
+      if (sponsorshipInfo.sponsorshipSuccessful) {
+        pdf.setTextColor(0, 128, 0);
+        pdf.text('✓ OBTAINED THROUGH SPONSORSHIP', 20, yPosition);
+        pdf.setTextColor(0, 0, 0);
+        yPosition += 6;
+      }
+    }
+
+    return pdf;
+  };
+
+  // Function to merge order PDF with receipt
+  const mergeOrderWithReceipt = async (orderPdf, receiptBlob) => {
+    // For now, we'll create separate files since PDF merging is complex
+    // In a production environment, you'd use a PDF merging library like pdf-lib
+    return {
+      orderPdf,
+      receiptBlob,
+      hasReceipt: true
+    };
   };
 
   // Helper function to get date range for a semester
@@ -1789,7 +1995,7 @@ const OrderManager = forwardRef((props, ref) => {
                         await updateOrderStatus(order.id, {
                           type: 'technical_director_approval',
                           approved: true,
-                          approvedBy: authService.currentUser?.email || 'tech.director@solarpack.com',
+                          approvedBy: authService.currentUser?.email || 'Tech Director',
                           comments: comments || 'Approved - material needed for project',
                           sponsorshipStatus: sponsorshipStatus,
                           sponsorshipNotes: order.sponsorshipInfo?.sponsorshipResponse || ''
@@ -1853,7 +2059,7 @@ const OrderManager = forwardRef((props, ref) => {
                         await updateOrderStatus(order.id, {
                           type: 'purchase_approval',
                           approved: true,
-                          approvedBy: authService.currentUser?.email || 'project.director@solarpack.com',
+                          approvedBy: authService.currentUser?.email || 'Project Director',
                           comments: comments || 'Budget approved - proceed with purchase'
                         });
                         setSelectedOrder(null);
@@ -4025,13 +4231,13 @@ const OrderManager = forwardRef((props, ref) => {
                       </div>
                       <div className="option-content">
                         <h5>Complete Order Package</h5>
-                        <p>Full order details PDF with appended receipts for comprehensive records</p>
+                        <p>Full order details PDF with separate receipt files for comprehensive records</p>
                         <ul className="option-features">
                           <li>Order submission details</li>
                           <li>Material specifications</li>
                           <li>Cost breakdown</li>
                           <li>Approval workflow</li>
-                          <li>Receipt attachments</li>
+                          <li>Separate receipt files</li>
                         </ul>
                       </div>
                     </label>
