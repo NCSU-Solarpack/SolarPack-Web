@@ -60,6 +60,9 @@ const OrderManager = forwardRef((props, ref) => {
     }
   });
 
+  // Track sponsorship select values per-order while editing so we can disable the save button
+  const [sponsorshipSelections, setSponsorshipSelections] = useState({});
+
   // Custom alert hook from context
   const { showError, showConfirm, showSuccess } = useAlert();
 
@@ -407,6 +410,16 @@ const OrderManager = forwardRef((props, ref) => {
         if (statusUpdate.trackingNumber) {
           updatedOrder.deliveryInfo.trackingNumber = statusUpdate.trackingNumber;
         }
+        // Merge receipt metadata if provided so we don't overwrite previously-saved receipt info
+        if (statusUpdate.receiptInfo) {
+          updatedOrder.documentation = updatedOrder.documentation || {};
+          updatedOrder.documentation.receiptInvoice = {
+            uploaded: true,
+            fileName: statusUpdate.receiptInfo.fileName || (updatedOrder.documentation?.receiptInvoice?.fileName || ''),
+            uploadDate: statusUpdate.receiptInfo.uploadDate || (updatedOrder.documentation?.receiptInvoice?.uploadDate || now),
+            uploadedBy: statusUpdate.receiptInfo.uploadedBy || (updatedOrder.documentation?.receiptInvoice?.uploadedBy || '')
+          };
+        }
         updatedOrder.status = 'shipped';
       } else if (statusUpdate.type === 'delivery') {
         updatedOrder.deliveryInfo = {
@@ -658,13 +671,15 @@ const OrderManager = forwardRef((props, ref) => {
     });
   };
 
-  const handlePurchaseSubmit = async () => {
+  // Accept optional receiptInfo so we can merge receipt metadata when marking as purchased
+  const handlePurchaseSubmit = async (opts = {}) => {
     if (!purchaseFormData.expectedDeliveryDate) {
       await showError('Please enter an expected delivery date', 'Required Field');
       return;
     }
 
-    await updateOrderStatus(purchasingOrder.id, {
+    // Build the purchase payload
+    const purchasePayload = {
       type: 'purchase',
       purchaseOrderNumber: purchaseFormData.purchaseOrderNumber || `PO-${Date.now()}`,
       actualCost: purchasingOrder.costBreakdown.totalCost,
@@ -672,7 +687,15 @@ const OrderManager = forwardRef((props, ref) => {
       expectedDeliveryDate: purchaseFormData.expectedDeliveryDate,
       deliveryNotes: purchaseFormData.deliveryNotes,
       trackingNumber: purchaseFormData.trackingNumber
-    });
+    };
+
+    // If the caller included receipt metadata from the storage upload, include it so
+    // updateOrderStatus will merge and persist the documentation.receiptInvoice fields.
+    if (opts.receiptInfo) {
+      purchasePayload.receiptInfo = opts.receiptInfo;
+    }
+
+    await updateOrderStatus(purchasingOrder.id, purchasePayload);
 
     // Reset and close modal
     setShowPurchaseModal(false);
@@ -1414,9 +1437,10 @@ const OrderManager = forwardRef((props, ref) => {
                     <div className="approval-form">
                       <div className="form-group">
                         <label>Sponsorship Search Status *</label>
-                        <select 
+                        <select
                           id={`sponsorship-status-${order.id}`}
-                          defaultValue={order.sponsorshipInfo?.sponsorshipSearchStatus || 'in_progress'}
+                          value={sponsorshipSelections[order.id] ?? order.sponsorshipInfo?.sponsorshipSearchStatus ?? 'in_progress'}
+                          onChange={(e) => setSponsorshipSelections(prev => ({ ...prev, [order.id]: e.target.value }))}
                         >
                           <option value="in_progress">In Progress (Currently searching)</option>
                           <option value="not_applicable">Not Applicable (Doesn't require sponsorship)</option>
@@ -1439,8 +1463,13 @@ const OrderManager = forwardRef((props, ref) => {
                         />
                       </div>
                       <div className="approval-buttons">
-                        <button 
+                        <button
                           className="btn-primary"
+                          disabled={(sponsorshipSelections[order.id] ?? order.sponsorshipInfo?.sponsorshipSearchStatus ?? 'in_progress') === 'in_progress'}
+                          style={{
+                            opacity: ((sponsorshipSelections[order.id] ?? order.sponsorshipInfo?.sponsorshipSearchStatus ?? 'in_progress') === 'in_progress') ? 0.5 : 1,
+                            cursor: ((sponsorshipSelections[order.id] ?? order.sponsorshipInfo?.sponsorshipSearchStatus ?? 'in_progress') === 'in_progress') ? 'not-allowed' : 'pointer'
+                          }}
                           onClick={async (e) => {
                             e.stopPropagation();
                             const sponsorshipStatus = document.getElementById(`sponsorship-status-${order.id}`).value;
@@ -1994,6 +2023,11 @@ const OrderManager = forwardRef((props, ref) => {
         .btn-primary:hover {
           background: #c71821;
           transform: translateY(-1px);
+        }
+        .btn-primary:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          transform: none;
         }
 
         .btn-secondary {
@@ -3149,8 +3183,16 @@ const OrderManager = forwardRef((props, ref) => {
                   setOrders(updatedOrders);
                   setDisplayedData({ orders: updatedOrders });
 
+                  // Extract receipt metadata from the DB response and pass to purchase handler
+                  const receiptInvoice = updatedOrderFromDB?.documentation?.receiptInvoice || {};
+                  const receiptInfo = {
+                    fileName: receiptInvoice.fileName || '',
+                    uploadDate: receiptInvoice.uploadDate || new Date().toISOString(),
+                    uploadedBy: receiptInvoice.uploadedBy || userEmail
+                  };
+
                   // Continue with purchase logic (update order status, etc.) and wait for it to finish
-                  await handlePurchaseSubmit();
+                  await handlePurchaseSubmit({ receiptInfo });
                 } catch (err) {
                   alert('Failed to upload receipt: ' + err.message);
                 }
