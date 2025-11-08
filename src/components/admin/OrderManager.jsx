@@ -4,6 +4,8 @@ import { supabaseService } from '../../utils/supabase';
 import { useSupabaseSyncStatus } from '../../hooks/useSupabaseSyncStatus';
 import SyncStatusBadge from '../SyncStatusBadge';
 import { useAlert } from '../../contexts/AlertContext';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 const OrderManager = forwardRef((props, ref) => {
   const [orders, setOrders] = useState([]);
@@ -105,7 +107,7 @@ const OrderManager = forwardRef((props, ref) => {
     }
   };
 
-  // Handle confirm of download modal (UI-only for now)
+  // Handle confirm of download modal (download receipts as a zip)
   const handleDownloadSubmit = async (e) => {
     e && e.preventDefault && e.preventDefault();
 
@@ -117,21 +119,113 @@ const OrderManager = forwardRef((props, ref) => {
 
     const start = new Date(downloadStartDate);
     const end = new Date(downloadEndDate);
+    end.setHours(23, 59, 59, 999); // Include the entire end day
+    
     if (start > end) {
       await showError('Start date must be before the end date.', 'Invalid Range');
       return;
     }
 
-    // For now we only show the selection and close the modal. Backend logic to produce files
-    // will be wired later. Log the selection for debugging and show a success toast.
-    console.log('Download requested:', { start: start.toISOString(), end: end.toISOString(), option: downloadOption });
-    await showSuccess('Download request prepared — backend wiring required to generate files.');
+    try {
+      // Show loading state
+      startSaving();
+      
+      // Fetch orders with receipts in the date range
+      const ordersWithReceipts = await supabaseService.getOrdersWithReceipts(start, end);
+      
+      if (ordersWithReceipts.length === 0) {
+        await showError('No receipts found in the selected date range.', 'No Receipts Found');
+        finishSaving();
+        return;
+      }
 
-    // Reset modal state
-    setShowDownloadModal(false);
-    setDownloadStartDate('');
-    setDownloadEndDate('');
-    setDownloadOption('all');
+      // Create zip file
+      const zip = new JSZip();
+      const receiptsFolder = zip.folder('receipts');
+      
+      let downloadedCount = 0;
+      const errors = [];
+
+      // Download each receipt and add to zip
+      for (const order of ordersWithReceipts) {
+        try {
+          const receiptInfo = order.documentation?.receiptInvoice;
+          if (!receiptInfo?.fileName) {
+            console.warn(`Order ${order.id} has no receipt file`);
+            continue;
+          }
+
+          // Extract filename from storage URL
+          const fileName = supabaseService.getFileNameFromStorageUrl(receiptInfo.fileName);
+          if (!fileName) {
+            errors.push(`Order ${order.id}: Could not extract filename from URL`);
+            continue;
+          }
+
+          // Generate a meaningful filename
+          const safeMaterialName = (order.materialDetails?.materialName || 'material')
+            .replace(/[^a-z0-9]/gi, '_')
+            .toLowerCase()
+            .substring(0, 50);
+          
+          const fileExtension = fileName.includes('.') ? fileName.split('.').pop() : 'pdf';
+          const meaningfulFileName = `order_${order.id}_${safeMaterialName}.${fileExtension}`;
+
+          // Download the file from storage
+          const fileBlob = await supabaseService.downloadFileFromStorage('order-receipts', fileName);
+          
+          // Add to zip
+          receiptsFolder.file(meaningfulFileName, fileBlob);
+          downloadedCount++;
+          
+        } catch (error) {
+          console.error(`Failed to download receipt for order ${order.id}:`, error);
+          errors.push(`Order ${order.id}: ${error.message}`);
+        }
+      }
+
+      if (downloadedCount === 0) {
+        await showError(
+          'No receipts could be downloaded. Please check if the receipts exist and are accessible.',
+          'Download Failed'
+        );
+        finishSaving();
+        return;
+      }
+
+      // Generate and download zip file
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      
+      // Create filename with date range
+      const startStr = start.toISOString().split('T')[0];
+      const endStr = end.toISOString().split('T')[0];
+      const zipFileName = `solarpack-receipts_${startStr}_to_${endStr}.zip`;
+      
+      // Trigger download
+      saveAs(zipBlob, zipFileName);
+
+      // Show success message with summary
+      let successMessage = `Successfully downloaded ${downloadedCount} receipt${downloadedCount !== 1 ? 's' : ''}`;
+      if (errors.length > 0) {
+        successMessage += ` (${errors.length} error${errors.length !== 1 ? 's' : ''} - check console for details)`;
+        console.warn('Errors during receipt download:', errors);
+      }
+
+      await showSuccess(successMessage);
+      
+      // Reset modal state
+      setShowDownloadModal(false);
+      setDownloadStartDate('');
+      setDownloadEndDate('');
+      setDownloadOption('all');
+      
+      finishSaving();
+      
+    } catch (error) {
+      console.error('Error downloading receipts:', error);
+      finishSaving();
+      await showError(`Failed to download receipts: ${error.message}`, 'Download Error');
+    }
   };
 
   // Download a receipt file (tries fetch -> blob download; falls back to opening URL)
@@ -3978,36 +4072,67 @@ const OrderManager = forwardRef((props, ref) => {
                   </div>
                 </div>
 
-                <div className="download-summary">
-                  <div className="summary-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                      <polyline points="7,10 12,15 17,10"></polyline>
-                      <line x1="12" y1="15" x2="12" y2="3"></line>
-                    </svg>
+                {downloadStartDate && downloadEndDate && (
+                  <div className="download-summary">
+                    <div className="summary-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7,10 12,15 17,10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                      </svg>
+                    </div>
+                    <div className="summary-content">
+                      <strong>Ready to download</strong>
+                      <span>
+                        {downloadOption === 'all'
+                          ? 'Complete order packages with receipts'
+                          : 'Individual receipt files only'
+                        } from {new Date(downloadStartDate).toLocaleDateString()} to {new Date(downloadEndDate).toLocaleDateString()}
+                      </span>
+                      {status === 'saving' && (
+                        <div style={{marginTop: '0.5rem', fontSize: '0.8rem', color: '#3b82f6'}}>
+                          Gathering receipts... This may take a moment.
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="summary-content">
-                    <strong>Ready to download</strong>
-                    <span>
-                      {downloadOption === 'all' 
-                        ? 'Complete order packages with receipts' 
-                        : 'Individual receipt files only'
-                      } from {downloadStartDate || 'start date'} to {downloadEndDate || 'end date'}
-                    </span>
-                  </div>
-                </div>
+                )}
 
                 <div className="modal-actions">
                   <button type="button" className="btn-secondary" onClick={() => setShowDownloadModal(false)}>
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary" disabled={!downloadStartDate || !downloadEndDate}>
-                    <span>Prepare Download</span>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                      <polyline points="7,10 12,15 17,10"></polyline>
-                      <line x1="12" y1="15" x2="12" y2="3"></line>
-                    </svg>
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={!downloadStartDate || !downloadEndDate || status === 'saving'}
+                  >
+                    {status === 'saving' ? (
+                      <>
+                        <span>Preparing Download...</span>
+                        <div
+                          className="loading-spinner"
+                          style={{
+                            width: '16px',
+                            height: '16px',
+                            border: '2px solid transparent',
+                            borderTop: '2px solid currentColor',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite',
+                            marginLeft: '8px'
+                          }}
+                        ></div>
+                      </>
+                    ) : (
+                      <>
+                        <span>Prepare Download</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginLeft: '8px'}}>
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                          <polyline points="7,10 12,15 17,10"></polyline>
+                          <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                      </>
+                    )}
                   </button>
                 </div>
               </form>

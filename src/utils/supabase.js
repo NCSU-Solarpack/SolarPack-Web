@@ -855,6 +855,65 @@ class SupabaseService {
     };
   }
 
+  /**
+   * Get orders with receipts within a date range
+   * @param {Date} startDate
+   * @param {Date} endDate
+   */
+  async getOrdersWithReceipts(startDate, endDate) {
+    if (!this.client) throw new Error('Supabase not configured');
+
+    const { data, error } = await this.client
+      .from('orders')
+      .select('*')
+      .gte('submission_timestamp', startDate.toISOString())
+      .lte('submission_timestamp', endDate.toISOString())
+      .eq('receipt_uploaded', true)
+      .order('submission_timestamp', { ascending: true });
+
+    if (error) throw error;
+
+    // Transform database format to application format
+    const transformedOrders = (data || []).map(order => this.transformOrderFromDB(order));
+    return transformedOrders;
+  }
+
+  /**
+   * Download a file from Supabase Storage
+   * @param {string} bucketName
+   * @param {string} filePath
+   */
+  async downloadFileFromStorage(bucketName, filePath) {
+    if (!this.client) throw new Error('Supabase not configured');
+
+    const { data, error } = await this.client.storage
+      .from(bucketName)
+      .download(filePath);
+
+    if (error) throw error;
+    return data;
+  }
+
+  /**
+   * Get the file name from a storage URL
+   * @param {string} storageUrl
+   */
+  getFileNameFromStorageUrl(storageUrl) {
+    if (!storageUrl) return null;
+
+    try {
+      // Extract filename from Supabase storage URL
+      const url = new URL(storageUrl);
+      const pathParts = url.pathname.split('/');
+      return pathParts[pathParts.length - 1];
+    } catch (error) {
+      console.warn('Failed to parse storage URL:', storageUrl);
+      // Fallback: try to extract filename from any URL
+      const parts = storageUrl.split('/');
+      return parts[parts.length - 1];
+    }
+  }
+
   async createOrder(orderData) {
     if (!this.client) throw new Error('Supabase not configured');
     
