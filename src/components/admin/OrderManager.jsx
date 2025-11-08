@@ -19,6 +19,11 @@ const OrderManager = forwardRef((props, ref) => {
   const [editedOrderData, setEditedOrderData] = useState(null);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [purchasingOrder, setPurchasingOrder] = useState(null);
+  // Download receipts modal (director-only UI)
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [downloadStartDate, setDownloadStartDate] = useState('');
+  const [downloadEndDate, setDownloadEndDate] = useState('');
+  const [downloadOption, setDownloadOption] = useState('all'); // 'all' | 'receipts'
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [approvingOrder, setApprovingOrder] = useState(null);
   const [approvalComments, setApprovalComments] = useState('');
@@ -98,6 +103,35 @@ const OrderManager = forwardRef((props, ref) => {
       // June (5) and July (6) - consider as part of summer/upcoming fall
       return { semester: 'fall', year };
     }
+  };
+
+  // Handle confirm of download modal (UI-only for now)
+  const handleDownloadSubmit = async (e) => {
+    e && e.preventDefault && e.preventDefault();
+
+    // Basic validation
+    if (!downloadStartDate || !downloadEndDate) {
+      await showError('Please select a start and end date for the download range.', 'Missing Dates');
+      return;
+    }
+
+    const start = new Date(downloadStartDate);
+    const end = new Date(downloadEndDate);
+    if (start > end) {
+      await showError('Start date must be before the end date.', 'Invalid Range');
+      return;
+    }
+
+    // For now we only show the selection and close the modal. Backend logic to produce files
+    // will be wired later. Log the selection for debugging and show a success toast.
+    console.log('Download requested:', { start: start.toISOString(), end: end.toISOString(), option: downloadOption });
+    await showSuccess('Download request prepared — backend wiring required to generate files.');
+
+    // Reset modal state
+    setShowDownloadModal(false);
+    setDownloadStartDate('');
+    setDownloadEndDate('');
+    setDownloadOption('all');
   };
 
   // Download a receipt file (tries fetch -> blob download; falls back to opening URL)
@@ -3171,6 +3205,243 @@ const OrderManager = forwardRef((props, ref) => {
             gap: 1rem;
           }
         }
+        /* Download Modal Styles */
+        .download-description {
+          background: rgba(59, 130, 246, 0.08);
+          border-left: 4px solid #3b82f6;
+          padding: 1rem;
+          border-radius: 6px;
+          margin-bottom: 1.5rem;
+        }
+
+        .download-description p {
+          margin: 0;
+          color: var(--text);
+          line-height: 1.5;
+        }
+
+        .date-range-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1rem;
+        }
+
+        .input-with-icon {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+
+        .input-with-icon svg {
+          position: absolute;
+          left: 0.75rem;
+          color: var(--subtxt);
+          z-index: 1;
+        }
+
+        .input-with-icon input {
+          padding-left: 2.5rem;
+          width: 100%;
+        }
+
+        .download-options-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1rem;
+          margin-top: 1rem;
+        }
+
+        .download-option-card {
+          background: var(--surface);
+          border: 2px solid #333;
+          border-radius: 12px;
+          padding: 1.5rem;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .download-option-card:hover {
+          border-color: #3b82f6;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .download-option-card.selected {
+          border-color: var(--accent);
+          background: linear-gradient(135deg, rgba(220, 38, 38, 0.05) 0%, rgba(220, 38, 38, 0.02) 100%);
+          box-shadow: 0 8px 25px rgba(220, 38, 38, 0.1);
+        }
+
+        .option-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 1rem;
+        }
+
+        .option-icon {
+          width: 48px;
+          height: 48px;
+          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+        }
+
+        .download-option-card:nth-child(2) .option-icon {
+          background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+        }
+
+        .option-check {
+          width: 24px;
+          height: 24px;
+          border: 2px solid #333;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.3s ease;
+        }
+
+        .download-option-card.selected .option-check {
+          background: var(--accent);
+          border-color: var(--accent);
+        }
+
+        .checkmark {
+          width: 12px;
+          height: 12px;
+          background: white;
+          border-radius: 50%;
+          transform: scale(0);
+          transition: transform 0.3s ease;
+        }
+
+        .download-option-card.selected .checkmark {
+          transform: scale(1);
+        }
+
+        .option-content h5 {
+          margin: 0 0 0.5rem 0;
+          color: var(--text);
+          font-size: 1.1rem;
+          font-weight: 600;
+        }
+
+        .option-content p {
+          margin: 0 0 1rem 0;
+          color: var(--subtxt);
+          font-size: 0.9rem;
+          line-height: 1.4;
+        }
+
+        .option-features {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+
+        .option-features li {
+          color: var(--text);
+          font-size: 0.85rem;
+          margin-bottom: 0.25rem;
+          padding-left: 0;
+        }
+
+        .option-features li:before {
+          content: "✓";
+          color: #10b981;
+          font-weight: bold;
+          margin-right: 0.5rem;
+        }
+
+        .download-summary {
+          background: rgba(16, 185, 129, 0.08);
+          border: 1px solid rgba(16, 185, 129, 0.3);
+          border-radius: 8px;
+          padding: 1rem;
+          margin: 1.5rem 0;
+          display: flex;
+          align-items: flex-start;
+          gap: 0.75rem;
+        }
+
+        .summary-icon {
+          width: 32px;
+          height: 32px;
+          background: #10b981;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          flex-shrink: 0;
+        }
+
+        .summary-content {
+          flex: 1;
+        }
+
+        .summary-content strong {
+          display: block;
+          color: var(--text);
+          margin-bottom: 0.25rem;
+        }
+
+        .summary-content span {
+          color: var(--subtxt);
+          font-size: 0.9rem;
+          line-height: 1.4;
+        }
+
+        .sr-only {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
+        }
+
+        /* Modal actions with icon */
+        .modal-actions .btn-primary {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .modal-actions .btn-primary:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        .modal-actions .btn-primary:disabled:hover {
+          background: var(--accent);
+          transform: none;
+        }
+
+        @media (max-width: 768px) {
+          .date-range-grid,
+          .download-options-grid {
+            grid-template-columns: 1fr;
+          }
+          
+          .download-option-card {
+            padding: 1rem;
+          }
+          
+          .option-header {
+            margin-bottom: 0.75rem;
+          }
+        }
       `}</style>
 
       <div className="order-header">
@@ -3262,6 +3533,18 @@ const OrderManager = forwardRef((props, ref) => {
             ))}
             <option value="all">All Time</option>
           </select>
+        </div>
+        {/* Right-aligned actions for filters (director-only) */}
+        <div className="filter-actions" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
+          {isDirectorLevel && (
+            <button
+              className="btn-secondary"
+              onClick={() => setShowDownloadModal(true)}
+              title="Download order receipts and data"
+            >
+              Download Receipts
+            </button>
+          )}
         </div>
       </div>
 
@@ -3563,6 +3846,168 @@ const OrderManager = forwardRef((props, ref) => {
                   </button>
                   <button type="submit" className="btn-submit">
                     Confirm Purchase
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Download Receipts / Data Modal (Director-only UI) */}
+      {showDownloadModal && (
+        <div className="modal-overlay" onClick={() => setShowDownloadModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 720 }}>
+            <div className="modal-header">
+              <h3>Download Orders & Receipts</h3>
+              <button className="modal-close" onClick={() => setShowDownloadModal(false)}>×</button>
+            </div>
+
+            <div className="modal-body">
+              <div className="download-description">
+                <p>Select a date range and choose your download option. Files will be prepared for download based on your selection.</p>
+              </div>
+
+              <form onSubmit={handleDownloadSubmit}>
+                <div className="form-section">
+                  <h4>Date Range</h4>
+                  <div className="date-range-grid">
+                    <div className="form-group">
+                      <label>Start Date *</label>
+                      <div className="input-with-icon">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                          <path d="M14 2h-1V1a1 1 0 0 0-2 0v1H5V1a1 1 0 0 0-2 0v1H2a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM2 3h12a1 1 0 0 1 1 1v1H1V4a1 1 0 0 1 1-1zm12 11H2a1 1 0 0 1-1-1V7h14v6a1 1 0 0 1-1 1z"/>
+                        </svg>
+                        <input 
+                          type="date" 
+                          value={downloadStartDate} 
+                          onChange={(e) => setDownloadStartDate(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label>End Date *</label>
+                      <div className="input-with-icon">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                          <path d="M14 2h-1V1a1 1 0 0 0-2 0v1H5V1a1 1 0 0 0-2 0v1H2a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM2 3h12a1 1 0 0 1 1 1v1H1V4a1 1 0 0 1 1-1zm12 11H2a1 1 0 0 1-1-1V7h14v6a1 1 0 0 1-1 1z"/>
+                        </svg>
+                        <input 
+                          type="date" 
+                          value={downloadEndDate} 
+                          onChange={(e) => setDownloadEndDate(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-section">
+                  <h4>Download Type</h4>
+                  <div className="download-options-grid">
+                    <label className={`download-option-card ${downloadOption === 'all' ? 'selected' : ''}`}>
+                      <input
+                        type="radio"
+                        name="downloadOption"
+                        value="all"
+                        checked={downloadOption === 'all'}
+                        onChange={() => setDownloadOption('all')}
+                        className="sr-only"
+                      />
+                      <div className="option-header">
+                        <div className="option-icon">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14,2 14,8 20,8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10,9 9,9 8,9"></polyline>
+                          </svg>
+                        </div>
+                        <div className="option-check">
+                          <div className="checkmark"></div>
+                        </div>
+                      </div>
+                      <div className="option-content">
+                        <h5>Complete Order Package</h5>
+                        <p>Full order details PDF with appended receipts for comprehensive records</p>
+                        <ul className="option-features">
+                          <li>Order submission details</li>
+                          <li>Material specifications</li>
+                          <li>Cost breakdown</li>
+                          <li>Approval workflow</li>
+                          <li>Receipt attachments</li>
+                        </ul>
+                      </div>
+                    </label>
+
+                    <label className={`download-option-card ${downloadOption === 'receipts' ? 'selected' : ''}`}>
+                      <input
+                        type="radio"
+                        name="downloadOption"
+                        value="receipts"
+                        checked={downloadOption === 'receipts'}
+                        onChange={() => setDownloadOption('receipts')}
+                        className="sr-only"
+                      />
+                      <div className="option-header">
+                        <div className="option-icon">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17,8 12,3 7,8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                          </svg>
+                        </div>
+                        <div className="option-check">
+                          <div className="checkmark"></div>
+                        </div>
+                      </div>
+                      <div className="option-content">
+                        <h5>Receipts Only</h5>
+                        <p>Just the uploaded receipt PDFs for accounting and reimbursement purposes</p>
+                        <ul className="option-features">
+                          <li>Individual receipt files</li>
+                          <li>Purchase documentation</li>
+                          <li>Accounting records</li>
+                          <li>Faster download</li>
+                          <li>Smaller file size</li>
+                        </ul>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="download-summary">
+                  <div className="summary-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7,10 12,15 17,10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                  </div>
+                  <div className="summary-content">
+                    <strong>Ready to download</strong>
+                    <span>
+                      {downloadOption === 'all' 
+                        ? 'Complete order packages with receipts' 
+                        : 'Individual receipt files only'
+                      } from {downloadStartDate || 'start date'} to {downloadEndDate || 'end date'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="modal-actions">
+                  <button type="button" className="btn-secondary" onClick={() => setShowDownloadModal(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn-primary" disabled={!downloadStartDate || !downloadEndDate}>
+                    <span>Prepare Download</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7,10 12,15 17,10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
                   </button>
                 </div>
               </form>
