@@ -28,6 +28,10 @@ const OrderManager = forwardRef((props, ref) => {
     purchaseOrderNumber: '',
     trackingNumber: ''
   });
+  // Receipt drag & drop state (PDF only)
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [receiptFileName, setReceiptFileName] = useState(null);
+  const [isReceiptDragOver, setIsReceiptDragOver] = useState(false);
   const [orderFormData, setOrderFormData] = useState({
     submissionDetails: {
       subteam: '',
@@ -699,6 +703,55 @@ const OrderManager = forwardRef((props, ref) => {
         sponsorCompany: ''
       }
     });
+  };
+
+  // Receipt handlers for purchase modal (PDF only)
+  const handleReceiptSelect = async (file) => {
+    if (!file) return;
+
+    // Validate file type
+    if (file.type !== 'application/pdf') {
+      await showError('Please upload a PDF receipt.', 'Invalid File Type');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      await showError('Maximum file size is 10MB. Please choose a smaller file.', 'File Too Large');
+      return;
+    }
+
+    setReceiptFile(file);
+    setReceiptFileName(file.name || 'receipt.pdf');
+    setPurchaseFormData({ ...purchaseFormData, receiptPdf: file });
+  };
+
+  const handleReceiptDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsReceiptDragOver(false);
+
+    const file = e.dataTransfer?.files?.[0];
+    if (file) handleReceiptSelect(file);
+  };
+
+  const handleReceiptDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsReceiptDragOver(true);
+  };
+
+  const handleReceiptDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsReceiptDragOver(false);
+  };
+
+  const handleRemoveReceipt = () => {
+    setReceiptFile(null);
+    setReceiptFileName(null);
+    setPurchaseFormData({ ...purchaseFormData, receiptPdf: null });
   };
 
   // Accept optional receiptInfo so we can merge receipt metadata when marking as purchased
@@ -2967,6 +3020,111 @@ const OrderManager = forwardRef((props, ref) => {
           padding-top: 1rem;
         }
 
+        .image-upload-area {
+          width: 100%;
+          min-height: 200px;
+          border: 2px dashed #333;
+          border-radius: 8px;
+          background: #1a1a1a;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .image-upload-area:hover {
+          border-color: var(--accent);
+          background: #222;
+        }
+
+        .image-upload-area.has-image {
+          min-height: 250px;
+          border-style: solid;
+        }
+
+        .upload-placeholder {
+          text-align: center;
+          padding: 2rem;
+          color: var(--subtxt);
+        }
+
+        .upload-placeholder svg {
+          width: 48px;
+          height: 48px;
+          margin: 0 auto 1rem;
+          opacity: 0.6;
+        }
+
+        .upload-placeholder p {
+          margin: 0.5rem 0;
+        }
+
+        .upload-hint {
+          font-size: 0.75rem;
+          opacity: 0.7;
+        }
+
+        .image-preview-container {
+          width: 100%;
+          height: 100%;
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1rem;
+        }
+
+        .image-preview {
+          max-width: 100%;
+          max-height: 300px;
+          border-radius: 6px;
+          object-fit: contain;
+        }
+
+        .remove-image-btn {
+          position: absolute;
+          top: 1rem;
+          right: 1rem;
+          background: rgba(220, 38, 38, 0.9);
+          color: white;
+          border: none;
+          border-radius: 50%;
+          width: 32px;
+          height: 32px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.3s ease;
+          z-index: 10;
+        }
+
+        .remove-image-btn:hover {
+          background: #dc2626;
+          transform: scale(1.1);
+        }
+
+        .remove-image-btn svg {
+          width: 16px;
+          height: 16px;
+        }
+
+        .file-preview {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .upload-status {
+          color: var(--accent);
+          font-size: 0.85rem;
+          margin-top: 0.5rem;
+          text-align: center;
+        }
+
         @media (max-width: 768px) {
           .order-header {
             flex-direction: column;
@@ -3336,18 +3494,66 @@ const OrderManager = forwardRef((props, ref) => {
 
                     <div className="form-group">
                       <label>Receipt PDF *</label>
-                      <input
-                        type="file"
-                        accept="application/pdf"
-                        required
-                        onChange={e => {
-                          const file = e.target.files[0];
-                          setPurchaseFormData({
-                            ...purchaseFormData,
-                            receiptPdf: file
-                          });
-                        }}
-                      />
+                      <div
+                        className={`image-upload-area ${receiptFile ? 'has-image' : ''}`}
+                        onDrop={handleReceiptDrop}
+                        onDragOver={handleReceiptDragOver}
+                        onDragEnter={handleReceiptDragOver}
+                        onDragLeave={handleReceiptDragLeave}
+                        onClick={() => document.getElementById('receipt-file-input')?.click()}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        {receiptFile ? (
+                          <div className="image-preview-container">
+                            <div className="file-preview">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 36, height: 36 }}>
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                              </svg>
+                              <div style={{ marginLeft: 12 }}>
+                                <div style={{ fontWeight: 600 }}>{receiptFileName}</div>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>{(receiptFile && (receiptFile.size / 1024 / 1024).toFixed(2)) + ' MB'}</div>
+                              </div>
+                            </div>
+
+                            <button
+                              className="remove-image-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveReceipt();
+                              }}
+                              title="Remove file"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="upload-placeholder">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                              <polyline points="17 8 12 3 7 8"></polyline>
+                              <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <p>Drop PDF here or click to upload</p>
+                            <p className="upload-hint">PDF only • Max 10MB</p>
+                          </div>
+                        )}
+
+                        <input
+                          id="receipt-file-input"
+                          type="file"
+                          accept="application/pdf"
+                          onChange={(e) => handleReceiptSelect(e.target.files[0])}
+                          style={{ display: 'none' }}
+                        />
+                      </div>
+                      {receiptFile && (
+                        <p className="upload-status">Ready to upload: {receiptFileName}</p>
+                      )}
                     </div>
                 </div>
 
