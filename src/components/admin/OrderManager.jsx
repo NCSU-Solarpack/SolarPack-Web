@@ -761,7 +761,7 @@ const OrderManager = forwardRef((props, ref) => {
       case 'pending_technical_approval': return 'Pending Tech Director Approval';
       case 'pending_project_approval': return 'Pending Purchase Approval';
       case 'approved': return 'Approved - Ready to Purchase';
-      case 'shipped': return 'Shipped';
+      case 'shipped': return 'In Transit';
       case 'purchased': return 'Purchased';
       case 'delivered': return 'Delivered';
       case 'completed': return 'Completed';
@@ -3128,7 +3128,33 @@ const OrderManager = forwardRef((props, ref) => {
                 <p><strong>Total Cost:</strong> ${purchasingOrder.costBreakdown.totalCost.toFixed(2)}</p>
               </div>
 
-              <form onSubmit={(e) => { e.preventDefault(); handlePurchaseSubmit(); }}>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                // Upload receipt PDF and update order
+                if (!purchaseFormData.receiptPdf) {
+                  alert('Please upload a PDF receipt.');
+                  return;
+                }
+                try {
+                  const userEmail = authService.currentUser?.email || 'unknown';
+                  // Upload receipt and get the updated order object from DB (application format)
+                  const updatedOrderFromDB = await supabaseService.uploadOrderReceipt(
+                    purchaseFormData.receiptPdf,
+                    purchasingOrder.id,
+                    userEmail
+                  );
+
+                  // Replace the local order with the DB truth returned from the service
+                  const updatedOrders = orders.map(o => o.id === purchasingOrder.id ? updatedOrderFromDB : o);
+                  setOrders(updatedOrders);
+                  setDisplayedData({ orders: updatedOrders });
+
+                  // Continue with purchase logic (update order status, etc.) and wait for it to finish
+                  await handlePurchaseSubmit();
+                } catch (err) {
+                  alert('Failed to upload receipt: ' + err.message);
+                }
+              }}>
                 <div className="form-section">
                   <h4>Delivery Information</h4>
                   
@@ -3173,17 +3199,31 @@ const OrderManager = forwardRef((props, ref) => {
                   </div>
 
                   <div className="form-group">
-                    <label>Purchase Order Number (Optional)</label>
-                    <input 
+                    <label>Purchase Order Number</label>
+                    <input
                       type="text"
-                      value={purchaseFormData.purchaseOrderNumber}
-                      onChange={(e) => setPurchaseFormData({
-                        ...purchaseFormData,
-                        purchaseOrderNumber: e.target.value
-                      })}
-                      placeholder="Auto-generated if left blank"
+                      value={purchasingOrder?.id ? purchasingOrder.id.toString() : ''}
+                      readOnly
+                      className="inline-edit-input"
+                      style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--text)', border: '1px solid #555', borderRadius: '4px' }}
                     />
                   </div>
+
+                    <div className="form-group">
+                      <label>Receipt PDF *</label>
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        required
+                        onChange={e => {
+                          const file = e.target.files[0];
+                          setPurchaseFormData({
+                            ...purchaseFormData,
+                            receiptPdf: file
+                          });
+                        }}
+                      />
+                    </div>
                 </div>
 
                 <div className="modal-actions">

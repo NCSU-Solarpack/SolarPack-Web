@@ -25,6 +25,73 @@ const initializeSupabase = () => {
 };
 
 class SupabaseService {
+  /**
+   * Upload a receipt PDF for an order, name as order id, update order with metadata
+   * @param {File} file - PDF file to upload
+   * @param {number|string} orderId - Supabase order id
+   * @param {string} uploadedBy - User email or name
+   * @returns {Promise<string>} - Public URL of uploaded PDF
+   */
+  async uploadOrderReceipt(file, orderId, uploadedBy) {
+    if (!this.client) throw new Error('Supabase not configured');
+    if (!file || file.type !== 'application/pdf') {
+      throw new Error('Invalid file type. Only PDF receipts are allowed.');
+    }
+    // Name file as orderId.pdf
+    const fileName = `${orderId}.pdf`;
+    const filePath = fileName;
+    // Upload to 'order-receipts' bucket
+    const { data, error } = await this.client.storage
+      .from('order-receipts')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true
+      });
+    if (error) throw error;
+    // Get public URL
+    const { data: urlData } = this.client.storage
+      .from('order-receipts')
+      .getPublicUrl(filePath);
+    const publicUrl = urlData?.publicUrl || '';
+    // Update order in DB and ensure we surface any errors
+    const now = new Date().toISOString();
+    const { data: dbUpdatedOrder, error: updateError } = await this.client
+      .from('orders')
+      .update({
+        receipt_file_name: publicUrl,
+        receipt_uploaded: true,
+        receipt_upload_date: now,
+        receipt_uploaded_by: uploadedBy
+      })
+      .eq('id', orderId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Failed to update order receipt metadata:', updateError);
+      throw updateError;
+    }
+
+    // Transform DB row into application format and return it so callers can use DB truth
+    try {
+      const transformed = this.transformOrderFromDB(dbUpdatedOrder);
+      return transformed;
+    } catch (err) {
+      // Fallback: return minimal info if transform fails
+      return {
+        id: dbUpdatedOrder?.id,
+        documentation: {
+          receiptInvoice: {
+            uploaded: true,
+            fileName: publicUrl,
+            uploadDate: now,
+            uploadedBy: uploadedBy
+          }
+        },
+        lastUpdated: now
+      };
+    }
+  }
   constructor() {
     this.client = initializeSupabase();
   }
@@ -703,9 +770,13 @@ class SupabaseService {
       weekly_notes: project.weeklyNotes || null
     };
     
-    // Only include id if it exists (for updates)
-    if (project.id) {
-      dbProject.id = project.id;
+    // Only include id if it exists and is numeric (for updates).
+    // New client-side temporary ids like "temp-123" should NOT be sent to the DB.
+    if (project.id !== undefined && project.id !== null) {
+      const numericId = typeof project.id === 'string' ? parseInt(project.id, 10) : project.id;
+      if (Number.isFinite(numericId)) {
+        dbProject.id = numericId;
+      }
     }
     
     return dbProject;
@@ -749,9 +820,13 @@ class SupabaseService {
       notes: task.notes
     };
     
-    // Only include id if it exists (for updates)
-    if (task.id) {
-      dbTask.id = task.id;
+    // Only include id if it exists and is numeric (for updates).
+    // Client-side temporary task ids like "temp-..." are strings and should be ignored.
+    if (task.id !== undefined && task.id !== null) {
+      const numericId = typeof task.id === 'string' ? parseInt(task.id, 10) : task.id;
+      if (Number.isFinite(numericId)) {
+        dbTask.id = numericId;
+      }
     }
     
     return dbTask;
