@@ -369,6 +369,107 @@ Supabase is an open-source backend-as-a-service that provides a hosted Postgres 
 
 	---
 
+	## Authentication (How Auth Works Today & Recommended Migration)
+
+	This project currently contains two approaches to authentication and access control. Future maintainers should understand both, remove any insecure client-side logic before production, and migrate to Supabase Auth + a `profiles` table for role-based policies.
+
+	- `src/utils/auth.js` (current, client-side):
+	  - A lightweight, purely client-side auth implementation that:
+	    - Uses hard-coded password hashes derived from `hashPassword(password, salt)`.
+	    - Stores `PASSWORD_HASHES` inside the repo (default passwords are present and must be changed).
+	    - Persists the logged-in user in `localStorage` (`solarpack_auth`) with a 24-hour expiry.
+	    - Exposes helper methods: `authenticate(password)`, `logout()`, `isAuthenticated()`, `hasPermission(permission)`, `extendSession()`.
+
+	  Risks & limitations:
+	  - Passwords and hashes are client-side and visible in source — this is NOT secure.
+	  - There is no server-side enforcement; any user can spoof `localStorage` to obtain higher privileges.
+	  - No password reset, no audit trail, and no secure identity binding to database rows.
+
+	- `src/utils/supabase.js` (recommended):
+	  - The Supabase service client is initialized with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+	  - Contains optional auth helpers: `signIn(email, password)`, `signOut()`, and `getUser()` which call Supabase Auth endpoints.
+	  - When using Supabase Auth, you should pair it with a `profiles` table (or user metadata) for role claims and then enforce roles with RLS policies.
+
+	Recommended migration path (safe, step-by-step):
+
+	1. Enable Supabase Auth (email/password) in your Supabase project settings.
+	2. Create a `profiles` table to map `auth.uid()` to application roles and metadata. Example SQL:
+
+	```sql
+	CREATE TABLE IF NOT EXISTS profiles (
+	  id uuid PRIMARY KEY,
+	  email text,
+	  full_name text,
+	  is_admin boolean DEFAULT false,
+	  role text DEFAULT 'member',
+	  created_at timestamptz DEFAULT now()
+	);
+
+	-- Automatically insert into profiles when a new user signs up (using an auth webhook or a trigger on auth.users via Supabase functions)
+	```
+
+	3. Create admin users securely:
+	  - Preferred: invite or sign-up users via the Supabase Auth UI/API.
+	  - To mark a user as admin, insert or update their profile row using their `auth.uid()` (get the uid from the Supabase Auth user record):
+
+	```sql
+	-- replace '<user-uid>' with the actual auth.uid()
+	INSERT INTO profiles (id, email, is_admin, role)
+	VALUES ('<user-uid>', 'admin@example.edu', true, 'director')
+	ON CONFLICT (id) DO UPDATE SET is_admin = true, role = 'director';
+	```
+
+	4. Update RLS policies to reference `profiles` instead of broad `authenticated` grants. Example RLS policy allowing only admins to modify `blogs`:
+
+	```sql
+	CREATE POLICY "Admins can modify blogs" ON blogs
+	  FOR ALL
+	  TO authenticated
+	  USING (
+	    EXISTS (
+	      SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.is_admin = true
+	    )
+	  );
+	```
+
+	5. Update frontend code:
+	  - Replace uses of the client-side `authService` with Supabase Auth calls (prefer `supabase.auth.signInWithPassword` and `supabase.auth.getUser`).
+	  - Use `supabase.auth.onAuthStateChange` to react to sign-in/sign-out events and fetch the user's `profiles` row to get their `role`/permissions.
+	  - Protect admin routes by checking `profiles.is_admin` (or `role`) before rendering admin UIs.
+
+	6. Secure storage buckets using RLS and policies that check `auth.role()` or `profiles` claims where appropriate. For private data (e.g., `order-receipts`), prefer private buckets and use signed URLs to grant temporary access.
+
+	7. Remove or disable the client-side `authService` once Supabase Auth is fully integrated. Keep a backup branch if you need a rollback path.
+
+	Example client-side pattern after migration (pseudo-code):
+
+	```javascript
+	import { supabaseService } from './src/utils/supabase';
+
+	// Listen for auth changes
+	supabaseService.client.auth.onAuthStateChange(async (event, session) => {
+	  if (session?.user) {
+	    const { data: profile } = await supabaseService.client
+	      .from('profiles')
+	      .select('*')
+	      .eq('id', session.user.id)
+	      .single();
+	    // Store profile in app state and gate admin UI based on profile.is_admin
+	  } else {
+	    // Clear profile/app auth state
+	  }
+	});
+	```
+
+	Notes about keys and server-side needs:
+	- Never expose the Supabase **service_role** key to the browser. Use it only on trusted backends for privileged tasks (e.g., admin-only data exports, background jobs).
+	- The `VITE_SUPABASE_ANON_KEY` is safe for client usage but respects RLS; ensure RLS policies are correctly configured to prevent unauthorized writes.
+
+	If you'd like, I can:
+	- Replace the client-side `authService` with a migration-ready wrapper that proxies to Supabase Auth and falls back gracefully during transition.
+	- Add SQL migration scripts to create the `profiles` table and example admin seed rows.
+
+
 	## Migration & Seeding
 
 	Options:
