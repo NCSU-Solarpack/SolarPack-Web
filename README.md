@@ -207,6 +207,63 @@ If using a custom domain, update the `CNAME` file in `public/` and root as neede
 
 ## API & Data Schema
 
+---
+
+## How the Supabase Database Works
+
+### Overview
+Supabase is an open-source backend-as-a-service that provides a hosted Postgres database, real-time APIs, authentication, and file storage. In SolarPack-Web, Supabase is used as the single source of truth for all dynamic data, replacing static JSON or GitHub-based storage.
+
+### Key Features Used
+- **Postgres Database:** All tables (team, alumni, blogs, sponsors, orders, schedules) are managed in a relational schema. Each table supports full CRUD operations.
+- **Row-Level Security (RLS):** Policies are defined to control who can read or write to each table. For example, only published blogs are public, while admin users can manage all data.
+- **Storage Buckets:** Images and files (e.g., receipts, headshots, sponsor logos) are uploaded to Supabase Storage and linked to database records via public URLs.
+- **Real-Time Subscriptions:** The app can subscribe to changes in tables for instant updates (used in admin tools for collaborative editing).
+
+### Data Flow
+1. **Fetching Data:**
+	- The frontend uses the `supabaseService` singleton to fetch data from tables (e.g., `getTeamMembers`, `getAlumni`, `getBlogs`).
+	- Data is returned as arrays of objects, often sorted or grouped for UI needs.
+2. **Saving Data:**
+	- Admin tools call `save*` or `update*` methods to upsert (insert or update) records. Deletions are handled with `delete*` methods.
+	- File uploads (images, PDFs) are handled by dedicated methods that store files in buckets and update the DB with the public URL.
+3. **Sync & Polling:**
+	- Custom hooks (`useSupabaseSyncStatus`) poll the database for changes, hash the data, and notify users if new data is available.
+	- Real-time subscriptions can be enabled for instant updates (optional).
+
+### Example Table: Blogs
+| Column         | Type      | Description                       |
+|--------------- |---------- |-----------------------------------|
+| id             | UUID      | Primary key                       |
+| title          | TEXT      | Blog post title                   |
+| author         | TEXT      | Author name                       |
+| body           | TEXT      | Blog content                      |
+| image_url      | TEXT      | Header image (optional)           |
+| published      | BOOLEAN   | Visibility flag                   |
+| created_at     | TIMESTAMP | Creation time                     |
+| updated_at     | TIMESTAMP | Last update time                  |
+
+### Example Table: Orders
+| Column                | Type      | Description                       |
+|---------------------- |---------- |-----------------------------------|
+| id                    | BIGSERIAL | Primary key                       |
+| material_name         | TEXT      | Name of material                  |
+| submitter_name        | TEXT      | Who submitted the order           |
+| total_cost            | NUMERIC   | Total cost                        |
+| ...                   | ...       | See schema for full details       |
+
+### Security & Access
+- **Public Data:** Some tables (e.g., published blogs, sponsors) are readable by anyone.
+- **Admin Data:** Most tables require authentication for write access. Policies are enforced in Supabase.
+
+### File Storage
+- Files are uploaded to named buckets (e.g., `team-images`, `order-receipts`).
+- Public URLs are generated and stored in the database for easy retrieval.
+
+### Extending the Database
+- Add new tables or columns in the Supabase dashboard or via SQL migrations.
+- Update the `supabaseService` methods to support new data as needed.
+
 ### Supabase Tables
 
 #### Blogs (`blogs`)
