@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { supabaseService } from '../../utils/supabase';
 import { useSupabaseSyncStatus } from '../../hooks/useSupabaseSyncStatus';
 import SyncStatusBadge from '../SyncStatusBadge';
@@ -21,6 +21,9 @@ const BlogManager = forwardRef((props, ref) => {
     link_text: '',
     published: false
   });
+  const [resizingImage, setResizingImage] = useState(null);
+  const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 });
+  const [resizeStartSize, setResizeStartSize] = useState({ width: 0, height: 0 });
 
   const bodyEditorRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -139,6 +142,80 @@ const BlogManager = forwardRef((props, ref) => {
     reader.readAsDataURL(file);
   };
 
+  // Image resize handlers
+  const handleImageMouseDown = useCallback((e, imgElement) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const rect = imgElement.getBoundingClientRect();
+    setResizingImage(imgElement);
+    setResizeStartPos({ x: e.clientX, y: e.clientY });
+    setResizeStartSize({ width: rect.width, height: rect.height });
+  }, []);
+
+  const handleMouseMove = useCallback((e) => {
+    if (!resizingImage) return;
+    
+    e.preventDefault();
+    
+    // Add resizing cursor to body
+    document.body.classList.add('resizing');
+    
+    const deltaX = e.clientX - resizeStartPos.x;
+    const newWidth = Math.max(50, resizeStartSize.width + deltaX);
+    
+    // Maintain aspect ratio
+    const aspectRatio = resizeStartSize.height / resizeStartSize.width;
+    const newHeight = newWidth * aspectRatio;
+    
+    resizingImage.style.width = `${newWidth}px`;
+    resizingImage.style.height = `${newHeight}px`;
+  }, [resizingImage, resizeStartPos, resizeStartSize]);
+
+  const handleMouseUp = useCallback(() => {
+    if (resizingImage) {
+      // Remove resizing cursor
+      document.body.classList.remove('resizing');
+      
+      // Update the state with the new image size
+      const editor = bodyEditorRef.current;
+      if (editor) {
+        setBlogFormData(prev => ({
+          ...prev,
+          body: editor.innerHTML
+        }));
+      }
+    }
+    setResizingImage(null);
+  }, [resizingImage]);
+
+  // Add global mouse event listeners
+  useEffect(() => {
+    if (resizingImage) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [resizingImage, handleMouseMove, handleMouseUp]);
+
+  // Add this useEffect to handle existing images when the form opens
+  useEffect(() => {
+    if (showBlogForm && bodyEditorRef.current) {
+      // Small delay to ensure the editor content is rendered
+      setTimeout(() => {
+        const editor = bodyEditorRef.current;
+        const images = editor.querySelectorAll('img:not(.image-preview)');
+        images.forEach(img => {
+          addResizeHandleToImage(img);
+        });
+      }, 100);
+    }
+  }, [showBlogForm, blogFormData.body]);
+
   const handleInlineImageUpload = async (file) => {
     if (!file) return;
 
@@ -201,6 +278,13 @@ const BlogManager = forwardRef((props, ref) => {
       }
       
       range.insertNode(fragment);
+      
+      // Add resize handles to the newly inserted image
+      const images = fragment.querySelectorAll('img');
+      images.forEach(img => {
+        addResizeHandleToImage(img);
+      });
+      
       range.setStartAfter(fragment.lastChild);
       range.setEndAfter(fragment.lastChild);
       selection.removeAllRanges();
@@ -212,6 +296,55 @@ const BlogManager = forwardRef((props, ref) => {
         body: prev.body + html
       }));
     }
+  };
+
+  // Function to add resize handle to an image
+  const addResizeHandleToImage = (imgElement) => {
+    // Remove any existing resize handle
+    const existingHandle = imgElement.parentElement?.querySelector('.resize-handle');
+    if (existingHandle) {
+      existingHandle.remove();
+    }
+
+    // Create resize handle container
+    const handleContainer = document.createElement('div');
+    handleContainer.className = 'resize-handle-container';
+    handleContainer.style.position = 'relative';
+    handleContainer.style.display = 'inline-block';
+    
+    // Wrap the image if not already wrapped
+    if (!imgElement.parentElement?.classList.contains('resize-handle-container')) {
+      imgElement.parentNode.insertBefore(handleContainer, imgElement);
+      handleContainer.appendChild(imgElement);
+    }
+    
+    // Create resize handle
+    const resizeHandle = document.createElement('div');
+    resizeHandle.className = 'resize-handle';
+    resizeHandle.innerHTML = '↘';
+    resizeHandle.style.position = 'absolute';
+    resizeHandle.style.bottom = '2px';
+    resizeHandle.style.right = '2px';
+    resizeHandle.style.width = '12px';
+    resizeHandle.style.height = '12px';
+    resizeHandle.style.background = 'var(--accent)';
+    resizeHandle.style.border = '1px solid white';
+    resizeHandle.style.borderRadius = '2px';
+    resizeHandle.style.cursor = 'nwse-resize';
+    resizeHandle.style.display = 'flex';
+    resizeHandle.style.alignItems = 'center';
+    resizeHandle.style.justifyContent = 'center';
+    resizeHandle.style.fontSize = '8px';
+    resizeHandle.style.color = 'white';
+    resizeHandle.style.zIndex = '10';
+    resizeHandle.style.userSelect = 'none';
+    
+    // Add event listener to the handle
+    resizeHandle.addEventListener('mousedown', (e) => {
+      handleImageMouseDown(e, imgElement);
+    });
+    
+    handleContainer.appendChild(resizeHandle);
   };
 
   const handleImageDrop = (e) => {
@@ -287,6 +420,19 @@ const BlogManager = forwardRef((props, ref) => {
       ...blogFormData,
       body: e.target.innerHTML
     });
+    
+    // Add resize handles to images in the editor
+    setTimeout(() => {
+      const editor = bodyEditorRef.current;
+      if (editor) {
+        const images = editor.querySelectorAll('img:not(.image-preview)');
+        images.forEach(img => {
+          if (!img.parentElement?.querySelector('.resize-handle')) {
+            addResizeHandleToImage(img);
+          }
+        });
+      }
+    }, 0);
   };
 
   const saveBlog = async () => {
@@ -995,6 +1141,62 @@ const BlogManager = forwardRef((props, ref) => {
             padding-right: 0.5rem;
             margin-right: 0.5rem;
           }
+        }
+        /* Image Resize Styles */
+        .resize-handle-container {
+          position: relative;
+          display: inline-block;
+          margin: 1rem 0;
+          border: 2px dashed transparent;
+          transition: border-color 0.2s ease;
+          max-width: 100%;
+        }
+
+        .resize-handle-container:hover {
+          border-color: var(--accent);
+        }
+
+        .resize-handle {
+          position: absolute;
+          bottom: 2px;
+          right: 2px;
+          width: 12px;
+          height: 12px;
+          background: var(--accent);
+          border: 1px solid white;
+          border-radius: 2px;
+          cursor: nwse-resize;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 8px;
+          color: white;
+          z-index: 10;
+          user-select: none;
+          opacity: 0;
+          transition: opacity 0.2s ease;
+        }
+
+        .resize-handle-container:hover .resize-handle {
+          opacity: 1;
+        }
+
+        .resize-handle:active {
+          background: #c71821;
+        }
+
+        /* Ensure images in resize containers maintain proper styling */
+        .resize-handle-container img {
+          max-width: 100% !important;
+          height: auto !important;
+          border-radius: 8px;
+          display: block;
+        }
+
+        /* Cursor style during resize */
+        body.resizing {
+          cursor: nwse-resize !important;
+          user-select: none;
         }
       `}</style>
 
