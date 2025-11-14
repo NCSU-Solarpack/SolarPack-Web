@@ -1574,9 +1574,6 @@ const BlogManager = forwardRef((props, ref) => {
                     }
                   }}
                 />
-                <small style={{ color: 'var(--subtxt)', fontSize: '0.8rem', display: 'block', marginTop: '0.25rem' }}>
-                  Drag and drop images directly into the editor or use the image button in the toolbar
-                </small>
               </div>
 
               <div className="form-group">
