@@ -27,6 +27,8 @@ const BlogManager = forwardRef((props, ref) => {
 
   const bodyEditorRef = useRef(null);
   const fileInputRef = useRef(null);
+  const lastImageSrcsRef = useRef(new Set());
+  const deletedImagesRef = useRef(new Set());
 
   const { showError, showConfirm, showSuccess } = useAlert();
 
@@ -53,6 +55,26 @@ const BlogManager = forwardRef((props, ref) => {
       setBlogs([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Delete an image from Supabase storage by its full URL (no DOM element required)
+  const deleteImageFromStorageBySrc = async (imageUrl) => {
+    if (!imageUrl) return;
+    if (!imageUrl.includes('supabase')) return; // only handle storage images
+
+    try {
+      startSaving();
+      const urlParts = imageUrl.split('/blog-images/');
+      if (urlParts.length >= 2) {
+        const filePath = urlParts[1];
+        await supabaseService.client.storage.from('blog-images').remove([filePath]);
+        console.log('Deleted image from storage:', filePath);
+      }
+    } catch (err) {
+      console.error('Error deleting image from storage (observer):', err);
+    } finally {
+      finishSaving();
     }
   };
 
@@ -162,7 +184,7 @@ const BlogManager = forwardRef((props, ref) => {
     document.body.classList.add('resizing');
     
     const deltaX = e.clientX - resizeStartPos.x;
-    const newWidth = Math.max(50, resizeStartSize.width + deltaX);
+    const newWidth = Math.max(100, resizeStartSize.width + deltaX);
     
     // Maintain aspect ratio
     const aspectRatio = resizeStartSize.height / resizeStartSize.width;
@@ -176,7 +198,7 @@ const BlogManager = forwardRef((props, ref) => {
     if (resizingImage) {
       // Remove resizing cursor
       document.body.classList.remove('resizing');
-      
+
       // Update the state with the new image size
       const editor = bodyEditorRef.current;
       if (editor) {
@@ -185,6 +207,34 @@ const BlogManager = forwardRef((props, ref) => {
           body: editor.innerHTML
         }));
       }
+
+      // Ensure controls are re-attached to the (possibly re-created) image
+      // Run on next tick so DOM updates have settled
+      const resizedImg = resizingImage;
+      setTimeout(() => {
+        try {
+          if (resizedImg) {
+            // If the image node was replaced, try to find by src inside editor
+            const editorNode = bodyEditorRef.current;
+            if (editorNode) {
+              const found = editorNode.querySelector(`img[src="${resizedImg.src}"]`);
+              const targetImg = found || resizedImg;
+              addImageControls(targetImg);
+
+              // Make controls visible immediately so user can interact
+              const container = targetImg.parentElement;
+              if (container && container.classList.contains('image-controls-container')) {
+                const btn = container.querySelector('.image-delete-btn');
+                const handle = container.querySelector('.resize-handle');
+                if (btn) btn.style.opacity = '1';
+                if (handle) handle.style.opacity = '1';
+              }
+            }
+          }
+        } catch (err) {
+          // ignore
+        }
+      }, 0);
     }
     setResizingImage(null);
   }, [resizingImage]);
@@ -210,11 +260,66 @@ const BlogManager = forwardRef((props, ref) => {
         const editor = bodyEditorRef.current;
         const images = editor.querySelectorAll('img:not(.image-preview)');
         images.forEach(img => {
-          addResizeHandleToImage(img);
+          addImageControls(img);
         });
       }, 100);
     }
   }, [showBlogForm, blogFormData.body]);
+
+  // Keep editor DOM in sync with `blogFormData.body` when the form opens
+  // or when body changes programmatically — but avoid overwriting while user types.
+  useEffect(() => {
+    const editor = bodyEditorRef.current;
+    if (!showBlogForm || !editor) return;
+
+    // If editor is focused (user is typing), don't overwrite DOM — avoids caret jumps
+    if (document.activeElement === editor) return;
+
+    const desired = blogFormData.body || '';
+    if (editor.innerHTML !== desired) {
+      editor.innerHTML = desired;
+    }
+  }, [showBlogForm, editingBlog, blogFormData.body]);
+
+  // Observe editor DOM changes so we can detect images removed via keyboard
+  useEffect(() => {
+    if (!showBlogForm) return;
+    const editor = bodyEditorRef.current;
+    if (!editor) return;
+
+    const getSrcs = () => new Set(Array.from(editor.querySelectorAll('img')).map(i => i.src));
+
+    // Initialize previous set
+    lastImageSrcsRef.current = getSrcs();
+
+    const observer = new MutationObserver((mutations) => {
+      const current = getSrcs();
+      const prev = lastImageSrcsRef.current || new Set();
+
+      // Images removed from DOM
+      prev.forEach(src => {
+        if (!current.has(src) && !deletedImagesRef.current.has(src)) {
+          // Deleted via keyboard or other means; remove from storage
+          deleteImageFromStorageBySrc(src).catch(err => console.error(err));
+          deletedImagesRef.current.add(src);
+        }
+      });
+
+      lastImageSrcsRef.current = current;
+
+      // Sync state to reflect DOM changes
+      setTimeout(() => {
+        const node = bodyEditorRef.current;
+        if (node) {
+          setBlogFormData(prev => ({ ...prev, body: node.innerHTML }));
+        }
+      }, 0);
+    });
+
+    observer.observe(editor, { childList: true, subtree: true, attributes: false, characterData: false });
+
+    return () => observer.disconnect();
+  }, [showBlogForm]);
 
   const handleInlineImageUpload = async (file) => {
     if (!file) return;
@@ -237,11 +342,28 @@ const BlogManager = forwardRef((props, ref) => {
       const blogId = editingBlog?.id || `temp-${Date.now()}`;
       const imageUrl = await supabaseService.uploadBlogImage(file, blogId);
 
-      // Insert image as HTML instead of markdown
+      // Insert image with controls wrapper
       const altText = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-      const imgHtml = `<img src="${imageUrl}" alt="${altText}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 1rem 0;" />`;
+      const imgHtml = `
+        <div class="image-controls-container" style="position: relative; display: inline-block; margin: 1rem 0; max-width: 100%;">
+          <img src="${imageUrl}" alt="${altText}" style="display: block; max-width: 100%; height: auto; border-radius: 8px; cursor: default;" />
+        </div>
+      `;
       
       insertHtmlAtCursor(imgHtml);
+
+      // Add controls to the newly inserted image
+      setTimeout(() => {
+        const editor = bodyEditorRef.current;
+        if (editor) {
+          const images = editor.querySelectorAll('.image-controls-container img');
+          images.forEach(img => {
+            if (!img.parentElement.querySelector('.image-delete-btn')) {
+              addImageControls(img);
+            }
+          });
+        }
+      }, 100);
 
       await showSuccess('Image uploaded and inserted into body');
     } catch (error) {
@@ -282,13 +404,20 @@ const BlogManager = forwardRef((props, ref) => {
       // Add resize handles to the newly inserted image
       const images = fragment.querySelectorAll('img');
       images.forEach(img => {
-        addResizeHandleToImage(img);
+        addImageControls(img);
       });
       
       range.setStartAfter(fragment.lastChild);
       range.setEndAfter(fragment.lastChild);
       selection.removeAllRanges();
       selection.addRange(range);
+      // Sync state with editor content after DOM insertion (use timeout to avoid interfering with selection)
+      setTimeout(() => {
+        setBlogFormData(prev => ({
+          ...prev,
+          body: editor.innerHTML
+        }));
+      }, 0);
     } else {
       // Fallback: append to end
       setBlogFormData(prev => ({
@@ -299,25 +428,55 @@ const BlogManager = forwardRef((props, ref) => {
   };
 
   // Function to add resize handle to an image
-  const addResizeHandleToImage = (imgElement) => {
-    // Remove any existing resize handle
-    const existingHandle = imgElement.parentElement?.querySelector('.resize-handle');
-    if (existingHandle) {
-      existingHandle.remove();
+  const addImageControls = (imgElement) => {
+    // If the image is already wrapped in a container we created earlier,
+    // reuse that container; otherwise create and wrap it.
+    const parent = imgElement.parentNode;
+    let controlsContainer = parent?.classList && parent.classList.contains('image-controls-container') ? parent : null;
+
+    if (!controlsContainer) {
+      controlsContainer = document.createElement('div');
+      controlsContainer.className = 'image-controls-container';
+      controlsContainer.style.position = 'relative';
+      controlsContainer.style.display = 'inline-block';
+      controlsContainer.style.margin = '1rem 0';
+      controlsContainer.style.maxWidth = '100%';
+
+      // Wrap the image
+      parent.insertBefore(controlsContainer, imgElement);
+      controlsContainer.appendChild(imgElement);
     }
 
-    // Create resize handle container
-    const handleContainer = document.createElement('div');
-    handleContainer.className = 'resize-handle-container';
-    handleContainer.style.position = 'relative';
-    handleContainer.style.display = 'inline-block';
-    
-    // Wrap the image if not already wrapped
-    if (!imgElement.parentElement?.classList.contains('resize-handle-container')) {
-      imgElement.parentNode.insertBefore(handleContainer, imgElement);
-      handleContainer.appendChild(imgElement);
+    // If buttons already added, nothing to do
+    if (controlsContainer.querySelector('.image-delete-btn')) {
+      return;
     }
-    
+
+    // Create delete button
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'image-delete-btn';
+    deleteButton.innerHTML = '×';
+    deleteButton.title = 'Delete image';
+    deleteButton.style.position = 'absolute';
+    deleteButton.style.top = '8px';
+    deleteButton.style.right = '8px';
+    deleteButton.style.width = '24px';
+    deleteButton.style.height = '24px';
+    deleteButton.style.background = 'rgba(220, 38, 38, 0.9)';
+    deleteButton.style.color = 'white';
+    deleteButton.style.border = 'none';
+    deleteButton.style.borderRadius = '50%';
+    deleteButton.style.cursor = 'pointer';
+    deleteButton.style.display = 'flex';
+    deleteButton.style.alignItems = 'center';
+    deleteButton.style.justifyContent = 'center';
+    deleteButton.style.fontSize = '16px';
+    deleteButton.style.fontWeight = 'bold';
+    deleteButton.style.zIndex = '20';
+    deleteButton.style.opacity = '0';
+    deleteButton.style.transition = 'opacity 0.2s ease';
+    deleteButton.style.pointerEvents = 'auto';
+
     // Create resize handle
     const resizeHandle = document.createElement('div');
     resizeHandle.className = 'resize-handle';
@@ -325,8 +484,8 @@ const BlogManager = forwardRef((props, ref) => {
     resizeHandle.style.position = 'absolute';
     resizeHandle.style.bottom = '2px';
     resizeHandle.style.right = '2px';
-    resizeHandle.style.width = '12px';
-    resizeHandle.style.height = '12px';
+    resizeHandle.style.width = '16px';
+    resizeHandle.style.height = '16px';
     resizeHandle.style.background = 'var(--accent)';
     resizeHandle.style.border = '1px solid white';
     resizeHandle.style.borderRadius = '2px';
@@ -334,17 +493,125 @@ const BlogManager = forwardRef((props, ref) => {
     resizeHandle.style.display = 'flex';
     resizeHandle.style.alignItems = 'center';
     resizeHandle.style.justifyContent = 'center';
-    resizeHandle.style.fontSize = '8px';
+    resizeHandle.style.fontSize = '10px';
     resizeHandle.style.color = 'white';
-    resizeHandle.style.zIndex = '10';
-    resizeHandle.style.userSelect = 'none';
-    
-    // Add event listener to the handle
+    resizeHandle.style.zIndex = '15';
+    resizeHandle.style.opacity = '0';
+    resizeHandle.style.transition = 'opacity 0.2s ease';
+    resizeHandle.style.pointerEvents = 'auto';
+
+    // Add event listeners
+    // Use 'click' for delete to avoid conflicts with resize mousedown/mouseup
+    deleteButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleDeleteImage(imgElement);
+    });
+
     resizeHandle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       handleImageMouseDown(e, imgElement);
     });
+
+    // Show controls on hover
+    controlsContainer.addEventListener('mouseenter', () => {
+      deleteButton.style.opacity = '1';
+      resizeHandle.style.opacity = '1';
+    });
+
+    controlsContainer.addEventListener('mouseleave', () => {
+      // Defer hiding slightly and also check if the mouse is actually outside
+      setTimeout(() => {
+        if (!resizingImage && !controlsContainer.matches(':hover')) {
+          deleteButton.style.opacity = '0';
+          resizeHandle.style.opacity = '0';
+        }
+      }, 50);
+    });
+
+    controlsContainer.appendChild(deleteButton);
+    controlsContainer.appendChild(resizeHandle);
+
+    // Ensure image has proper styling
+    imgElement.style.display = 'block';
+    imgElement.style.maxWidth = '100%';
+    imgElement.style.height = 'auto';
+    imgElement.style.borderRadius = '8px';
+    imgElement.style.cursor = 'default';
+  };
+
+  // Function to handle image deletion
+  const handleDeleteImage = async (imgElement) => {
+    const imageUrl = imgElement.src;
     
-    handleContainer.appendChild(resizeHandle);
+    // Check if this is a Supabase storage image
+    if (imageUrl.includes('supabase')) {
+      const confirmed = await showConfirm(
+        'Are you sure you want to delete this image? This will remove it from storage permanently.',
+        'Delete Image'
+      );
+
+      if (!confirmed) return;
+
+      try {
+        startSaving();
+        
+        // Extract the file path from the URL and delete from storage
+        const urlParts = imageUrl.split('/blog-images/');
+        if (urlParts.length >= 2) {
+          const filePath = urlParts[1];
+          await supabaseService.client.storage
+            .from('blog-images')
+            .remove([filePath]);
+        }
+        
+        // Remove the image from the DOM
+        const container = imgElement.parentElement;
+        if (container && container.classList.contains('image-controls-container')) {
+          container.remove();
+        } else {
+          imgElement.remove();
+        }
+
+        // Update the body content
+        const editor = bodyEditorRef.current;
+        if (editor) {
+          setBlogFormData(prev => ({
+            ...prev,
+            body: editor.innerHTML
+          }));
+        }
+
+        // Mark as deleted so MutationObserver doesn't try to double-delete
+        try { deletedImagesRef.current.add(imageUrl); } catch (err) { }
+
+        await showSuccess('Image deleted successfully');
+      } catch (error) {
+        console.error('Error deleting image:', error);
+        await showError(`Failed to delete image: ${error.message}`, 'Delete Error');
+      } finally {
+        finishSaving();
+      }
+    } else {
+      // For external images, just remove from DOM
+      const container = imgElement.parentElement;
+      if (container && container.classList.contains('image-controls-container')) {
+        container.remove();
+      } else {
+        imgElement.remove();
+      }
+
+      // Update the body content
+      const editor = bodyEditorRef.current;
+      if (editor) {
+        setBlogFormData(prev => ({
+          ...prev,
+          body: editor.innerHTML
+        }));
+      }
+      try { deletedImagesRef.current.add(imageUrl); } catch (err) { }
+    }
   };
 
   const handleImageDrop = (e) => {
@@ -427,8 +694,8 @@ const BlogManager = forwardRef((props, ref) => {
       if (editor) {
         const images = editor.querySelectorAll('img:not(.image-preview)');
         images.forEach(img => {
-          if (!img.parentElement?.querySelector('.resize-handle')) {
-            addResizeHandleToImage(img);
+          if (!img.parentElement?.classList.contains('image-controls-container')) {
+            addImageControls(img);
           }
         });
       }
@@ -832,9 +1099,71 @@ const BlogManager = forwardRef((props, ref) => {
           gap: 0.75rem;
         }
 
+        /* Custom styled checkbox to match site look */
+        .form-check {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
         .form-check input[type="checkbox"] {
-          width: auto;
+          /* visually hide native checkbox but keep it accessible */
+          position: absolute;
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+
+        .form-check label {
+          position: relative;
+          padding-left: 40px;
           cursor: pointer;
+          user-select: none;
+          color: var(--text);
+          font-weight: 500;
+        }
+
+        .form-check label::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 28px;
+          height: 18px;
+          border-radius: 999px;
+          background: #232323;
+          border: 1px solid #2f2f2f;
+          box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2);
+          transition: background 0.15s ease, border-color 0.15s ease;
+        }
+
+        .form-check label::after {
+          content: '';
+          position: absolute;
+          left: 4px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: #fff;
+          transition: left 0.15s ease, background 0.15s ease;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .form-check input[type="checkbox"]:checked + label::before {
+          background: var(--accent);
+          border-color: var(--accent);
+        }
+
+        .form-check input[type="checkbox"]:checked + label::after {
+          left: 14px;
+          background: white;
+        }
+
+        .form-check input[type="checkbox"]:focus + label::before {
+          box-shadow: 0 0 0 3px rgba(199, 24, 33, 0.12);
         }
 
         .image-upload-area {
@@ -1055,8 +1384,8 @@ const BlogManager = forwardRef((props, ref) => {
         }
 
         .editor-content {
-          min-height: 300px;
-          max-height: 500px;
+          min-height: 500px;
+          max-height: 800px;
           overflow-y: auto;
           padding: 1rem;
           color: var(--text);
@@ -1191,6 +1520,85 @@ const BlogManager = forwardRef((props, ref) => {
           height: auto !important;
           border-radius: 8px;
           display: block;
+        }
+
+        /* Image Controls Styles */
+        .image-controls-container {
+          position: relative;
+          display: inline-block;
+          margin: 1rem 0;
+          max-width: 100%;
+          border: 2px dashed transparent;
+          transition: border-color 0.2s ease;
+        }
+
+        .image-controls-container:hover {
+          border-color: var(--accent);
+        }
+
+        .image-controls-container img {
+          display: block;
+          max-width: 100%;
+          height: auto;
+          border-radius: 8px;
+          cursor: default;
+        }
+
+        .image-delete-btn {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          width: 24px;
+          height: 24px;
+          background: rgba(220, 38, 38, 0.9);
+          color: white;
+          border: none;
+          border-radius: 50%;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 16px;
+          font-weight: bold;
+          z-index: 20;
+          opacity: 0;
+          transition: opacity 0.2s ease;
+          pointer-events: auto;
+        }
+
+        .image-delete-btn:hover {
+          background: #dc2626;
+          transform: scale(1.1);
+        }
+
+        .resize-handle {
+          position: absolute;
+          bottom: 2px;
+          right: 2px;
+          width: 16px;
+          height: 16px;
+          background: var(--accent);
+          border: 1px solid white;
+          border-radius: 2px;
+          cursor: nwse-resize;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          color: white;
+          z-index: 15;
+          opacity: 0;
+          transition: opacity 0.2s ease;
+          pointer-events: auto;
+        }
+
+        .image-controls-container:hover .image-delete-btn,
+        .image-controls-container:hover .resize-handle {
+          opacity: 1;
+        }
+
+        .resize-handle:active {
+          background: #c71821;
         }
 
         /* Cursor style during resize */
@@ -1553,7 +1961,6 @@ const BlogManager = forwardRef((props, ref) => {
                     ref={bodyEditorRef}
                     className="editor-content"
                     contentEditable
-                    dangerouslySetInnerHTML={{ __html: blogFormData.body }}
                     onInput={handleBodyChange}
                     onDragOver={handleBodyDragOver}
                     onDragLeave={handleBodyDragLeave}
