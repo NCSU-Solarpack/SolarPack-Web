@@ -34,6 +34,22 @@ const Blogs = () => {
     setSelectedBlog(null);
   };
 
+  // Function to create excerpt from HTML content
+  const createExcerpt = (html, maxLength = 150) => {
+    if (!html) return '';
+    
+    // Create a temporary div to parse HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    
+    // Get text content and strip HTML tags
+    const text = tempDiv.textContent || tempDiv.innerText || '';
+    
+    // Trim to max length and add ellipsis if needed
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength).trim() + '...';
+  };
+
   if (isLoading) {
     return (
       <div className="blogs-page">
@@ -258,12 +274,131 @@ const Blogs = () => {
           color: var(--text);
           line-height: 1.8;
           font-size: 1.1rem;
-          white-space: pre-wrap;
-          word-wrap: break-word;
+        }
+
+        .blog-modal-body h1,
+        .blog-modal-body h2,
+        .blog-modal-body h3,
+        .blog-modal-body h4,
+        .blog-modal-body h5,
+        .blog-modal-body h6 {
+          color: var(--text);
+          margin: 2rem 0 1rem 0;
+          line-height: 1.3;
+        }
+
+        .blog-modal-body h1 {
+          font-size: 2rem;
+          border-bottom: 2px solid var(--accent);
+          padding-bottom: 0.5rem;
+        }
+
+        .blog-modal-body h2 {
+          font-size: 1.75rem;
+        }
+
+        .blog-modal-body h3 {
+          font-size: 1.5rem;
+        }
+
+        .blog-modal-body h4 {
+          font-size: 1.25rem;
         }
 
         .blog-modal-body p {
           margin-bottom: 1.5rem;
+        }
+
+        .blog-modal-body img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 8px;
+          margin: 1.5rem 0;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .blog-modal-body ul,
+        .blog-modal-body ol {
+          margin: 1rem 0 1.5rem 0;
+          padding-left: 2rem;
+        }
+
+        .blog-modal-body li {
+          margin-bottom: 0.5rem;
+        }
+
+        .blog-modal-body blockquote {
+          border-left: 4px solid var(--accent);
+          padding-left: 1.5rem;
+          margin: 1.5rem 0;
+          color: var(--subtxt);
+          font-style: italic;
+          background: rgba(227, 23, 23, 0.05);
+          padding: 1rem 1.5rem;
+          border-radius: 0 8px 8px 0;
+        }
+
+        .blog-modal-body code {
+          background: #2d2d2d;
+          padding: 0.2rem 0.4rem;
+          border-radius: 4px;
+          font-family: 'Courier New', monospace;
+          font-size: 0.9em;
+          color: #f8f8f2;
+        }
+
+        .blog-modal-body pre {
+          background: #2d2d2d;
+          padding: 1.5rem;
+          border-radius: 8px;
+          overflow-x: auto;
+          margin: 1.5rem 0;
+          border: 1px solid #444;
+        }
+
+        .blog-modal-body pre code {
+          background: none;
+          padding: 0;
+        }
+
+        .blog-modal-body table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 1.5rem 0;
+          background: var(--bg);
+        }
+
+        .blog-modal-body th,
+        .blog-modal-body td {
+          padding: 0.75rem;
+          border: 1px solid #444;
+          text-align: left;
+        }
+
+        .blog-modal-body th {
+          background: rgba(227, 23, 23, 0.1);
+          font-weight: 600;
+        }
+
+        .blog-modal-body a {
+          color: var(--accent);
+          text-decoration: none;
+          border-bottom: 1px solid transparent;
+          transition: border-color 0.3s ease;
+        }
+
+        .blog-modal-body a:hover {
+          border-bottom: 1px solid var(--accent);
+        }
+
+        .blog-modal-body strong {
+          font-weight: 700;
+          color: var(--text);
+        }
+
+        .blog-modal-body em {
+          font-style: italic;
+          color: var(--subtxt);
         }
 
         .blog-link-button {
@@ -342,6 +477,18 @@ const Blogs = () => {
           .blog-modal-body {
             font-size: 1rem;
           }
+
+          .blog-modal-body h1 {
+            font-size: 1.75rem;
+          }
+
+          .blog-modal-body h2 {
+            font-size: 1.5rem;
+          }
+
+          .blog-modal-body h3 {
+            font-size: 1.25rem;
+          }
         }
       `}</style>
 
@@ -375,7 +522,12 @@ const Blogs = () => {
                       })}
                     </span>
                   </div>
-                  <p className="blog-card-excerpt">{blog.body}</p>
+                  <div 
+                    className="blog-card-excerpt"
+                    dangerouslySetInnerHTML={{ 
+                      __html: createExcerpt(blog.body) || 'No content available...'
+                    }}
+                  />
                   <span className="blog-card-read-more">
                     Read More →
                   </span>
@@ -417,7 +569,10 @@ const Blogs = () => {
                   {selectedBlog.link_text || 'Read More'} →
                 </a>
               )}
-              <div className="blog-modal-body">{selectedBlog.body}</div>
+              <div 
+                className="blog-modal-body"
+                dangerouslySetInnerHTML={{ __html: selectedBlog.body }}
+              />
             </div>
           </div>
         </div>

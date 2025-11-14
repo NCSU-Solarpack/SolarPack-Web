@@ -22,6 +22,9 @@ const BlogManager = forwardRef((props, ref) => {
     published: false
   });
 
+  const bodyEditorRef = useRef(null);
+  const fileInputRef = useRef(null);
+
   const { showError, showConfirm, showSuccess } = useAlert();
 
   // Real-time sync status
@@ -136,6 +139,81 @@ const BlogManager = forwardRef((props, ref) => {
     reader.readAsDataURL(file);
   };
 
+  const handleInlineImageUpload = async (file) => {
+    if (!file) return;
+
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+      await showError('Please upload a JPEG, PNG, WebP, or GIF image.', 'Invalid File Type');
+      return;
+    }
+
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      await showError('Maximum file size is 5MB. Please choose a smaller image.', 'File Too Large');
+      return;
+    }
+
+    try {
+      startSaving();
+
+      const blogId = editingBlog?.id || `temp-${Date.now()}`;
+      const imageUrl = await supabaseService.uploadBlogImage(file, blogId);
+
+      // Insert image as HTML instead of markdown
+      const altText = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+      const imgHtml = `<img src="${imageUrl}" alt="${altText}" style="max-width: 100%; height: auto; border-radius: 8px; margin: 1rem 0;" />`;
+      
+      insertHtmlAtCursor(imgHtml);
+
+      await showSuccess('Image uploaded and inserted into body');
+    } catch (error) {
+      console.error('Error uploading inline image:', error);
+      await showError(`Failed to upload inline image: ${error.message}`, 'Upload Error');
+    } finally {
+      finishSaving();
+    }
+  };
+
+  const insertHtmlAtCursor = (html) => {
+    const editor = bodyEditorRef.current;
+    if (!editor) return;
+
+    editor.focus();
+    
+    // Check if browser supports execCommand (fallback for older browsers)
+    if (document.execCommand && document.execCommand('insertHTML', false, html)) {
+      return;
+    }
+
+    // Modern approach using Selection API
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      range.deleteContents();
+      
+      const div = document.createElement('div');
+      div.innerHTML = html;
+      const fragment = document.createDocumentFragment();
+      
+      while (div.firstChild) {
+        fragment.appendChild(div.firstChild);
+      }
+      
+      range.insertNode(fragment);
+      range.setStartAfter(fragment.lastChild);
+      range.setEndAfter(fragment.lastChild);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    } else {
+      // Fallback: append to end
+      setBlogFormData(prev => ({
+        ...prev,
+        body: prev.body + html
+      }));
+    }
+  };
+
   const handleImageDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -151,10 +229,64 @@ const BlogManager = forwardRef((props, ref) => {
     e.stopPropagation();
   };
 
+  const handleBodyDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.add('drag-over');
+  };
+
+  const handleBodyDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('drag-over');
+  };
+
+  const handleBodyDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('drag-over');
+
+    const files = e.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    if (file && file.type && file.type.startsWith('image/')) {
+      handleInlineImageUpload(file);
+    }
+  };
+
   const handleRemoveImage = () => {
     setImageFile(null);
     setImagePreview(null);
     setBlogFormData({...blogFormData, image_url: ''});
+  };
+
+  // Rich text editor commands
+  const execCommand = (command, value = null) => {
+    const editor = bodyEditorRef.current;
+    if (!editor) return;
+
+    editor.focus();
+    
+    if (command === 'insertImage') {
+      fileInputRef.current?.click();
+      return;
+    }
+
+    // Use modern approach for formatting commands
+    if (document.execCommand) {
+      document.execCommand(command, false, value);
+    } else {
+      // Fallback for browsers that don't support execCommand
+      console.warn('execCommand not supported');
+    }
+  };
+
+  const handleBodyChange = (e) => {
+    setBlogFormData({
+      ...blogFormData,
+      body: e.target.innerHTML
+    });
   };
 
   const saveBlog = async () => {
@@ -172,7 +304,6 @@ const BlogManager = forwardRef((props, ref) => {
       if (imageFile) {
         setIsUploadingImage(true);
         try {
-          // Generate a temporary ID for new blogs
           const blogId = editingBlog?.id || `temp-${Date.now()}`;
           const imageUrl = await supabaseService.uploadBlogImage(imageFile, blogId);
           blogDataToSave.image_url = imageUrl;
@@ -187,14 +318,12 @@ const BlogManager = forwardRef((props, ref) => {
       }
 
       if (editingBlog) {
-        // Update existing blog
         const updatedBlog = await supabaseService.updateBlog(editingBlog.id, blogDataToSave);
         const updatedBlogs = blogs.map(b => b.id === editingBlog.id ? updatedBlog : b);
         setBlogs(updatedBlogs);
         setDisplayedData(updatedBlogs);
         await showSuccess('Blog updated successfully');
       } else {
-        // Create new blog
         const newBlog = await supabaseService.createBlog(blogDataToSave);
         const updatedBlogs = [newBlog, ...blogs];
         setBlogs(updatedBlogs);
@@ -202,10 +331,8 @@ const BlogManager = forwardRef((props, ref) => {
         await showSuccess('Blog created successfully');
       }
       
-      // Reset image states
       setImageFile(null);
       setImagePreview(null);
-      
       closeBlogForm();
       finishSaving();
     } catch (error) {
@@ -471,7 +598,7 @@ const BlogManager = forwardRef((props, ref) => {
         .modal-content {
           background: var(--surface);
           border-radius: var(--radius);
-          max-width: 800px;
+          max-width: 900px;
           width: 100%;
           max-height: 90vh;
           overflow: hidden;
@@ -704,6 +831,151 @@ const BlogManager = forwardRef((props, ref) => {
           margin-bottom: 1rem;
         }
 
+        /* Rich Text Editor Styles */
+        .rich-text-editor {
+          border: 2px solid #333;
+          border-radius: 6px;
+          background: var(--bg);
+          overflow: hidden;
+        }
+
+        .editor-toolbar {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.25rem;
+          padding: 0.75rem;
+          border-bottom: 1px solid #333;
+          background: #1a1a1a;
+          align-items: center;
+        }
+
+        .toolbar-group {
+          display: flex;
+          gap: 0.25rem;
+          align-items: center;
+          padding-right: 0.75rem;
+          border-right: 1px solid #333;
+          margin-right: 0.75rem;
+        }
+
+        .toolbar-group:last-child {
+          border-right: none;
+          margin-right: 0;
+        }
+
+        .toolbar-btn {
+          background: transparent;
+          border: 1px solid transparent;
+          border-radius: 4px;
+          color: var(--text);
+          padding: 0.5rem;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+          font-size: 0.9rem;
+        }
+
+        .toolbar-btn:hover {
+          background: #333;
+          border-color: #555;
+        }
+
+        .toolbar-btn.active {
+          background: var(--accent);
+          border-color: var(--accent);
+          color: white;
+        }
+
+        .toolbar-btn svg {
+          width: 16px;
+          height: 16px;
+        }
+
+        .font-select, .size-select {
+          background: var(--bg);
+          border: 1px solid #333;
+          border-radius: 4px;
+          color: var(--text);
+          padding: 0.4rem;
+          font-size: 0.9rem;
+          cursor: pointer;
+        }
+
+        .font-select:focus, .size-select:focus {
+          outline: none;
+          border-color: var(--accent);
+        }
+
+        .editor-content {
+          min-height: 300px;
+          max-height: 500px;
+          overflow-y: auto;
+          padding: 1rem;
+          color: var(--text);
+          line-height: 1.6;
+        }
+
+        .editor-content:focus {
+          outline: none;
+        }
+
+        .editor-content.drag-over {
+          background: rgba(220, 53, 69, 0.1);
+          border: 2px dashed var(--accent);
+        }
+
+        .editor-content img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 8px;
+          margin: 1rem 0;
+        }
+
+        .editor-content h1, .editor-content h2, .editor-content h3 {
+          margin: 1.5rem 0 1rem 0;
+          color: var(--text);
+        }
+
+        .editor-content p {
+          margin-bottom: 1rem;
+        }
+
+        .editor-content ul, .editor-content ol {
+          margin: 1rem 0;
+          padding-left: 2rem;
+        }
+
+        .editor-content blockquote {
+          border-left: 4px solid var(--accent);
+          padding-left: 1rem;
+          margin: 1rem 0;
+          color: var(--subtxt);
+          font-style: italic;
+        }
+
+        .editor-content code {
+          background: #2d2d2d;
+          padding: 0.2rem 0.4rem;
+          border-radius: 4px;
+          font-family: 'Courier New', monospace;
+          font-size: 0.9em;
+        }
+
+        .editor-content pre {
+          background: #2d2d2d;
+          padding: 1rem;
+          border-radius: 6px;
+          overflow-x: auto;
+          margin: 1rem 0;
+        }
+
+        .editor-content pre code {
+          background: none;
+          padding: 0;
+        }
+
         @media (max-width: 768px) {
           .blog-grid {
             grid-template-columns: 1fr;
@@ -713,6 +985,15 @@ const BlogManager = forwardRef((props, ref) => {
             max-width: 100%;
             max-height: 100vh;
             border-radius: 0;
+          }
+
+          .editor-toolbar {
+            gap: 0.5rem;
+          }
+
+          .toolbar-group {
+            padding-right: 0.5rem;
+            margin-right: 0.5rem;
           }
         }
       `}</style>
@@ -752,7 +1033,10 @@ const BlogManager = forwardRef((props, ref) => {
               
               <h3 className="blog-card-title">{blog.title}</h3>
               <p className="blog-card-author">By {blog.author}</p>
-              <div className="blog-card-body">{blog.body}</div>
+              <div 
+                className="blog-card-body"
+                dangerouslySetInnerHTML={{ __html: blog.body }}
+              />
               
               <div className="blog-card-meta">
                 Last edited: {new Date(blog.updated_at).toLocaleString()}
@@ -909,11 +1193,188 @@ const BlogManager = forwardRef((props, ref) => {
 
               <div className="form-group">
                 <label>Body *</label>
-                <textarea
-                  value={blogFormData.body}
-                  onChange={e => setBlogFormData({ ...blogFormData, body: e.target.value })}
-                  placeholder="Write your blog content here..."
+                <div className="rich-text-editor">
+                  <div className="editor-toolbar">
+                    <div className="toolbar-group">
+                      <select 
+                        className="font-select" 
+                        onChange={(e) => execCommand('fontName', e.target.value)}
+                        defaultValue="Arial"
+                      >
+                        <option value="Arial">Arial</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Times New Roman">Times New Roman</option>
+                        <option value="Verdana">Verdana</option>
+                        <option value="Courier New">Courier New</option>
+                      </select>
+                      <select 
+                        className="size-select" 
+                        onChange={(e) => execCommand('fontSize', e.target.value)}
+                        defaultValue="3"
+                      >
+                        <option value="1">Small</option>
+                        <option value="2">Normal</option>
+                        <option value="3">Large</option>
+                        <option value="4">X-Large</option>
+                        <option value="5">XX-Large</option>
+                      </select>
+                    </div>
+                    
+                    <div className="toolbar-group">
+                      <button 
+                        className="toolbar-btn" 
+                        onClick={() => execCommand('bold')}
+                        title="Bold"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path>
+                          <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path>
+                        </svg>
+                      </button>
+                      <button 
+                        className="toolbar-btn" 
+                        onClick={() => execCommand('italic')}
+                        title="Italic"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="19" y1="4" x2="10" y2="4"></line>
+                          <line x1="14" y1="20" x2="5" y2="20"></line>
+                          <line x1="15" y1="4" x2="9" y2="20"></line>
+                        </svg>
+                      </button>
+                      <button 
+                        className="toolbar-btn" 
+                        onClick={() => execCommand('underline')}
+                        title="Underline"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"></path>
+                          <line x1="4" y1="21" x2="20" y2="21"></line>
+                        </svg>
+                      </button>
+                    </div>
+
+                    <div className="toolbar-group">
+                      <button 
+                        className="toolbar-btn" 
+                        onClick={() => execCommand('justifyLeft')}
+                        title="Align Left"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="21" y1="10" x2="3" y2="10"></line>
+                          <line x1="21" y1="6" x2="3" y2="6"></line>
+                          <line x1="21" y1="14" x2="3" y2="14"></line>
+                          <line x1="21" y1="18" x2="3" y2="18"></line>
+                        </svg>
+                      </button>
+                      <button 
+                        className="toolbar-btn" 
+                        onClick={() => execCommand('justifyCenter')}
+                        title="Align Center"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="17" y1="10" x2="7" y2="10"></line>
+                          <line x1="21" y1="6" x2="3" y2="6"></line>
+                          <line x1="21" y1="14" x2="3" y2="14"></line>
+                          <line x1="17" y1="18" x2="7" y2="18"></line>
+                        </svg>
+                      </button>
+                      <button 
+                        className="toolbar-btn" 
+                        onClick={() => execCommand('justifyRight')}
+                        title="Align Right"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="21" y1="10" x2="3" y2="10"></line>
+                          <line x1="21" y1="6" x2="3" y2="6"></line>
+                          <line x1="21" y1="14" x2="3" y2="14"></line>
+                          <line x1="21" y1="18" x2="3" y2="18"></line>
+                        </svg>
+                      </button>
+                    </div>
+
+                    <div className="toolbar-group">
+                      <button 
+                        className="toolbar-btn" 
+                        onClick={() => execCommand('insertUnorderedList')}
+                        title="Bullet List"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="8" y1="6" x2="21" y2="6"></line>
+                          <line x1="8" y1="12" x2="21" y2="12"></line>
+                          <line x1="8" y1="18" x2="21" y2="18"></line>
+                          <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                          <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                          <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                        </svg>
+                      </button>
+                      <button 
+                        className="toolbar-btn" 
+                        onClick={() => execCommand('insertOrderedList')}
+                        title="Numbered List"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="10" y1="6" x2="21" y2="6"></line>
+                          <line x1="10" y1="12" x2="21" y2="12"></line>
+                          <line x1="10" y1="18" x2="21" y2="18"></line>
+                          <path d="M4 6h1v4H4V6zm2.5 12H6V6.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5V18a1 1 0 0 1-1 1h-.5a1 1 0 0 1-1-1v-4zm0-6h-1V8h1v4z"></path>
+                        </svg>
+                      </button>
+                    </div>
+
+                    <div className="toolbar-group">
+                      <button 
+                        className="toolbar-btn" 
+                        onClick={() => execCommand('insertImage')}
+                        title="Insert Image"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                          <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                          <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                      </button>
+                      <button 
+                        className="toolbar-btn" 
+                        onClick={() => execCommand('createLink', prompt('Enter URL:'))}
+                        title="Insert Link"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    ref={bodyEditorRef}
+                    className="editor-content"
+                    contentEditable
+                    dangerouslySetInnerHTML={{ __html: blogFormData.body }}
+                    onInput={handleBodyChange}
+                    onDragOver={handleBodyDragOver}
+                    onDragLeave={handleBodyDragLeave}
+                    onDrop={handleBodyDrop}
+                    placeholder="Write your blog content here... You can drag and drop images directly into the editor!"
+                  />
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleInlineImageUpload(file);
+                      e.target.value = '';
+                    }
+                  }}
                 />
+                <small style={{ color: 'var(--subtxt)', fontSize: '0.8rem', display: 'block', marginTop: '0.25rem' }}>
+                  Drag and drop images directly into the editor or use the image button in the toolbar
+                </small>
               </div>
 
               <div className="form-group">
