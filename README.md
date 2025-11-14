@@ -34,6 +34,8 @@ The landing page for SolarPack. Shows:
 - Upcoming projects (auto-fetched and sorted)
 - Call-to-action for donations
 
+<img width="2525" height="1333" alt="Screenshot 2025-11-13 190304" src="https://github.com/user-attachments/assets/b6fb781d-0a7e-4a73-8b08-460bf18d015f" />
+
 ### Alumni (`src/pages/Alumni.jsx`)
 Displays a two-column list of alumni by semester, loaded from Supabase. Handles loading and error states. Newest alumni appear at the top left.
 
@@ -70,6 +72,8 @@ Handles authentication and routing for the admin dashboard. Shows login form or 
 
 ### AdminDashboard (`src/components/AdminDashboard.jsx`)
 Main admin interface. Tabbed dashboard for managing team, schedule, alumni, sponsors, orders, and blogs. Handles session extension and tab state via URL.
+
+<img width="2514" height="1326" alt="Screenshot 2025-11-13 190443" src="https://github.com/user-attachments/assets/eca7c499-557a-49f7-8a04-57482135ce56" />
 
 ### Alert (`src/components/Alert.jsx`)
 Custom modal alert/confirm dialog. Used for user notifications, confirmations, and error messages. Supports info, warning, error, and success types.
