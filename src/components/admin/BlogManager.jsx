@@ -29,6 +29,8 @@ const BlogManager = forwardRef((props, ref) => {
   const fileInputRef = useRef(null);
   const lastImageSrcsRef = useRef(new Set());
   const deletedImagesRef = useRef(new Set());
+  // Map of temporary object URLs -> File for images inserted into the editor but not yet uploaded
+  const pendingImagesRef = useRef(new Map());
 
   const { showError, showConfirm, showSuccess } = useAlert();
 
@@ -135,6 +137,15 @@ const BlogManager = forwardRef((props, ref) => {
       link_text: '',
       published: false
     });
+    // Cleanup any object URLs for pending inline images if the user cancels
+    try {
+      for (const src of Array.from(pendingImagesRef.current.keys())) {
+        try { URL.revokeObjectURL(src); } catch (e) { /* ignore */ }
+      }
+    } catch (e) {
+      // ignore
+    }
+    pendingImagesRef.current.clear();
   };
 
   const handleImageSelect = async (file) => {
@@ -252,34 +263,89 @@ const BlogManager = forwardRef((props, ref) => {
     }
   }, [resizingImage, handleMouseMove, handleMouseUp]);
 
-  // Add this useEffect to handle existing images when the form opens
   useEffect(() => {
     if (showBlogForm && bodyEditorRef.current) {
-      // Small delay to ensure the editor content is rendered
-      setTimeout(() => {
-        const editor = bodyEditorRef.current;
-        const images = editor.querySelectorAll('img:not(.image-preview)');
-        images.forEach(img => {
-          addImageControls(img);
-        });
-      }, 100);
-    }
-  }, [showBlogForm, blogFormData.body]);
+      // More robust approach to attach controls to existing images
+      const attachControlsWithRetry = (attempt = 0) => {
+        try {
+          const editor = bodyEditorRef.current;
+          if (!editor) return;
 
-  // Keep editor DOM in sync with `blogFormData.body` when the form opens
-  // or when body changes programmatically — but avoid overwriting while user types.
+          const images = editor.querySelectorAll('img');
+          let controlsAttached = 0;
+          
+          images.forEach(img => {
+            try {
+              // Skip if already has controls
+              if (img.parentElement?.classList?.contains('image-controls-container')) {
+                return;
+              }
+              
+              addImageControls(img);
+              controlsAttached++;
+            } catch (err) {
+              console.error('Error adding controls to image:', err);
+            }
+          });
+
+          console.log(`Attached controls to ${controlsAttached} images in attempt ${attempt + 1}`);
+          
+          // If we found images but couldn't attach controls to all, retry
+          if (images.length > 0 && controlsAttached < images.length && attempt < 3) {
+            setTimeout(() => attachControlsWithRetry(attempt + 1), 100 * (attempt + 1));
+          }
+        } catch (err) {
+          console.error('Error in attachControlsWithRetry:', err);
+        }
+      };
+
+      // Multiple attempts with different delays to handle various timing scenarios
+      attachControlsWithRetry(0);
+      requestAnimationFrame(() => attachControlsWithRetry(0));
+      setTimeout(() => attachControlsWithRetry(0), 50);
+      setTimeout(() => attachControlsWithRetry(0), 200);
+      setTimeout(() => attachControlsWithRetry(0), 500);
+    }
+  }, [showBlogForm, editingBlog?.id]); // Use editingBlog.id as dependency to re-run when editing different posts
+
+  // Enhanced version to keep editor DOM in sync
   useEffect(() => {
     const editor = bodyEditorRef.current;
     if (!showBlogForm || !editor) return;
 
-    // If editor is focused (user is typing), don't overwrite DOM — avoids caret jumps
-    if (document.activeElement === editor) return;
-
+    // Only update DOM if content is different and editor isn't focused
     const desired = blogFormData.body || '';
-    if (editor.innerHTML !== desired) {
+    if (editor.innerHTML !== desired && document.activeElement !== editor) {
       editor.innerHTML = desired;
+      
+      // Force controls attachment after content is set
+      const forceAttachControls = () => {
+        try {
+          const images = editor.querySelectorAll('img');
+          images.forEach(img => {
+            if (!img.parentElement?.classList?.contains('image-controls-container')) {
+              addImageControls(img);
+            }
+            // Make controls immediately visible for existing posts
+            const container = img.parentElement;
+            if (container && container.classList.contains('image-controls-container')) {
+              const btn = container.querySelector('.image-delete-btn');
+              const handle = container.querySelector('.resize-handle');
+              if (btn) btn.style.opacity = '1';
+              if (handle) handle.style.opacity = '1';
+            }
+          });
+        } catch (err) {
+          console.error('Error in forceAttachControls:', err);
+        }
+      };
+      
+      // Multiple attempts to ensure controls are attached
+      setTimeout(forceAttachControls, 0);
+      setTimeout(forceAttachControls, 100);
+      setTimeout(forceAttachControls, 300);
     }
-  }, [showBlogForm, editingBlog, blogFormData.body]);
+  }, [showBlogForm, blogFormData.body, editingBlog?.id]);
 
   // Observe editor DOM changes so we can detect images removed via keyboard
   useEffect(() => {
@@ -299,8 +365,22 @@ const BlogManager = forwardRef((props, ref) => {
       // Images removed from DOM
       prev.forEach(src => {
         if (!current.has(src) && !deletedImagesRef.current.has(src)) {
-          // Deleted via keyboard or other means; remove from storage
-          deleteImageFromStorageBySrc(src).catch(err => console.error(err));
+          // If this was a pending object URL (not yet uploaded), revoke and remove mapping
+          try {
+            if (pendingImagesRef.current.has(src)) {
+              try { URL.revokeObjectURL(src); } catch (e) { /* ignore */ }
+              pendingImagesRef.current.delete(src);
+              deletedImagesRef.current.add(src);
+              return;
+            }
+          } catch (e) {
+            // ignore
+          }
+
+          // Deleted via keyboard or other means; remove from storage only if it was uploaded
+          if (src.includes('supabase')) {
+            deleteImageFromStorageBySrc(src).catch(err => console.error(err));
+          }
           deletedImagesRef.current.add(src);
         }
       });
@@ -337,19 +417,19 @@ const BlogManager = forwardRef((props, ref) => {
     }
 
     try {
-      startSaving();
+      // Instead of uploading immediately, create an object URL and store the File
+      // so we can upload later when the blog is saved. This avoids leaving
+      // orphaned files in storage if the user inserts then deletes images.
+      const objectUrl = URL.createObjectURL(file);
+      pendingImagesRef.current.set(objectUrl, file);
 
-      const blogId = editingBlog?.id || `temp-${Date.now()}`;
-      const imageUrl = await supabaseService.uploadBlogImage(file, blogId);
-
-      // Insert image with controls wrapper
       const altText = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
       const imgHtml = `
         <div class="image-controls-container" style="position: relative; display: inline-block; margin: 1rem 0; max-width: 100%;">
-          <img src="${imageUrl}" alt="${altText}" style="display: block; max-width: 100%; height: auto; border-radius: 8px; cursor: default;" />
+          <img src="${objectUrl}" alt="${altText}" style="display: block; max-width: 100%; height: auto; border-radius: 8px; cursor: default;" />
         </div>
       `;
-      
+
       insertHtmlAtCursor(imgHtml);
 
       // Add controls to the newly inserted image
@@ -365,12 +445,10 @@ const BlogManager = forwardRef((props, ref) => {
         }
       }, 100);
 
-      await showSuccess('Image uploaded and inserted into body');
+      await showSuccess('Image inserted into body (will be uploaded when saving)');
     } catch (error) {
-      console.error('Error uploading inline image:', error);
-      await showError(`Failed to upload inline image: ${error.message}`, 'Upload Error');
-    } finally {
-      finishSaving();
+      console.error('Error inserting inline image:', error);
+      await showError(`Failed to insert inline image: ${error.message}`, 'Insert Error');
     }
   };
 
@@ -443,12 +521,18 @@ const BlogManager = forwardRef((props, ref) => {
       controlsContainer.style.maxWidth = '100%';
 
       // Wrap the image
-      parent.insertBefore(controlsContainer, imgElement);
+      if (parent) {
+        parent.insertBefore(controlsContainer, imgElement);
+      }
       controlsContainer.appendChild(imgElement);
     }
 
-    // If buttons already added, nothing to do
+    // If buttons already added, ensure they're visible and return
     if (controlsContainer.querySelector('.image-delete-btn')) {
+      const btn = controlsContainer.querySelector('.image-delete-btn');
+      const handle = controlsContainer.querySelector('.resize-handle');
+      if (btn) btn.style.opacity = '1';
+      if (handle) handle.style.opacity = '1';
       return;
     }
 
@@ -473,7 +557,7 @@ const BlogManager = forwardRef((props, ref) => {
     deleteButton.style.fontSize = '16px';
     deleteButton.style.fontWeight = 'bold';
     deleteButton.style.zIndex = '20';
-    deleteButton.style.opacity = '0';
+    deleteButton.style.opacity = '1'; // Always visible when editing
     deleteButton.style.transition = 'opacity 0.2s ease';
     deleteButton.style.pointerEvents = 'auto';
 
@@ -496,12 +580,11 @@ const BlogManager = forwardRef((props, ref) => {
     resizeHandle.style.fontSize = '10px';
     resizeHandle.style.color = 'white';
     resizeHandle.style.zIndex = '15';
-    resizeHandle.style.opacity = '0';
+    resizeHandle.style.opacity = '1'; // Always visible when editing
     resizeHandle.style.transition = 'opacity 0.2s ease';
     resizeHandle.style.pointerEvents = 'auto';
 
     // Add event listeners
-    // Use 'click' for delete to avoid conflicts with resize mousedown/mouseup
     deleteButton.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -514,20 +597,19 @@ const BlogManager = forwardRef((props, ref) => {
       handleImageMouseDown(e, imgElement);
     });
 
-    // Show controls on hover
+    // Show controls on hover (optional enhancement)
     controlsContainer.addEventListener('mouseenter', () => {
       deleteButton.style.opacity = '1';
       resizeHandle.style.opacity = '1';
     });
 
     controlsContainer.addEventListener('mouseleave', () => {
-      // Defer hiding slightly and also check if the mouse is actually outside
-      setTimeout(() => {
-        if (!resizingImage && !controlsContainer.matches(':hover')) {
-          deleteButton.style.opacity = '0';
-          resizeHandle.style.opacity = '0';
-        }
-      }, 50);
+      // Keep controls visible instead of hiding them
+      // This ensures they're always visible during editing
+      if (!resizingImage) {
+        deleteButton.style.opacity = '1';
+        resizeHandle.style.opacity = '1';
+      }
     });
 
     controlsContainer.appendChild(deleteButton);
@@ -541,10 +623,58 @@ const BlogManager = forwardRef((props, ref) => {
     imgElement.style.cursor = 'default';
   };
 
+  // Ensure every image in the editor has controls attached.
+  // This is helpful when loading existing posts (editing) where
+  // innerHTML is set and newly-created DOM nodes need controls.
+  const attachControlsToEditorImages = () => {
+    try {
+      const editor = bodyEditorRef.current;
+      if (!editor) return;
+      const images = editor.querySelectorAll('img');
+      images.forEach(img => {
+        try {
+          addImageControls(img);
+        } catch (err) {
+          // keep going if one image fails
+          console.error('attachControlsToEditorImages error for image:', err);
+        }
+      });
+    } catch (err) {
+      console.error('attachControlsToEditorImages error:', err);
+    }
+  };
+
   // Function to handle image deletion
   const handleDeleteImage = async (imgElement) => {
     const imageUrl = imgElement.src;
     
+    // If this image is a pending (local) object URL we inserted earlier,
+    // just revoke it and remove the mapping — don't touch storage.
+    if (pendingImagesRef.current.has(imageUrl)) {
+      try { URL.revokeObjectURL(imageUrl); } catch (e) { /* ignore */ }
+      pendingImagesRef.current.delete(imageUrl);
+
+      const container = imgElement.parentElement;
+      if (container && container.classList.contains('image-controls-container')) {
+        container.remove();
+      } else {
+        imgElement.remove();
+      }
+
+      const editor = bodyEditorRef.current;
+      if (editor) {
+        setBlogFormData(prev => ({
+          ...prev,
+          body: editor.innerHTML
+        }));
+      }
+
+      try { deletedImagesRef.current.add(imageUrl); } catch (err) { }
+
+      await showSuccess('Image removed');
+      return;
+    }
+
     // Check if this is a Supabase storage image
     if (imageUrl.includes('supabase')) {
       const confirmed = await showConfirm(
@@ -612,6 +742,38 @@ const BlogManager = forwardRef((props, ref) => {
       }
       try { deletedImagesRef.current.add(imageUrl); } catch (err) { }
     }
+  };
+
+  // Upload any pending inline images (object URLs) found in `bodyHtml` using given blogId.
+  // Returns the updated HTML with object URLs replaced by uploaded storage URLs.
+  const uploadPendingImagesInBody = async (bodyHtml, blogId) => {
+    if (!bodyHtml) return bodyHtml;
+
+    // Create a temporary node to parse HTML
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = bodyHtml;
+
+    const imgs = wrapper.querySelectorAll('img');
+    for (const img of Array.from(imgs)) {
+      const src = img.src;
+      if (!src) continue;
+
+      // If this src corresponds to a pending file, upload it now
+      if (pendingImagesRef.current.has(src)) {
+        const file = pendingImagesRef.current.get(src);
+        try {
+          const uploadedUrl = await supabaseService.uploadBlogImage(file, blogId);
+          img.src = uploadedUrl;
+        } catch (err) {
+          console.error('Error uploading pending inline image during save:', err);
+        } finally {
+          try { URL.revokeObjectURL(src); } catch (e) { /* ignore */ }
+          pendingImagesRef.current.delete(src);
+        }
+      }
+    }
+
+    return wrapper.innerHTML;
   };
 
   const handleImageDrop = (e) => {
@@ -688,18 +850,14 @@ const BlogManager = forwardRef((props, ref) => {
       body: e.target.innerHTML
     });
     
-    // Add resize handles to images in the editor
-    setTimeout(() => {
-      const editor = bodyEditorRef.current;
-      if (editor) {
-        const images = editor.querySelectorAll('img:not(.image-preview)');
-        images.forEach(img => {
-          if (!img.parentElement?.classList.contains('image-controls-container')) {
-            addImageControls(img);
-          }
-        });
-      }
-    }, 0);
+    // Add resize handles to images in the editor. Run multiple times to
+    // handle cases where the DOM is being updated asynchronously.
+    const runAttachWhileTyping = () => {
+      try { attachControlsToEditorImages(); } catch (e) { /* ignore */ }
+    };
+    runAttachWhileTyping();
+    requestAnimationFrame(() => runAttachWhileTyping());
+    setTimeout(() => runAttachWhileTyping(), 150);
   };
 
   const saveBlog = async () => {
@@ -711,39 +869,70 @@ const BlogManager = forwardRef((props, ref) => {
     startSaving();
 
     try {
-      const blogDataToSave = { ...blogFormData };
-      
-      // Upload image if a new file was selected
-      if (imageFile) {
-        setIsUploadingImage(true);
-        try {
-          const blogId = editingBlog?.id || `temp-${Date.now()}`;
-          const imageUrl = await supabaseService.uploadBlogImage(imageFile, blogId);
-          blogDataToSave.image_url = imageUrl;
-          console.log('✓ Image uploaded successfully:', imageUrl);
-        } catch (error) {
-          console.error('Error uploading image:', error);
-          await showError(`Failed to upload image: ${error.message}`, 'Upload Error');
-          throw error;
-        } finally {
-          setIsUploadingImage(false);
-        }
-      }
+      let blogDataToSave = { ...blogFormData };
 
       if (editingBlog) {
+        // Upload any pending inline images first (they reference object URLs)
+        blogDataToSave.body = await uploadPendingImagesInBody(blogDataToSave.body, editingBlog.id);
+
+        // Upload header image if selected
+        if (imageFile) {
+          setIsUploadingImage(true);
+          try {
+            const imageUrl = await supabaseService.uploadBlogImage(imageFile, editingBlog.id);
+            blogDataToSave.image_url = imageUrl;
+            console.log('✓ Header image uploaded successfully:', imageUrl);
+          } catch (error) {
+            console.error('Error uploading header image:', error);
+            await showError(`Failed to upload image: ${error.message}`, 'Upload Error');
+            throw error;
+          } finally {
+            setIsUploadingImage(false);
+          }
+        }
+
         const updatedBlog = await supabaseService.updateBlog(editingBlog.id, blogDataToSave);
         const updatedBlogs = blogs.map(b => b.id === editingBlog.id ? updatedBlog : b);
         setBlogs(updatedBlogs);
         setDisplayedData(updatedBlogs);
         await showSuccess('Blog updated successfully');
       } else {
+        // Create the blog first. It may contain object URLs temporarily in the body.
         const newBlog = await supabaseService.createBlog(blogDataToSave);
-        const updatedBlogs = [newBlog, ...blogs];
+
+        const updates = {};
+
+        // Upload header image if selected
+        if (imageFile) {
+          setIsUploadingImage(true);
+          try {
+            updates.image_url = await supabaseService.uploadBlogImage(imageFile, newBlog.id);
+            console.log('✓ Header image uploaded for new blog:', updates.image_url);
+          } catch (error) {
+            console.error('Error uploading header image for new blog:', error);
+            await showError(`Failed to upload image: ${error.message}`, 'Upload Error');
+            throw error;
+          } finally {
+            setIsUploadingImage(false);
+          }
+        }
+
+        // Upload any inline pending images and replace their srcs
+        const bodyToUse = newBlog.body || blogDataToSave.body;
+        const updatedBody = await uploadPendingImagesInBody(bodyToUse, newBlog.id);
+        if (updatedBody !== bodyToUse) updates.body = updatedBody;
+
+        let finalBlog = newBlog;
+        if (Object.keys(updates).length > 0) {
+          finalBlog = await supabaseService.updateBlog(newBlog.id, updates);
+        }
+
+        const updatedBlogs = [finalBlog, ...blogs];
         setBlogs(updatedBlogs);
         setDisplayedData(updatedBlogs);
         await showSuccess('Blog created successfully');
       }
-      
+
       setImageFile(null);
       setImagePreview(null);
       closeBlogForm();
@@ -766,6 +955,71 @@ const BlogManager = forwardRef((props, ref) => {
     startSaving();
 
     try {
+      // Before deleting the blog record, remove any images stored in the
+      // `blog-images` bucket that belong to this blog (header image and any
+      // inline images referenced in the body). This prevents orphaned files.
+      try {
+        const blogToDelete = blogs.find(b => b.id === blogId);
+        if (blogToDelete) {
+          const pathsToRemove = [];
+
+          // Header image
+          if (blogToDelete.image_url && blogToDelete.image_url.includes('/blog-images/')) {
+            const parts = blogToDelete.image_url.split('/blog-images/');
+            if (parts.length >= 2) {
+              const filePath = decodeURIComponent(parts[1].split('?')[0]);
+              pathsToRemove.push(filePath);
+            }
+          }
+
+          // Inline images in body
+          try {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = blogToDelete.body || '';
+            const imgs = tmp.querySelectorAll('img');
+            imgs.forEach(img => {
+              const src = img.src;
+              if (src && src.includes('/blog-images/')) {
+                const parts = src.split('/blog-images/');
+                if (parts.length >= 2) {
+                  const filePath = decodeURIComponent(parts[1].split('?')[0]);
+                  if (!pathsToRemove.includes(filePath)) pathsToRemove.push(filePath);
+                }
+              }
+            });
+          } catch (err) {
+            // Fallback: regex extraction if DOM parsing fails
+            try {
+              const re = /<img[^>]+src=["']([^"']+)["']/g;
+              let m;
+              while ((m = re.exec(blogToDelete.body || '')) !== null) {
+                const src = m[1];
+                if (src && src.includes('/blog-images/')) {
+                  const parts = src.split('/blog-images/');
+                  if (parts.length >= 2) {
+                    const filePath = decodeURIComponent(parts[1].split('?')[0]);
+                    if (!pathsToRemove.includes(filePath)) pathsToRemove.push(filePath);
+                  }
+                }
+              }
+            } catch (e) {
+              // ignore parsing errors
+            }
+          }
+
+          if (pathsToRemove.length > 0) {
+            try {
+              await supabaseService.client.storage.from('blog-images').remove(pathsToRemove);
+              console.log('Deleted blog images from storage:', pathsToRemove);
+            } catch (err) {
+              console.error('Error deleting blog images from storage:', err);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error while attempting to remove blog images before delete:', err);
+      }
+
       await supabaseService.deleteBlog(blogId);
       const updatedBlogs = blogs.filter(b => b.id !== blogId);
       setBlogs(updatedBlogs);
@@ -1605,6 +1859,15 @@ const BlogManager = forwardRef((props, ref) => {
         body.resizing {
           cursor: nwse-resize !important;
           user-select: none;
+        }
+          .image-controls-container .image-delete-btn,
+        .image-controls-container .resize-handle {
+          opacity: 1 !important;
+        }
+
+        .image-controls-container:hover .image-delete-btn,
+        .image-controls-container:hover .resize-handle {
+          opacity: 1 !important; /* Keep them visible on hover too */
         }
       `}</style>
 
