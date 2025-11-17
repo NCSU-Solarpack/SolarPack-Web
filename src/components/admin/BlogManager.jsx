@@ -78,23 +78,35 @@ const BlogManager = forwardRef((props, ref) => {
           const container = doc.body.firstChild;
           const out = [];
           if (!container) return [{ id: `s-${Date.now()}`, type: 'text', content: html || '' }];
+          // Group adjacent non-image nodes into a single text section so
+          // headings, lists, and other blocks remain together when editing.
+          let acc = '';
           container.childNodes.forEach((node) => {
             if (node.nodeType === Node.ELEMENT_NODE) {
               const el = node;
-              // If paragraph that contains only an image
               const imgs = el.getElementsByTagName && el.getElementsByTagName('img');
               if (imgs && imgs.length === 1 && el.childNodes.length === 1) {
+                // Flush accumulated text before adding an image section
+                if (acc && acc.trim()) {
+                  out.push({ id: `s-${Date.now()}-${out.length}`, type: 'text', content: acc });
+                  acc = '';
+                }
                 const img = imgs[0];
                 out.push({ id: `s-${Date.now()}-${out.length}`, type: 'image', content: img.src || '' });
                 return;
               }
-              // Otherwise treat as text block
-              out.push({ id: `s-${Date.now()}-${out.length}`, type: 'text', content: el.innerHTML || el.outerHTML || '' });
+
+              // Append this element's full markup to the text accumulator
+              acc += el.outerHTML || el.innerHTML || '';
             } else if (node.nodeType === Node.TEXT_NODE) {
-              const txt = node.textContent && node.textContent.trim();
-              if (txt) out.push({ id: `s-${Date.now()}-${out.length}`, type: 'text', content: node.textContent });
+              const txt = node.textContent || '';
+              if (txt.trim()) acc += txt;
             }
           });
+
+          if (acc && acc.trim()) {
+            out.push({ id: `s-${Date.now()}-${out.length}`, type: 'text', content: acc });
+          }
           if (out.length === 0) return [{ id: `s-${Date.now()}`, type: 'text', content: html || '' }];
           return out;
         } catch (err) {
@@ -1006,11 +1018,26 @@ const BlogManager = forwardRef((props, ref) => {
             </div>
 
             <div className="form-actions">
-              <button className="btn-secondary" onClick={closeBlogForm}>
+              <button className="btn-secondary" onClick={closeBlogForm} disabled={status === 'saving'}>
                 Cancel
               </button>
-              <button className="btn-primary" onClick={saveBlog}>
-                {editingBlog ? 'Update' : 'Create'} Blog Post
+              <button
+                className="btn-primary"
+                onClick={saveBlog}
+                disabled={status === 'saving'}
+                aria-busy={status === 'saving'}
+              >
+                {status === 'saving' ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div
+                      className="loading-spinner"
+                      style={{ width: 16, height: 16, border: '2px solid #333', borderTopColor: 'var(--accent)', borderRadius: '50%' }}
+                    ></div>
+                    <span>{editingBlog ? 'Saving...' : 'Creating...'}</span>
+                  </span>
+                ) : (
+                  <>{editingBlog ? 'Update' : 'Create'} Blog Post</>
+                )}
               </button>
             </div>
           </div>
