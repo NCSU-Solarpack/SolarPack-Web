@@ -1346,6 +1346,48 @@ class SupabaseService {
   }
 
   /**
+   * Upload an inline blog image to the blog-images bucket under a blog-inline/ folder
+   * @param {File} file
+   * @param {string|number} blogId
+   * @returns {Promise<string>} publicUrl
+   */
+  async uploadBlogInlineImage(file, blogId) {
+    if (!this.client) throw new Error('Supabase not configured');
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+      throw new Error('Invalid file type. Please upload a JPEG, PNG, WebP, or GIF image.');
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      throw new Error('File size too large. Maximum size is 5MB.');
+    }
+
+    const fileExt = file.name.split('.').pop();
+    const timestamp = Date.now();
+    const fileName = `${blogId}-${timestamp}.${fileExt}`;
+    const filePath = `blog-inline/${fileName}`;
+
+    const { data, error } = await this.client.storage
+      .from('blog-images')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (error) throw error;
+
+    const { data: { publicUrl } } = this.client.storage
+      .from('blog-images')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  }
+
+  /**
    * Delete a blog image from Supabase Storage
    * @param {string} imageUrl - The public URL of the image to delete
    */
@@ -1366,6 +1408,30 @@ class SupabaseService {
       .from('blog-images')
       .remove([filePath]);
     
+    if (error) throw error;
+  }
+
+  /**
+   * Delete an inline blog image (object under blog-inline/ in blog-images bucket)
+   * @param {string} imageUrl
+   */
+  async deleteBlogInlineImage(imageUrl) {
+    if (!this.client) throw new Error('Supabase not configured');
+    if (!imageUrl) return;
+
+    // Extract file path after '/blog-images/'
+    const urlParts = imageUrl.split('/blog-images/');
+    if (urlParts.length < 2) {
+      console.warn('Invalid inline image URL format:', imageUrl);
+      return;
+    }
+
+    const filePath = urlParts[1];
+
+    const { error } = await this.client.storage
+      .from('blog-images')
+      .remove([filePath]);
+
     if (error) throw error;
   }
 
