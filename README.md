@@ -473,6 +473,28 @@ Supabase is an open-source backend-as-a-service that provides a hosted Postgres 
 	- Replace the client-side `authService` with a migration-ready wrapper that proxies to Supabase Auth and falls back gracefully during transition.
 	- Add SQL migration scripts to create the `profiles` table and example admin seed rows.
 
+**Development Auth Passwords (DO NOT use in production)**
+
+- **Director:** `director@pack`
+- **Leader:** `solarteamlead!`
+- **Member:** `solarpack@ncsu`
+
+These are the default, client-side passwords used by the in-repo `src/utils/auth.js` helper for local development only. The app hashes these values before comparing; however, keeping passwords or hashes in source is insecure — see the security note below.
+
+**Email Notifications (Resend)**
+
+- We will use `https://resend.com/` for outbound email notifications (transactional emails, alerts, and admin notifications).
+- Sign-in for the Resend account used in development/testing: email `solarpacknc@ncsu.edu` and password `FunintheSun!`.
+
+**Security Notice / Recommendation**
+
+- These credentials are checked into the repository for convenience in this development snapshot. This is insecure for production or shared/public repositories.
+- Recommended actions before publishing or deploying:
+  - Move service credentials (Supabase service role key, Resend API key, SMTP credentials, etc.) into environment variables and read them at runtime (e.g., `.env`, CI/CD secrets, or platform secret storage).
+  - Remove hard-coded passwords from `src/utils/auth.js` and replace the client-side auth with Supabase Auth + a `profiles` table and proper RLS policies.
+  - Rotate any credentials that were committed here and treat them as compromised if this repository becomes public.
+
+
 
 	## Migration & Seeding
 
