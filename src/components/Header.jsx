@@ -68,6 +68,17 @@ const Header = () => {
     navigate('/')
   }
 
+  const openLoginOrNavigate = () => {
+    // On small screens we prefer to navigate to the standalone admin/login page
+    // to avoid modal issues on mobile. On larger screens open the modal.
+    if (window && window.innerWidth <= 767) {
+      closeMenu()
+      navigate('/admin')
+    } else {
+      openLoginModal()
+    }
+  }
+
   const openLoginModal = () => {
     setIsLoginModalOpen(true)
     setPassword('')
@@ -225,7 +236,7 @@ const Header = () => {
                 </button>
               </>
             ) : (
-              <button className="mobile-auth-btn" onClick={openLoginModal}>
+              <button className="mobile-auth-btn" onClick={openLoginOrNavigate}>
                 <i className="fas fa-user" aria-hidden="true"></i>
                 Sign In
               </button>
