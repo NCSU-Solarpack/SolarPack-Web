@@ -837,7 +837,12 @@ const OrderManager = forwardRef((props, ref) => {
 
   const saveOrderEdits = async () => {
     if (!editedOrderData) return;
-    
+    // Prevent saving a "needed by" date in the past
+    if (editedOrderData.projectDetails?.neededByDate && isDateInPast(editedOrderData.projectDetails.neededByDate)) {
+      await showError('Needed by date cannot be in the past', 'Invalid Date');
+      return;
+    }
+
     startSaving();
     
     try {
@@ -875,6 +880,12 @@ const OrderManager = forwardRef((props, ref) => {
 
   const submitNewOrder = async () => {
     const now = new Date().toISOString();
+    // Validate needed-by date before submitting
+    const neededByInput = orderFormData.projectDetails?.neededByDate;
+    if (neededByInput && isDateInPast(neededByInput)) {
+      await showError('Needed by date cannot be in the past', 'Invalid Date');
+      return;
+    }
     const newOrder = {
       submissionTimestamp: now,
       submissionDetails: orderFormData.submissionDetails,
@@ -1219,6 +1230,25 @@ const OrderManager = forwardRef((props, ref) => {
       case 'in_transit': return 'In Transit';
       default: return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     }
+  };
+
+  // Format optional ISO date strings safely (returns 'N/A' when missing/invalid)
+  const formatOptionalDate = (isoDate) => {
+    if (!isoDate) return 'N/A';
+    const d = new Date(isoDate);
+    if (isNaN(d)) return 'N/A';
+    return d.toLocaleDateString();
+  };
+
+  // Checks whether a date (ISO or YYYY-MM-DD) is strictly before today
+  const isDateInPast = (dateStr) => {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    if (isNaN(d)) return false;
+    d.setHours(0,0,0,0);
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    return d < today;
   };
 
   const getPriorityColor = (priority) => {
@@ -1630,9 +1660,10 @@ const OrderManager = forwardRef((props, ref) => {
                         }
                       })}
                       className="inline-edit-input"
+                      min={new Date().toISOString().split('T')[0]}
                     />
                   ) : (
-                    ` ${new Date(order.projectDetails.neededByDate).toLocaleDateString()}`
+                    ` ${formatOptionalDate(order.projectDetails.neededByDate)}`
                   )}
                 </div>
               </div>
@@ -2381,6 +2412,7 @@ const OrderManager = forwardRef((props, ref) => {
                         }
                       })}
                       required={orderFormData.projectDetails.urgency !== 'flexible'}
+                      min={new Date().toISOString().split('T')[0]}
                     />
                   </div>
                 </div>
