@@ -1,6 +1,13 @@
 .blog-manager {
   max-width: 1400px;
   margin: 0 auto;
+  width: 100%;
+  padding: 0 1rem; /* prevent children touching viewport edges */
+}
+
+/* Ensure predictable sizing to avoid unexpected overflow */
+.blog-manager, .blog-manager * {
+  box-sizing: border-box;
 }
 
 .blog-header {
@@ -43,6 +50,15 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 1.5rem;
+}
+
+/* Allow grid items to shrink below their content if needed (prevents overflow) */
+.blog-grid > * {
+  min-width: 0;
+}
+
+.blog-card {
+  min-width: 0; /* allow card content to wrap instead of forcing horizontal scroll */
 }
 
 .blog-card {
@@ -728,5 +744,71 @@
   .toolbar-group {
     padding-right: 0.5rem;
     margin-right: 0.5rem;
+  }
+
+  /* Mobile tweaks: reduce large editor/image sizes so layout feels natural on phones */
+  .blog-card {
+    padding: 1rem;
+  }
+
+  .blog-card-image {
+    height: 120px; /* slightly smaller on phones */
+    max-height: 140px;
+    object-fit: cover;
+  }
+
+  .image-upload-area {
+    min-height: 140px;
+  }
+
+  .image-upload-area.has-image {
+    min-height: 180px;
+  }
+
+  /* constrain preview heights on mobile to avoid giant images */
+  .image-preview {
+    max-height: 180px;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+
+  /* Editor heights: keep editors usable without forcing huge vertical space */
+  .editor-content {
+    min-height: 220px;
+    max-height: 60vh;
+  }
+
+  .editor-content.section-text {
+    min-height: 140px;
+    max-height: 50vh;
+  }
+
+  .section-text {
+    min-height: 80px;
+  }
+
+  .image-preview-container {
+    padding: 0.5rem;
+  }
+
+  .remove-image-btn {
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 28px;
+    height: 28px;
+  }
+
+  .modal-body {
+    padding: 1rem;
+  }
+
+  .form-actions {
+    padding: 1rem;
+  }
+
+  /* Hide the realtime sync badge on small screens to save space */
+  .sync-status-badge {
+    display: none !important;
   }
 }

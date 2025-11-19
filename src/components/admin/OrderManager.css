@@ -124,6 +124,19 @@
   gap: 1.5rem;
 }
 
+/* Prevent accidental horizontal overflow: allow items to shrink and use predictable sizing */
+.orders-grid, .orders-grid *, .order-card, .order-header, .order-header * {
+  box-sizing: border-box;
+}
+
+.orders-grid > * {
+  min-width: 0;
+}
+
+.order-card {
+  min-width: 0; /* allow card content to wrap instead of forcing horizontal scroll */
+}
+
 .order-card {
   background: var(--surface);
   border-radius: var(--radius);
@@ -1309,5 +1322,50 @@
   
   .option-header {
     margin-bottom: 0.75rem;
+  }
+}
+
+/* Extra mobile overrides: ensure single-column layout and prevent horizontal scrolling */
+@media (max-width: 768px) {
+  .orders-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .order-card {
+    padding: 1rem;
+    min-width: 0;
+  }
+
+  .image-upload-area {
+    min-height: 140px;
+  }
+
+  .image-upload-area.has-image {
+    min-height: 180px;
+  }
+
+  .image-preview {
+    max-height: 180px;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+
+  .remove-image-btn {
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 28px;
+    height: 28px;
+  }
+
+  .modal-content {
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  /* Hide realtime sync badge on mobile to save header space */
+  .sync-status-badge {
+    display: none !important;
   }
 }
