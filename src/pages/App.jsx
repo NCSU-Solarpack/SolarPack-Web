@@ -396,11 +396,6 @@ const App = () => {
 
       {/* Features Section */}
       <section className="features-section">
-        <h2 className="section-title">Powerful Features</h2>
-        <p className="section-subtitle">
-          Our app delivers professional-grade monitoring and analytics for solar vehicle performance
-        </p>
-        
         <div className="features-grid">
           <div className="feature-card">
             <i className="fas fa-tachometer-alt feature-icon"></i>
@@ -454,11 +449,6 @@ const App = () => {
 
       {/* Screenshots Section */}
       <section className="screenshots-section">
-        <h2 className="section-title">App Interface</h2>
-        <p className="section-subtitle">
-          A comprehensive look at our dashboard pages and monitoring systems
-        </p>
-        
         <div className="screenshots-grid">
           {Object.entries(modalData).map(([key, data]) => (
             <div key={key} className="screenshot-card">
