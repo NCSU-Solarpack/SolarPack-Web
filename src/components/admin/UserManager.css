@@ -1,0 +1,239 @@
+/* User Manager Styles */
+
+.user-manager {
+  margin-top: 1rem;
+}
+
+.user-manager-loading {
+  text-align: center;
+  padding: 2rem;
+  color: var(--subtxt);
+  font-size: 1rem;
+}
+
+.user-list {
+  overflow-x: auto;
+  margin-bottom: 2rem;
+}
+
+.user-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.user-table thead {
+  background: var(--bg);
+}
+
+.user-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--txt);
+  border-bottom: 2px solid var(--bg);
+}
+
+.user-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--bg);
+  color: var(--txt);
+}
+
+.user-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.user-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.user-email {
+  font-family: 'Courier New', monospace;
+  font-size: 0.95rem;
+}
+
+.role-badge {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.role-badge-director {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.role-badge-leader {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+}
+
+.role-badge-member {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  color: white;
+}
+
+.password-cell {
+  font-family: 'Courier New', monospace;
+}
+
+.password-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.password-text {
+  letter-spacing: 0.1em;
+  font-size: 1.1rem;
+}
+
+.password-toggle-btn {
+  background: none;
+  border: 1px solid var(--accent);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s;
+}
+
+.password-toggle-btn:hover {
+  background: var(--accent);
+  transform: scale(1.05);
+}
+
+.password-note {
+  font-size: 0.75rem;
+  color: var(--subtxt);
+  font-style: italic;
+  margin-left: 0.5rem;
+}
+
+.actions-cell {
+  min-width: 200px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.promote-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.promote-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.demote-btn {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+}
+
+.demote-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(240, 147, 251, 0.4);
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.no-permissions {
+  color: var(--subtxt);
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.user-manager-info {
+  background: var(--surface);
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  border-left: 4px solid var(--accent);
+}
+
+.user-manager-info h4 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: var(--accent);
+  font-size: 1.1rem;
+}
+
+.user-manager-info ul {
+  margin: 0 0 1rem 1.5rem;
+  padding: 0;
+}
+
+.user-manager-info li {
+  margin-bottom: 0.5rem;
+  color: var(--txt);
+}
+
+.security-note {
+  margin: 1rem 0 0 0;
+  padding: 1rem;
+  background: rgba(255, 193, 7, 0.1);
+  border-radius: var(--radius);
+  color: var(--txt);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.security-note strong {
+  color: var(--accent);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .user-table {
+    font-size: 0.85rem;
+  }
+
+  .user-table th,
+  .user-table td {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .action-btn {
+    width: 100%;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .password-container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .password-note {
+    margin-left: 0;
+  }
+}

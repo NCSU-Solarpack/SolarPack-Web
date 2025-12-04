@@ -10,14 +10,35 @@ const Admin = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user is already authenticated
+    let mounted = true;
+    
+    // Check if user is already authenticated after auth is initialized
     const checkAuth = async () => {
-      const authenticated = authService.isAuthenticated();
-      setIsAuthenticated(authenticated);
-      setIsLoading(false);
+      // Wait for auth service to fully initialize (restore session from localStorage)
+      await authService.waitForInit();
+      
+      if (mounted) {
+        const authenticated = authService.isAuthenticated();
+        console.log('Admin auth check after init:', authenticated, authService.getUser()?.email);
+        setIsAuthenticated(authenticated);
+        setIsLoading(false);
+      }
     };
 
     checkAuth();
+
+    // Subscribe to auth state changes to handle session restoration and sign outs
+    const unsubscribe = authService.onAuthStateChange((authenticated, user) => {
+      if (mounted) {
+        console.log('Admin received auth state change:', authenticated, user?.email);
+        setIsAuthenticated(authenticated);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
   }, []);
 
   const handleLogin = () => {

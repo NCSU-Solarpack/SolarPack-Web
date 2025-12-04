@@ -17,8 +17,16 @@ const initializeSupabase = () => {
   }
 
   if (!supabase) {
-    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    console.log('Supabase client initialized');
+    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: true,
+        storageKey: 'solarpack-auth',
+        storage: window.localStorage,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
+    });
+    console.log('Supabase client initialized with persistent auth');
   }
 
   return supabase;
@@ -243,6 +251,24 @@ class SupabaseService {
       .eq('id', id);
     
     if (error) throw error;
+  }
+
+  /**
+   * Get all users with director or leader level for team member assignment
+   * @returns {Promise<Array>} - Array of users with id, email, level, and specific_role
+   */
+  async getUsersForTeamAssignment() {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { data, error } = await this.client
+      .from('user_roles')
+      .select('user_id, email, level, specific_role')
+      .in('level', ['director', 'leader'])
+      .order('level', { ascending: false })  // Directors first
+      .order('email', { ascending: true });
+    
+    if (error) throw error;
+    return data || [];
   }
 
   /**
@@ -1562,10 +1588,7 @@ class SupabaseService {
     
     const { data, error } = await this.client.auth.signUp({
       email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/confirm-email`
-      }
+      password
     });
     
     if (error) throw error;
@@ -1726,10 +1749,7 @@ class SupabaseService {
     
     const { error } = await this.client.auth.resend({
       type: 'signup',
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/confirm-email`
-      }
+      email
     });
 
     if (error) throw error;

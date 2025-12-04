@@ -15,6 +15,7 @@ const TeamManager = forwardRef((props, ref) => {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState([]);
 
   // Custom alert hook from context
   const { showError, showConfirm } = useAlert();
@@ -46,6 +47,7 @@ const TeamManager = forwardRef((props, ref) => {
 
   useEffect(() => {
     loadTeamData();
+    loadAvailableUsers();
   }, []);
 
   const loadTeamData = async () => {
@@ -70,6 +72,17 @@ const TeamManager = forwardRef((props, ref) => {
       setTeamData({ teamMembers: [], lastUpdated: '' });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadAvailableUsers = async () => {
+    try {
+      const users = await supabaseService.getUsersForTeamAssignment();
+      setAvailableUsers(users);
+      console.log(`✓ Loaded ${users.length} users for team assignment`);
+    } catch (error) {
+      console.error('Error loading users:', error);
+      await showError(`Failed to load users: ${error.message}`, 'Load Error');
     }
   };
 
@@ -923,8 +936,27 @@ const TeamManager = forwardRef((props, ref) => {
               />
             </div>
 
+            <div className="form-group">
+              <label className="form-label">Assign to User Account (Optional)</label>
+              <select
+                className="form-input"
+                value={editingMember.user_id || ''}
+                onChange={(e) => setEditingMember({...editingMember, user_id: e.target.value || null})}
+              >
+                <option value="">-- None (No user assigned) --</option>
+                {availableUsers.map(user => (
+                  <option key={user.user_id} value={user.user_id}>
+                    {user.email} - {user.level.toUpperCase()}{user.specific_role ? ` (${user.specific_role})` : ''}
+                  </option>
+                ))}
+              </select>
+              <p style={{ color: 'var(--subtxt)', fontSize: '0.8rem', marginTop: '0.5rem' }}>
+                Link this team member to a user account with Director or Leader permissions
+              </p>
+            </div>
+
             <p style={{ color: 'var(--subtxt)', fontSize: '0.85rem', marginTop: '1rem' }}>
-              💡 Tip: Use drag and drop on the cards to reorder team members
+              Tip: Use drag and drop on the cards to reorder team members
             </p>
 
             <div className="modal-actions">

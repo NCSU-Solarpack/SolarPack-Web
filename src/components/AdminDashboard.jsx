@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { authService } from '../utils/auth';
 import TeamManager from './admin/TeamManager';
+import UserManager from './admin/UserManager';
 import ScheduleManager from './admin/ScheduleManager';
 import AlumniManager from './admin/AlumniManager';
 import SponsorsManager from './admin/SponsorsManager';
 import OrderManager from './admin/OrderManager';
 import BlogManager from './admin/BlogManager';
+import { Settings as SettingsIcon } from 'lucide-react';
 // import GitHubSettings from './admin/GitHubSettings'; // Removed - no longer using GitHub for data storage
 import { BarChart3, Users, Calendar, Package, GraduationCap, Award, BookOpen, Plus, ShoppingCart, Newspaper, UserPlus } from 'lucide-react';
 
@@ -14,9 +16,11 @@ const AdminDashboard = ({ onLogout }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
   const [userLevel, setUserLevel] = useState(authService.getLevel());
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
   // Refs to access child component methods
   const teamManagerRef = useRef(null);
+  const userManagerRef = useRef(null);
   const scheduleManagerRef = useRef(null);
   const orderManagerRef = useRef(null);
   const alumniManagerRef = useRef(null);
@@ -67,16 +71,20 @@ const AdminDashboard = ({ onLogout }) => {
     { id: 'blogs', label: 'Blogs', icon: BookOpen, permission: 'view_announcements' },
     { id: 'sponsors', label: 'Sponsors', icon: Award, permission: 'view_sponsors' },
     { id: 'team', label: 'Team', icon: Users, permission: 'view_team' },
-    { id: 'alumni', label: 'Alumni', icon: GraduationCap, permission: 'view_alumni' }
-    // Settings tab removed - GitHub integration no longer needed for data storage
+    { id: 'alumni', label: 'Alumni', icon: GraduationCap, permission: 'view_alumni' },
+    { id: 'settings', label: 'Settings', icon: SettingsIcon }
   ];
 
-  const availableTabs = tabs.filter(tab => authService.hasPermission(tab.permission));
+  const availableTabs = tabs.filter(tab => {
+    // If a tab doesn't specify a permission, show it to any authenticated user
+    if (!tab.permission) return authService.isAuthenticated();
+    return authService.hasPermission(tab.permission);
+  });
 
   const renderTabContent = () => {
     switch (activeTab) {
       case 'team':
-        return <TeamManager ref={teamManagerRef} />;
+        return <TeamManagementView teamManagerRef={teamManagerRef} userManagerRef={userManagerRef} />;
       case 'schedules':
         return <ScheduleManager ref={scheduleManagerRef} />;
       case 'orders':
@@ -87,7 +95,8 @@ const AdminDashboard = ({ onLogout }) => {
         return <SponsorsManager ref={sponsorsManagerRef} />;
       case 'blogs':
         return <BlogManager ref={blogManagerRef} />;
-      // Settings case removed - no longer needed
+      case 'settings':
+        return <SettingsPlaceholder />;
       default:
         return <DashboardOverview 
           onNavigate={handleTabChange}
@@ -158,15 +167,22 @@ const AdminDashboard = ({ onLogout }) => {
           gap: 1rem;
         }
 
+        /* Match the header account button sizing and font */
         .user-level {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
           color: var(--text);
-          padding: 0.25rem 0.5rem;
-          font-size: 0.9rem;
+          padding: 0.5rem 1rem;
+          font-family: "Bebas Neue", sans-serif;
+          font-size: 1rem;
           font-weight: 500;
           text-transform: capitalize;
-          border: 1px solid var(--subtxt);
+          border: 2px solid var(--text);
           border-radius: 6px;
           background: transparent;
+          height: 40px;
+          line-height: 1;
         }
 
         .logout-button {
@@ -268,9 +284,26 @@ const AdminDashboard = ({ onLogout }) => {
         </div>
         <div className="user-info">
           <span className="user-level">{userLevel}</span>
-          <button className="logout-button" onClick={onLogout}>
-            Logout
-          </button>
+          <div className="admin-account-dropdown" style={{ position: 'relative' }}>
+            <button className="account-btn authenticated" onClick={() => setIsDropdownOpen(!isDropdownOpen)} aria-haspopup="true" aria-expanded={isDropdownOpen}>
+              <i className="fas fa-user-check" aria-hidden="true"></i>
+              <span className="auth-text">Account</span>
+              <i className="fas fa-chevron-down dropdown-arrow" aria-hidden="true"></i>
+            </button>
+            {isDropdownOpen && (
+              <div className="admin-dropdown-menu" style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', background: 'var(--surface)', border: '1px solid #333', borderRadius: 6, minWidth: 160, zIndex: 50 }}>
+                <button className="dropdown-item" onClick={() => { setIsDropdownOpen(false); handleTabChange('settings'); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '0.5rem 0.75rem', background: 'transparent', border: 'none', textAlign: 'left' }}>
+                  <SettingsIcon size={16} />
+                  Settings
+                </button>
+                <div style={{ height: 1, background: '#333', margin: '0.25rem 0' }} />
+                <button className="dropdown-item logout" onClick={() => { setIsDropdownOpen(false); onLogout(); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '0.5rem 0.75rem', background: 'transparent', border: 'none', textAlign: 'left' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -889,6 +922,164 @@ const DashboardOverview = ({ onNavigate, teamManagerRef, scheduleManagerRef, ord
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+};
+
+// Combined Team Management View - User Management + Team Leader Management
+const TeamManagementView = ({ teamManagerRef, userManagerRef }) => {
+  const [showUserManager, setShowUserManager] = useState(false);
+  const [showTeamManager, setShowTeamManager] = useState(false);
+  const currentUser = authService.getUser();
+  const canManageUsers = currentUser && (currentUser.level === 'director' || currentUser.level === 'leader');
+
+  return (
+    <div className="team-management-view">
+      <style>{`
+        .team-management-view {
+          padding: 2rem;
+        }
+
+        .management-section {
+          background: var(--surface);
+          border-radius: var(--radius);
+          padding: 1.5rem;
+          margin-bottom: 2rem;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .section-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1.5rem;
+          padding-bottom: 1rem;
+          border-bottom: 2px solid var(--bg);
+          cursor: pointer;
+          user-select: none;
+          transition: background 0.15s;
+        }
+        .section-header:hover {
+          background: rgba(0,0,0,0.03);
+        }
+
+        .section-title-main {
+          font-family: "Bebas Neue", sans-serif;
+          font-size: 2rem;
+          color: var(--accent);
+          margin: 0;
+          letter-spacing: 0.05em;
+        }
+
+        .section-description {
+          color: var(--subtxt);
+          font-size: 0.95rem;
+          margin: 0.5rem 0 0 0;
+        }
+
+        .chevron {
+          display: inline-block;
+          transition: transform 0.2s cubic-bezier(.4,2,.6,1);
+          font-size: 1.5rem;
+          margin-left: 1rem;
+          color: var(--accent);
+        }
+        .chevron.open {
+          transform: rotate(90deg);
+        }
+
+        .section-content {
+          animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .permission-notice {
+          background: rgba(255, 193, 7, 0.1);
+          border-left: 4px solid #ffc107;
+          padding: 1rem;
+          border-radius: var(--radius);
+          color: var(--txt);
+          margin-top: 1rem;
+        }
+
+        .permission-notice strong {
+          color: var(--accent);
+        }
+      `}</style>
+
+      {/* User Management Section */}
+      <div className="management-section">
+        <div className="section-header" onClick={() => setShowUserManager(v => !v)}>
+          <div>
+            <h2 className="section-title-main">User Management</h2>
+            <p className="section-description">
+              Manage user accounts, roles, and permissions. 
+              {currentUser?.level === 'director' && ' Directors can promote/demote all users.'}
+              {currentUser?.level === 'leader' && ' Leaders can manage members and other leaders.'}
+            </p>
+          </div>
+          <span className={`chevron${showUserManager ? ' open' : ''}`}>▶</span>
+        </div>
+        {showUserManager && (
+          <div className="section-content">
+            {canManageUsers ? (
+              <UserManager ref={userManagerRef} />
+            ) : (
+              <div className="permission-notice">
+                <strong>Limited Access:</strong> You can view users but cannot modify their roles. 
+                Only directors and leaders can promote or demote users.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Team Leader Management Section */}
+      <div className="management-section">
+        <div className="section-header" onClick={() => setShowTeamManager(v => !v)}>
+          <div>
+            <h2 className="section-title-main">Team Leader Management</h2>
+            <p className="section-description">
+              Manage team leader profiles displayed on the public Team page. 
+              Add leaders, update bios, and configure display order.
+            </p>
+          </div>
+          <span className={`chevron${showTeamManager ? ' open' : ''}`}>▶</span>
+        </div>
+        {showTeamManager && (
+          <div className="section-content">
+            <TeamManager ref={teamManagerRef} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const SettingsPlaceholder = () => {
+  const currentUser = authService.getUser();
+  return (
+    <div className="settings-placeholder">
+      <style>{`
+        .settings-placeholder { padding: 2rem; }
+        .settings-card { background: var(--surface); padding: 1.5rem; border-radius: var(--radius); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .settings-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .settings-note { color: var(--subtxt); }
+      `}</style>
+      <div className="settings-card">
+        <div className="settings-title">Settings (Placeholder)</div>
+        <div className="settings-note">This is a placeholder settings page for <strong>{currentUser?.email || 'your account'}</strong>. We'll add preferences, profile settings, and application options here later.</div>
       </div>
     </div>
   );

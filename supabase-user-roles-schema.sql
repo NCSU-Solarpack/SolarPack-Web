@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS user_roles (
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
   level TEXT NOT NULL DEFAULT 'member' CHECK (level IN ('member', 'leader', 'director')),
+  specific_role TEXT NULL,  -- More detailed role (e.g., 'Electrical Lead', 'Mechanical Director')
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id),

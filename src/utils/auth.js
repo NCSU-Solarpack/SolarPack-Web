@@ -20,6 +20,9 @@ class AuthService {
   constructor() {
     this.currentUser = null;
     this.authSubscription = null;
+    this.isInitialized = false;
+    this.initPromise = null;
+    this.authStateListeners = new Set();
     this.initializeAuth();
   }
 
@@ -27,32 +30,86 @@ class AuthService {
    * Initialize authentication state from Supabase
    */
   async initializeAuth() {
+    // Store the promise so we can await it later
+    this.initPromise = this._doInitialize();
+    return this.initPromise;
+  }
+
+  async _doInitialize() {
     try {
       // Check if Supabase is configured
       if (!supabaseService.isConfigured()) {
         console.warn('Supabase not configured. Authentication disabled.');
+        this.isInitialized = true;
         return;
       }
 
-      // Get current session
+      // Get current session - this restores the session from localStorage
       const session = await supabaseService.getSession();
+      console.log('Initial session check:', session ? 'Session found' : 'No session');
+      
       if (session) {
         await this.loadUserData();
       }
 
       // Listen for auth state changes
       this.authSubscription = supabaseService.onAuthStateChange(async (event, session) => {
-        console.log('Auth state changed:', event);
+        console.log('Auth state changed:', event, session ? 'with session' : 'no session');
         
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          await this.loadUserData();
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+          if (session) {
+            await this.loadUserData();
+          }
         } else if (event === 'SIGNED_OUT') {
           this.currentUser = null;
         }
+        
+        // Notify all listeners of auth state change
+        this._notifyListeners();
       });
+
+      this.isInitialized = true;
+      console.log('Auth initialization complete, user:', this.currentUser?.email || 'none');
     } catch (error) {
       console.error('Error initializing auth:', error);
+      this.isInitialized = true;
     }
+  }
+
+  /**
+   * Wait for auth to be fully initialized
+   * @returns {Promise<void>}
+   */
+  async waitForInit() {
+    if (this.initPromise) {
+      await this.initPromise;
+    }
+  }
+
+  /**
+   * Subscribe to auth state changes
+   * @param {Function} callback - Called whenever auth state changes
+   * @returns {Function} - Unsubscribe function
+   */
+  onAuthStateChange(callback) {
+    this.authStateListeners.add(callback);
+    return () => {
+      this.authStateListeners.delete(callback);
+    };
+  }
+
+  /**
+   * Notify all listeners of auth state change
+   */
+  _notifyListeners() {
+    const isAuth = this.isAuthenticated();
+    this.authStateListeners.forEach(callback => {
+      try {
+        callback(isAuth, this.currentUser);
+      } catch (e) {
+        console.error('Auth state listener error:', e);
+      }
+    });
   }
 
   /**
@@ -93,9 +150,26 @@ class AuthService {
       const data = await supabaseService.signUp(email, password);
       
       // Check if email confirmation is required
-      const needsEmailConfirmation = !data.session;
-      
-      if (data.session) {
+      let needsEmailConfirmation = !data.session;
+
+      // If signup did not return a session (common when email confirmation is enabled),
+      // try to sign the user in immediately with the provided credentials so the app
+      // doesn't require a separate confirm-email step.
+      if (!data.session) {
+        try {
+          const signInResult = await this.signIn(email, password);
+          // signIn will call loadUserData() on success
+          needsEmailConfirmation = false;
+          return {
+            ...signInResult,
+            needsEmailConfirmation
+          };
+        } catch (signinError) {
+          // If immediate sign-in fails, fall back to original response and indicate
+          // that email confirmation is required (keeps behavior predictable).
+          console.warn('Auto sign-in after signup failed:', signinError);
+        }
+      } else {
         // User is signed in immediately (email confirmation disabled)
         await this.loadUserData();
       }
@@ -120,6 +194,7 @@ class AuthService {
     try {
       const data = await supabaseService.signIn(email, password);
       await this.loadUserData();
+      this._notifyListeners(); // Notify listeners of successful sign in
       return data;
     } catch (error) {
       console.error('Sign in error:', error);
@@ -134,10 +209,18 @@ class AuthService {
     try {
       await supabaseService.signOut();
       this.currentUser = null;
+      this._notifyListeners(); // Notify listeners of sign out
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
     }
+  }
+
+  /**
+   * Backwards-compatible alias for signOut used by older components
+   */
+  async logout() {
+    return this.signOut();
   }
 
   /**
@@ -183,6 +266,25 @@ class AuthService {
   }
 
   /**
+   * Attempt to extend/refresh the current session by touching the session
+   * This is a lightweight keep-alive used on user activity.
+   */
+  async extendSession() {
+    try {
+      const session = await supabaseService.getSession();
+      if (session) {
+        // Reload user data to ensure tokens/user info are up-to-date
+        await this.loadUserData();
+        this._notifyListeners();
+      }
+      return session;
+    } catch (error) {
+      console.warn('extendSession failed:', error);
+      return null;
+    }
+  }
+
+  /**
    * Resend confirmation email
    * @param {string} email 
    */
@@ -199,7 +301,8 @@ class AuthService {
    * Check if user is authenticated
    */
   isAuthenticated() {
-    return this.currentUser !== null && this.currentUser.emailConfirmed;
+    // Email confirmation is no longer required for authentication.
+    return this.currentUser !== null;
   }
 
   /**

@@ -26,8 +26,9 @@ const Login = ({ onLogin }) => {
   };
 
   const validatePassword = (password) => {
-    if (password.length < 8) {
-      return 'Password must be at least 8 characters long';
+    // Minimum 6 characters, at least one uppercase, one lowercase, one digit, and one symbol
+    if (password.length < 6) {
+      return 'Password must be at least 6 characters long';
     }
     if (!/[A-Z]/.test(password)) {
       return 'Password must contain at least one uppercase letter';
@@ -38,7 +39,20 @@ const Login = ({ onLogin }) => {
     if (!/[0-9]/.test(password)) {
       return 'Password must contain at least one number';
     }
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      return 'Password must contain at least one symbol';
+    }
     return null;
+  };
+
+  // Derived checks for dynamic UI
+  const password = formData.password || '';
+  const checks = {
+    length: password.length >= 6,
+    lower: /[a-z]/.test(password),
+    upper: /[A-Z]/.test(password),
+    number: /[0-9]/.test(password),
+    symbol: /[^A-Za-z0-9]/.test(password)
   };
 
   const handleSubmit = async (e) => {
@@ -68,14 +82,11 @@ const Login = ({ onLogin }) => {
         }
 
         const result = await authService.signUp(formData.email, formData.password);
-        
-        if (result.needsEmailConfirmation) {
-          showAlert('Account created! Please check your email for a verification code.', 'success');
-          navigate('/confirm-email', { state: { email: formData.email } });
-        } else {
-          showAlert('Account created successfully!', 'success');
-          onLogin();
-        }
+
+        // After signup we attempt an immediate sign-in in the auth service.
+        // Treat the signup as successful and proceed to the admin area.
+        showAlert('Account created successfully!', 'success');
+        onLogin();
       } else {
         // Login flow
         if (!formData.email || !formData.password) {
@@ -88,19 +99,13 @@ const Login = ({ onLogin }) => {
         showAlert('Welcome back!', 'success');
         onLogin();
       }
-    } catch (error) {
+      } catch (error) {
       console.error('Auth error:', error);
       
       let errorMessage = 'An error occurred. Please try again.';
       
       if (error.message.includes('Invalid login credentials')) {
         errorMessage = 'Invalid email or password';
-      } else if (error.message.includes('Email not confirmed')) {
-        errorMessage = 'Please verify your email before signing in';
-        showAlert(errorMessage, 'error');
-        navigate('/confirm-email', { state: { email: formData.email } });
-        setIsLoading(false);
-        return;
       } else if (error.message.includes('User already registered')) {
         errorMessage = 'An account with this email already exists';
       } else if (error.message.includes('Invalid email')) {
@@ -150,6 +155,7 @@ const Login = ({ onLogin }) => {
               placeholder="your.email@ncsu.edu"
               disabled={isLoading}
               autoFocus
+              autoComplete="email"
               required
             />
           </div>
@@ -167,21 +173,58 @@ const Login = ({ onLogin }) => {
                 placeholder={mode === 'signup' ? 'Create a strong password' : 'Enter your password'}
                 disabled={isLoading}
                 required
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
               />
               <button
                 type="button"
                 className="password-toggle"
                 onClick={() => setShowPassword(!showPassword)}
                 disabled={isLoading}
-                tabIndex="-1"
+                aria-pressed={showPassword}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
-                {showPassword ? '👁️' : '👁️‍🗨️'}
+                {showPassword ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20C7 20 2.73 16.11 1 12c.47-1 .99-1.95 1.57-2.82" />
+                    <path d="M3 3l18 18" />
+                    <path d="M9.88 9.88A3 3 0 0 0 14.12 14.12" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
               </button>
             </div>
             {mode === 'signup' && (
-              <small className="form-hint">
-                At least 8 characters with uppercase, lowercase, and numbers
-              </small>
+              <div>
+                <small className="form-hint">
+                  Password requirements
+                </small>
+                <ul className="password-checklist" aria-live="polite">
+                  <li className={checks.length ? 'met' : 'unmet'}>
+                    <span className="check-icon" aria-hidden>{checks.length ? '✓' : '✕'}</span>
+                    <span>Minimum 6 characters</span>
+                  </li>
+                  <li className={checks.lower ? 'met' : 'unmet'}>
+                    <span className="check-icon" aria-hidden>{checks.lower ? '✓' : '✕'}</span>
+                    <span>At least one lowercase letter</span>
+                  </li>
+                  <li className={checks.upper ? 'met' : 'unmet'}>
+                    <span className="check-icon" aria-hidden>{checks.upper ? '✓' : '✕'}</span>
+                    <span>At least one uppercase letter</span>
+                  </li>
+                  <li className={checks.number ? 'met' : 'unmet'}>
+                    <span className="check-icon" aria-hidden>{checks.number ? '✓' : '✕'}</span>
+                    <span>At least one number</span>
+                  </li>
+                  <li className={checks.symbol ? 'met' : 'unmet'}>
+                    <span className="check-icon" aria-hidden>{checks.symbol ? '✓' : '✕'}</span>
+                    <span>At least one symbol (e.g. !@#$%)</span>
+                  </li>
+                </ul>
+              </div>
             )}
           </div>
 
@@ -197,7 +240,8 @@ const Login = ({ onLogin }) => {
                 onChange={handleChange}
                 placeholder="Re-enter your password"
                 disabled={isLoading}
-                required
+                  required
+                  autoComplete="new-password"
               />
             </div>
           )}

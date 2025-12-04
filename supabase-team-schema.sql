@@ -7,6 +7,7 @@ create table public.team_members (
   email text null,
   linkedin text null,
   "order" integer null default 0,
+  user_id uuid null references user_roles(user_id) on delete set null,  -- Link to user account
   created_at timestamp with time zone null default now(),
   updated_at timestamp with time zone null default now(),
   constraint team_members_pkey primary key (id)

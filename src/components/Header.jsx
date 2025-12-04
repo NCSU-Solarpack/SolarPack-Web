@@ -5,23 +5,31 @@ import './Header.css'
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [password, setPassword] = useState('')
-  const [loginError, setLoginError] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
 
-  // Check authentication status on mount and route changes
+  // Initialize auth state and subscribe to changes
   useEffect(() => {
-    setIsAuthenticated(authService.isAuthenticated())
-  }, [location])
+    let mounted = true;
 
-  // Check authentication status when component mounts
-  useEffect(() => {
-    setIsAuthenticated(authService.isAuthenticated())
+    const init = async () => {
+      await authService.waitForInit();
+      if (!mounted) return;
+      setIsAuthenticated(authService.isAuthenticated());
+    };
+
+    init();
+
+    const unsubscribe = authService.onAuthStateChange((authenticated) => {
+      if (mounted) setIsAuthenticated(authenticated);
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
   }, [])
 
   // Close dropdown when clicking outside
@@ -48,11 +56,11 @@ const Header = () => {
 
   const handleAuthClick = () => {
     if (isAuthenticated) {
-      // If already authenticated, toggle dropdown or go to admin
+      // If already authenticated, toggle dropdown
       setIsDropdownOpen(!isDropdownOpen)
     } else {
-      // If not authenticated, open login modal
-      openLoginModal()
+      // Navigate to the new login page for proper Supabase auth
+      navigate('/login')
     }
   }
 
@@ -62,51 +70,25 @@ const Header = () => {
   }
 
   const handleLogout = () => {
-    authService.logout()
-    setIsAuthenticated(false)
-    setIsDropdownOpen(false)
-    navigate('/')
+    const doLogout = async () => {
+      try {
+        await authService.logout();
+      } catch (err) {
+        console.error('Logout failed:', err);
+      } finally {
+        setIsAuthenticated(false);
+        setIsDropdownOpen(false);
+        navigate('/');
+      }
+    };
+
+    doLogout();
   }
 
   const openLoginOrNavigate = () => {
-    // On small screens we prefer to navigate to the standalone admin/login page
-    // to avoid modal issues on mobile. On larger screens open the modal.
-    if (window && window.innerWidth <= 767) {
-      closeMenu()
-      navigate('/admin')
-    } else {
-      openLoginModal()
-    }
-  }
-
-  const openLoginModal = () => {
-    setIsLoginModalOpen(true)
-    setPassword('')
-    setLoginError('')
-  }
-
-  const closeLoginModal = () => {
-    setIsLoginModalOpen(false)
-    setPassword('')
-    setLoginError('')
-  }
-
-  const handleLogin = (e) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setLoginError('')
-
-    // Simulate a small delay for better UX
-    setTimeout(() => {
-      if (authService.authenticate(password)) {
-        setIsAuthenticated(true)
-        closeLoginModal()
-        navigate('/admin')
-      } else {
-        setLoginError('Invalid password. Please try again.')
-      }
-      setIsLoading(false)
-    }, 500)
+    // On small screens navigate to the standalone login page
+    closeMenu()
+    navigate('/login')
   }
 
   // Close menu when route changes
@@ -245,59 +227,7 @@ const Header = () => {
         </nav>
       </div>
 
-      {/* Login Modal */}
-      {isLoginModalOpen && (
-        <div className="modal-overlay" onClick={closeLoginModal}>
-          <div className="login-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Dashboard Sign In</h2>
-              <button className="close-btn" onClick={closeLoginModal}>
-                <i className="fas fa-times" aria-hidden="true"></i>
-              </button>
-            </div>
-            
-            <form onSubmit={handleLogin} className="login-form">
-              <div className="form-group">
-                <label htmlFor="password">Password</label>
-                <input
-                  type="password"
-                  id="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter dashboard password"
-                  disabled={isLoading}
-                  autoFocus
-                />
-              </div>
-              
-              {loginError && (
-                <div className="error-message">
-                  <i className="fas fa-exclamation-triangle" aria-hidden="true"></i>
-                  {loginError}
-                </div>
-              )}
-              
-              <button 
-                type="submit" 
-                className={`submit-btn ${isLoading ? 'loading' : ''}`}
-                disabled={isLoading || !password.trim()}
-              >
-                {isLoading ? (
-                  <>
-                    <i className="fas fa-spinner fa-spin" aria-hidden="true"></i>
-                    Signing In...
-                  </>
-                ) : (
-                  <>
-                    <i className="fas fa-sign-in-alt" aria-hidden="true"></i>
-                    Sign In
-                  </>
-                )}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      
     </>
   )
 }

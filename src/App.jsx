@@ -1,5 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
+import Login from './components/Login'
+import { useNavigate } from 'react-router-dom'
 import Home from './pages/Home'
 import App from './pages/App'
 import Alumni from './pages/Alumni'
@@ -11,19 +13,20 @@ import Sponsors from './pages/Sponsors'
 import Team from './pages/Team'
 import NotFound from './pages/NotFound'
 import Admin from './components/Admin'
-import ConfirmEmail from './components/ConfirmEmail'
 import ForgotPassword from './components/ForgotPassword'
 import ResetPassword from './components/ResetPassword'
 import { AlertProvider } from './contexts/AlertContext'
 
 //App Router with Layout wrapping regular pages and Admin page without layout
 function AppRouter() {
+  const navigate = useNavigate()
   return (
     <AlertProvider>
       <Routes>
       {/* Auth routes without layout */}
       <Route path="/admin" element={<Admin />} />
-      <Route path="/confirm-email" element={<ConfirmEmail />} />
+      <Route path="/login" element={<Login onLogin={() => navigate('/admin')} />} />
+      {/* Removed confirm-email route - email confirmation not required anymore */}
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       
