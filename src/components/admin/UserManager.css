@@ -26,7 +26,8 @@
 }
 
 .user-table thead {
-  background: var(--bg);
+  /* Slightly darker header to visually separate it from the table body */
+  background: linear-gradient(180deg, rgba(0,0,0,0.3), rgba(0,0,0,0.3));
 }
 
 .user-table th {
@@ -34,7 +35,8 @@
   text-align: left;
   font-weight: 600;
   color: var(--txt);
-  border-bottom: 2px solid var(--bg);
+  /* stronger divider under the header for clearer separation */
+  border-bottom: 2px solid rgba(0,0,0,0.08);
 }
 
 .user-table td {
@@ -66,18 +68,21 @@
 }
 
 .role-badge-director {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: var(--txt);
+  color: var(--surface);
+  border: 1px solid rgba(0,0,0,0.08);
 }
 
 .role-badge-leader {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  color: white;
+  background: rgba(0,0,0,0.05);
+  color: var(--txt);
+  border: 1px solid rgba(0,0,0,0.06);
 }
 
 .role-badge-member {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-  color: white;
+  background: rgba(0,0,0,0.02);
+  color: var(--txt);
+  border: 1px solid rgba(0,0,0,0.04);
 }
 
 .password-cell {
@@ -121,6 +126,90 @@
   min-width: 200px;
 }
 
+.role-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.role-cell {
+  font-weight: 600;
+  color: var(--txt);
+}
+
+/* New unified role dropdown wrapper */
+.role-dropdown-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.role-dropdown-wrapper.clickable {
+  cursor: pointer;
+}
+
+.role-select-styled {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding: 0.45rem 1.8rem 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-family: 'Courier New', monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--txt);
+  cursor: pointer;
+  text-transform: capitalize;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.role-dropdown-wrapper.clickable .role-select-styled {
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.role-dropdown-wrapper.clickable:hover .role-select-styled {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+.role-select-styled:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.role-select-styled option {
+  background: var(--surface);
+  color: var(--txt);
+  text-transform: capitalize;
+}
+
+.role-dropdown-wrapper .chevron {
+  position: absolute;
+  right: 0.5rem;
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--subtxt);
+  transition: transform 0.18s ease;
+}
+
+.role-dropdown-wrapper:focus-within .chevron {
+  transform: rotate(180deg);
+  color: var(--txt);
+}
+
+/* Joined date column */
+.joined-cell {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  color: var(--subtxt);
+  white-space: nowrap;
+}
+
 .action-buttons {
   display: flex;
   gap: 0.5rem;
@@ -139,7 +228,7 @@
 }
 
 .promote-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #2b6cb0;
   color: white;
 }
 
@@ -149,7 +238,7 @@
 }
 
 .demote-btn {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: #dd6b20;
   color: white;
 }
 
@@ -168,6 +257,37 @@
   font-style: italic;
   font-size: 0.9rem;
 }
+
+.contact-header {
+  text-align: center;
+}
+
+.contact-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.contact-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.06);
+  background: transparent;
+  color: var(--txt);
+  text-decoration: none;
+  transition: background 0.12s, transform 0.12s;
+  margin: 0 auto;
+}
+
+.contact-btn:hover {
+  background: rgba(0,0,0,0.04);
+  transform: translateY(-2px);
+}
+
+/* Role select styles consolidated into .role-select-styled above */
 
 .user-manager-info {
   background: var(--surface);
@@ -211,6 +331,7 @@
 @media (max-width: 768px) {
   .user-table {
     font-size: 0.85rem;
+    font-family: 'Courier New', monospace;
   }
 
   .user-table th,
@@ -236,4 +357,11 @@
   .password-note {
     margin-left: 0;
   }
+}
+
+/* Use the email font across the table for a professional monospace look */
+.user-table th,
+.user-table td,
+.user-email {
+  font-family: 'Courier New', monospace;
 }

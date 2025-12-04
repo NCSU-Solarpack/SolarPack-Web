@@ -12,7 +12,9 @@ const Login = ({ onLogin }) => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    firstName: '',
+    lastName: ''
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -62,7 +64,7 @@ const Login = ({ onLogin }) => {
     try {
       if (mode === 'signup') {
         // Sign up flow
-        if (!formData.email || !formData.password || !formData.confirmPassword) {
+        if (!formData.email || !formData.password || !formData.confirmPassword || !formData.firstName || !formData.lastName) {
           showAlert('Please fill in all fields', 'error');
           setIsLoading(false);
           return;
@@ -81,7 +83,12 @@ const Login = ({ onLogin }) => {
           return;
         }
 
-        const result = await authService.signUp(formData.email, formData.password);
+        const result = await authService.signUp(
+          formData.email,
+          formData.password,
+          formData.firstName,
+          formData.lastName
+        );
 
         // After signup we attempt an immediate sign-in in the auth service.
         // Treat the signup as successful and proceed to the admin area.
@@ -122,7 +129,7 @@ const Login = ({ onLogin }) => {
 
   const toggleMode = () => {
     setMode(mode === 'login' ? 'signup' : 'login');
-    setFormData({ email: '', password: '', confirmPassword: '' });
+    setFormData({ email: '', password: '', confirmPassword: '', firstName: '', lastName: '' });
   };
 
   const handleForgotPassword = () => {
@@ -159,6 +166,42 @@ const Login = ({ onLogin }) => {
               required
             />
           </div>
+
+          {mode === 'signup' && (
+            <div className="form-row">
+              <div className="form-group half">
+                <label htmlFor="firstName">First Name</label>
+                <input
+                  type="text"
+                  id="firstName"
+                  name="firstName"
+                  className="form-input"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  placeholder="First name"
+                  disabled={isLoading}
+                  required
+                  autoComplete="given-name"
+                />
+              </div>
+
+              <div className="form-group half">
+                <label htmlFor="lastName">Last Name</label>
+                <input
+                  type="text"
+                  id="lastName"
+                  name="lastName"
+                  className="form-input"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  placeholder="Last name"
+                  disabled={isLoading}
+                  required
+                  autoComplete="family-name"
+                />
+              </div>
+            </div>
+          )}
 
           <div className="form-group">
             <label htmlFor="password">Password</label>

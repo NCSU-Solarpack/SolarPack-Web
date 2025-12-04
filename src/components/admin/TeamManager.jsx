@@ -17,6 +17,19 @@ const TeamManager = forwardRef((props, ref) => {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [availableUsers, setAvailableUsers] = useState([]);
 
+  // Role options for team leads
+  const ROLE_OPTIONS = [
+    'Project Director',
+    'Technical Director',
+    'Aerodynamics',
+    'High Voltage',
+    'System Architecture',
+    'Structures',
+    'Vehicle Dynamics',
+    'Low Voltage',
+    'Business'
+  ];
+
   // Custom alert hook from context
   const { showError, showConfirm } = useAlert();
 
@@ -198,6 +211,18 @@ const TeamManager = forwardRef((props, ref) => {
         }
       }
       
+      // If this team member is assigned to a user, ensure we update that user's specific_role
+      if (memberToSave.user_id) {
+        try {
+          await supabaseService.updateUserSpecificRole(memberToSave.user_id, memberToSave.role || null);
+          console.log('✓ Updated assigned user specific_role');
+        } catch (err) {
+          console.error('Error updating user specific_role:', err);
+          await showError(`Failed to update assigned user's role: ${err.message}`, 'User Role Update Error');
+          // continue to save the team member even if user role update failed
+        }
+      }
+
       // Save to Supabase
       await supabaseService.saveTeamMember(memberToSave);
       
@@ -391,10 +416,11 @@ const TeamManager = forwardRef((props, ref) => {
         }
 
         .member-card {
-          background: var(--surface);
+          background: linear-gradient(180deg, rgba(0,0,0,0.1), var(--surface));
+          border: 1px solid rgba(255,255,255,0.03);
           border-radius: var(--radius);
           padding: 1.5rem;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          box-shadow: 0 6px 18px rgba(0,0,0,0.45);
           transition: transform 0.3s ease, opacity 0.3s ease;
           position: relative;
           display: flex;
@@ -868,13 +894,16 @@ const TeamManager = forwardRef((props, ref) => {
 
             <div className="form-group">
               <label className="form-label">Role *</label>
-              <input
-                type="text"
+              <select
                 className="form-input"
-                value={editingMember.role}
+                value={editingMember.role || ''}
                 onChange={(e) => setEditingMember({...editingMember, role: e.target.value})}
-                placeholder="e.g., Technical Director"
-              />
+              >
+                <option value="">-- Select Role --</option>
+                {ROLE_OPTIONS.map(role => (
+                  <option key={role} value={role}>{role}</option>
+                ))}
+              </select>
             </div>
 
             <div className="form-group">
@@ -941,7 +970,15 @@ const TeamManager = forwardRef((props, ref) => {
               <select
                 className="form-input"
                 value={editingMember.user_id || ''}
-                onChange={(e) => setEditingMember({...editingMember, user_id: e.target.value || null})}
+                onChange={(e) => {
+                  const userId = e.target.value || null;
+                  const selectedUser = availableUsers.find(u => u.user_id === userId);
+                  setEditingMember({
+                    ...editingMember,
+                    user_id: userId || null,
+                    role: selectedUser?.specific_role || editingMember.role
+                  });
+                }}
               >
                 <option value="">-- None (No user assigned) --</option>
                 {availableUsers.map(user => (
@@ -954,10 +991,6 @@ const TeamManager = forwardRef((props, ref) => {
                 Link this team member to a user account with Director or Leader permissions
               </p>
             </div>
-
-            <p style={{ color: 'var(--subtxt)', fontSize: '0.85rem', marginTop: '1rem' }}>
-              Tip: Use drag and drop on the cards to reorder team members
-            </p>
 
             <div className="modal-actions">
               <button className="cancel-btn" onClick={() => setIsEditing(false)}>

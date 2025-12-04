@@ -272,6 +272,29 @@ class SupabaseService {
   }
 
   /**
+   * Update a user's specific role in the `user_roles` table.
+   * @param {string} userId - The user's id
+   * @param {string|null} specificRole - The specific role to assign (or null to clear)
+   * @returns {Promise<Object>} - Updated user_roles row
+   */
+  async updateUserSpecificRole(userId, specificRole) {
+    if (!this.client) throw new Error('Supabase not configured');
+    if (!userId) throw new Error('Invalid user id');
+
+    const payload = { specific_role: specificRole };
+
+    const { data, error } = await this.client
+      .from('user_roles')
+      .update(payload)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  /**
    * Upload a team member image to Supabase Storage
    * @param {File} file - The image file to upload
    * @param {string} memberId - The team member's ID (used for unique filename)
@@ -1583,14 +1606,19 @@ class SupabaseService {
    * @param {string} password 
    * @returns {Promise<{user, session}>}
    */
-  async signUp(email, password) {
+  async signUp(email, password, metadata) {
     if (!this.client) throw new Error('Supabase not configured');
-    
+
+    // Pass along optional user metadata to Supabase Auth so it is saved
+    // on the auth user row (useful when email confirmation prevents
+    // immediate authenticated upserts into `user_roles`).
+    const options = metadata ? { data: metadata } : undefined;
+
     const { data, error } = await this.client.auth.signUp({
       email,
       password
-    });
-    
+    }, options);
+
     if (error) throw error;
     return data;
   }
@@ -1656,6 +1684,65 @@ class SupabaseService {
       return { level: 'member', email: user.email };
     }
 
+    return data;
+  }
+
+  /**
+   * Get the current user's profile combining auth user and user_roles row
+   * Returns: { user, role } where `user` is the auth user object and `role` is the user_roles row
+   */
+  async getUserProfile() {
+    if (!this.client) throw new Error('Supabase not configured');
+
+    const { data: { user } } = await this.client.auth.getUser();
+    if (!user) return null;
+
+    const { data: roleData, error: roleError } = await this.client
+      .from('user_roles')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (roleError) {
+      console.warn('getUserProfile: failed to fetch user_roles row', roleError);
+    }
+
+    return {
+      user,
+      role: roleData || null
+    };
+  }
+
+  /**
+   * Update the current user's profile fields in user_roles
+   * Accepts an object with any of: first_name, last_name, phone_number, email
+   */
+  async updateUserProfile(updates) {
+    if (!this.client) throw new Error('Supabase not configured');
+
+    const { data: { user } } = await this.client.auth.getUser();
+    if (!user) throw new Error('No authenticated user');
+
+    // Ensure row exists: upsert with user_id
+    // Only include fields that are explicitly provided so we don't overwrite
+    // existing values with null. Always provide an email (fall back to
+    // the authenticated user's email) because the DB enforces NOT NULL.
+    const payload = {
+      user_id: user.id,
+      ...(updates.email !== undefined ? { email: updates.email } : { email: user.email }),
+      ...(updates.first_name !== undefined ? { first_name: updates.first_name } : {}),
+      ...(updates.last_name !== undefined ? { last_name: updates.last_name } : {}),
+      ...(updates.phone_number !== undefined ? { phone_number: updates.phone_number } : {})
+    };
+
+    // Use upsert to create or update the profile row; return the row
+    const { data, error } = await this.client
+      .from('user_roles')
+      .upsert(payload, { onConflict: 'user_id' })
+      .select()
+      .single();
+
+    if (error) throw error;
     return data;
   }
 

@@ -9,6 +9,7 @@ import SponsorsManager from './admin/SponsorsManager';
 import OrderManager from './admin/OrderManager';
 import BlogManager from './admin/BlogManager';
 import { Settings as SettingsIcon } from 'lucide-react';
+import Settings from './admin/Settings';
 // import GitHubSettings from './admin/GitHubSettings'; // Removed - no longer using GitHub for data storage
 import { BarChart3, Users, Calendar, Package, GraduationCap, Award, BookOpen, Plus, ShoppingCart, Newspaper, UserPlus } from 'lucide-react';
 
@@ -96,7 +97,7 @@ const AdminDashboard = ({ onLogout }) => {
       case 'blogs':
         return <BlogManager ref={blogManagerRef} />;
       case 'settings':
-        return <SettingsPlaceholder />;
+        return <Settings />;
       default:
         return <DashboardOverview 
           onNavigate={handleTabChange}
@@ -1067,22 +1068,6 @@ const TeamManagementView = ({ teamManagerRef, userManagerRef }) => {
   );
 };
 
-const SettingsPlaceholder = () => {
-  const currentUser = authService.getUser();
-  return (
-    <div className="settings-placeholder">
-      <style>{`
-        .settings-placeholder { padding: 2rem; }
-        .settings-card { background: var(--surface); padding: 1.5rem; border-radius: var(--radius); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        .settings-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
-        .settings-note { color: var(--subtxt); }
-      `}</style>
-      <div className="settings-card">
-        <div className="settings-title">Settings (Placeholder)</div>
-        <div className="settings-note">This is a placeholder settings page for <strong>{currentUser?.email || 'your account'}</strong>. We'll add preferences, profile settings, and application options here later.</div>
-      </div>
-    </div>
-  );
-};
+// Settings component moved to `src/components/admin/Settings.jsx`.
 
 export default AdminDashboard;

@@ -4,6 +4,88 @@ import { supabaseService } from '../../utils/supabase';
 import { useAlert } from '../../contexts/AlertContext';
 import './UserManager.css';
 
+// Helper to capitalize first letter
+const capitalize = (str) => str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
+
+// Helper to format date as "Month Year"
+const formatJoinedDate = (dateString) => {
+  if (!dateString) return '—';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+};
+
+// Small helper component: a permission-aware role select dropdown
+function RoleSelect({ currentUserLevel, targetLevel, userId, userEmail, onUpdated, canEdit }) {
+  const { showConfirm, showSuccess, showError } = useAlert();
+  const [value, setValue] = useState(targetLevel);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  useEffect(() => {
+    setValue(targetLevel);
+  }, [targetLevel]);
+
+  const getOptions = () => {
+    if (currentUserLevel === 'director') return ['member', 'leader', 'director'];
+    if (currentUserLevel === 'leader') return ['member', 'leader'];
+    return [targetLevel];
+  };
+
+  const handleChange = async (e) => {
+    const newLevel = e.target.value;
+    if (newLevel === value) return;
+
+    const confirmed = await showConfirm(
+      `Change role for ${userEmail} from ${capitalize(value)} to ${capitalize(newLevel)}?`,
+      'Confirm Role Change'
+    );
+    if (!confirmed) {
+      setValue(targetLevel);
+      return;
+    }
+
+    try {
+      setIsUpdating(true);
+      await supabaseService.updateUserRole(userId, newLevel);
+      await showSuccess(`Updated ${userEmail} to ${capitalize(newLevel)}`);
+      if (onUpdated) await onUpdated();
+    } catch (err) {
+      console.error('Error updating role:', err);
+      await showError(`Failed to update role: ${err.message}`, 'Update Error');
+      setValue(targetLevel);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const options = getOptions();
+  const hasMultipleOptions = options.length > 1 && canEdit;
+
+  return (
+    <div className={`role-dropdown-wrapper ${hasMultipleOptions ? 'clickable' : ''}`}>
+      <select
+        className="role-select-styled"
+        value={value}
+        onChange={handleChange}
+        disabled={isUpdating || !hasMultipleOptions}
+        aria-label={`Change role for ${userEmail}`}
+      >
+        {options.map((opt) => (
+          <option key={opt} value={opt}>
+            {capitalize(opt)}
+          </option>
+        ))}
+      </select>
+      {hasMultipleOptions && (
+        <span className="chevron" aria-hidden>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      )}
+    </div>
+  );
+}
+
 const UserManager = forwardRef((props, ref) => {
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -17,19 +99,40 @@ const UserManager = forwardRef((props, ref) => {
   }));
 
   useEffect(() => {
-    const user = authService.getUser();
-    if (user) {
-      setCurrentUserLevel(user.level);
-    }
-    loadUsers();
+    (async () => {
+      // Wait for auth initialization so we get an accurate current user
+      if (authService.waitForInit) {
+        try {
+          await authService.waitForInit();
+        } catch (e) {
+          console.warn('Auth waitForInit failed:', e);
+        }
+      }
+
+      const user = authService.getUser();
+      if (user) {
+        setCurrentUserLevel(user.level);
+      }
+      await loadUsers();
+    })();
   }, []);
 
   const loadUsers = async () => {
     setIsLoading(true);
     try {
       const allUsers = await supabaseService.getAllUserRoles();
-      console.log('✓ Loaded users:', allUsers);
-      setUsers(allUsers);
+      // Sort users: directors first, then leaders, then members
+      const priority = { director: 3, leader: 2, member: 1 };
+      const sorted = (allUsers || []).slice().sort((a, b) => {
+        const pa = priority[a.level] || 0;
+        const pb = priority[b.level] || 0;
+        if (pb !== pa) return pb - pa;
+        const aKey = (a.full_name || a.name || a.email || '').toLowerCase();
+        const bKey = (b.full_name || b.name || b.email || '').toLowerCase();
+        return aKey.localeCompare(bKey);
+      });
+      console.log('✓ Loaded users:', sorted);
+      setUsers(sorted);
     } catch (error) {
       console.error('Error loading users:', error);
       await showError(`Failed to load users: ${error.message}`, 'Load Error');
@@ -116,52 +219,53 @@ const UserManager = forwardRef((props, ref) => {
         <table className="user-table">
           <thead>
             <tr>
-              <th>Email</th>
+              <th>Name</th>
               <th>Role</th>
-              <th>Actions</th>
+              <th>Joined</th>
+              <th className="contact-header">Contact</th>
             </tr>
           </thead>
           <tbody>
             {users.length === 0 ? (
               <tr>
-                <td colSpan={3} style={{ textAlign: 'center', padding: '2rem' }}>
+                <td colSpan={4} style={{ textAlign: 'center', padding: '2rem' }}>
                   No users found
                 </td>
               </tr>
             ) : (
               users.map((user) => (
                 <tr key={user.id}>
-                  <td className="user-email">{user.email}</td>
-                  <td>
-                    <span className={`role-badge ${getRoleBadgeClass(user.level)}`}>
-                      {user.level}
-                    </span>
+                  <td className="user-email">
+                    {user.full_name || user.name || user.email}
                   </td>
-                  <td className="actions-cell">
-                    {canManageUser(user.level) ? (
-                      <div className="action-buttons">
-                        {user.level !== 'director' && (
-                          <button
-                            className="action-btn promote-btn"
-                            onClick={() => handlePromote(user.user_id, user.level, user.email)}
-                            disabled={!canManageUser(user.level)}
-                          >
-                            ↑ Promote
-                          </button>
-                        )}
-                        {user.level !== 'member' && (
-                          <button
-                            className="action-btn demote-btn"
-                            onClick={() => handleDemote(user.user_id, user.level, user.email)}
-                            disabled={!canManageUser(user.level)}
-                          >
-                            ↓ Demote
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="no-permissions">No permissions</span>
-                    )}
+
+                  <td className="role-cell">
+                    <RoleSelect
+                      currentUserLevel={currentUserLevel}
+                      targetLevel={user.level}
+                      userId={user.user_id}
+                      userEmail={user.email}
+                      onUpdated={loadUsers}
+                      canEdit={canManageUser(user.level)}
+                    />
+                  </td>
+
+                  <td className="joined-cell">
+                    {formatJoinedDate(user.created_at)}
+                  </td>
+
+                  <td className="contact-cell">
+                    <a
+                      className="contact-btn"
+                      href={`mailto:${user.email}`}
+                      title={`Email ${user.full_name || user.name || user.email}`}
+                      aria-label={`Email ${user.full_name || user.name || user.email}`}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                        <path d="M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v11a2.5 2.5 0 01-2.5 2.5h-11A2.5 2.5 0 014 17.5v-11z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M21 7.25l-9 6-9-6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </a>
                   </td>
                 </tr>
               ))

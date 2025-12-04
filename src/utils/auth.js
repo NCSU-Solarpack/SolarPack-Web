@@ -117,21 +117,51 @@ class AuthService {
    */
   async loadUserData() {
     try {
-      const user = await supabaseService.getUser();
-      if (!user) {
+      // Get combined profile: auth user + user_roles row
+      const profile = await supabaseService.getUserProfile();
+      if (!profile || !profile.user) {
         this.currentUser = null;
         return;
       }
 
-      // Get user role from user_roles table
-      const userRole = await supabaseService.getUserRole();
-      
+      const { user, role } = profile;
+
+      // If the auth user's metadata contains first/last name but the
+      // `user_roles` row is missing those fields, upsert them so the
+      // user_roles table shows the names (runs only when authenticated).
+      try {
+        const metadata = user?.user_metadata || {};
+        const needUpsert = (metadata.first_name || metadata.last_name) && (!role || !role.first_name || !role.last_name);
+        if (needUpsert) {
+          // updateUserProfile will upsert the row using the authenticated user
+          await supabaseService.updateUserProfile({
+            ...(metadata.first_name ? { first_name: metadata.first_name } : {}),
+            ...(metadata.last_name ? { last_name: metadata.last_name } : {})
+          });
+
+          // Re-fetch profile to pick up the updated row
+          const refreshed = await supabaseService.getUserProfile();
+          if (refreshed && refreshed.role) {
+            // prefer refreshed role
+            Object.assign(profile, { role: refreshed.role });
+          }
+        }
+      } catch (e) {
+        // Non-fatal: if upsert fails due to RLS or lack of session, continue
+        console.warn('Could not upsert profile metadata to user_roles:', e.message || e);
+      }
+
       this.currentUser = {
         id: user.id,
         email: user.email,
-        level: userRole?.level || AUTH_LEVELS.MEMBER,
-        permissions: PERMISSIONS[userRole?.level || AUTH_LEVELS.MEMBER],
-        emailConfirmed: user.email_confirmed_at !== null
+        level: role?.level || AUTH_LEVELS.MEMBER,
+        permissions: PERMISSIONS[role?.level || AUTH_LEVELS.MEMBER],
+        emailConfirmed: user.email_confirmed_at !== null,
+        first_name: role?.first_name || user?.user_metadata?.first_name || null,
+        last_name: role?.last_name || user?.user_metadata?.last_name || null,
+        phone_number: role?.phone_number || null,
+        specific_role: role?.specific_role || null,
+        joined_at: user.created_at || null
       };
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -145,9 +175,13 @@ class AuthService {
    * @param {string} password 
    * @returns {Promise<{user, session, needsEmailConfirmation}>}
    */
-  async signUp(email, password) {
+  async signUp(email, password, firstName, lastName) {
     try {
-      const data = await supabaseService.signUp(email, password);
+      const metadata = {};
+      if (firstName) metadata.first_name = firstName;
+      if (lastName) metadata.last_name = lastName;
+
+      const data = await supabaseService.signUp(email, password, Object.keys(metadata).length ? metadata : undefined);
       
       // Check if email confirmation is required
       let needsEmailConfirmation = !data.session;
