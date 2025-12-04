@@ -1548,9 +1548,36 @@ class SupabaseService {
     if (error) throw error;
   }
 
-  // ===== AUTHENTICATION (Optional) =====
-  // You can use Supabase Auth to replace your custom auth system
+  // ===== AUTHENTICATION =====
   
+  /**
+   * Sign up a new user with email and password
+   * Automatically creates a 'member' level user_role entry via database trigger
+   * @param {string} email 
+   * @param {string} password 
+   * @returns {Promise<{user, session}>}
+   */
+  async signUp(email, password) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { data, error } = await this.client.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/confirm-email`
+      }
+    });
+    
+    if (error) throw error;
+    return data;
+  }
+
+  /**
+   * Sign in an existing user
+   * @param {string} email 
+   * @param {string} password 
+   * @returns {Promise<{user, session}>}
+   */
   async signIn(email, password) {
     if (!this.client) throw new Error('Supabase not configured');
     
@@ -1563,6 +1590,9 @@ class SupabaseService {
     return data;
   }
 
+  /**
+   * Sign out the current user
+   */
   async signOut() {
     if (!this.client) throw new Error('Supabase not configured');
     
@@ -1570,11 +1600,159 @@ class SupabaseService {
     if (error) throw error;
   }
 
+  /**
+   * Get the current authenticated user
+   * @returns {Promise<User|null>}
+   */
   async getUser() {
     if (!this.client) throw new Error('Supabase not configured');
     
     const { data: { user } } = await this.client.auth.getUser();
     return user;
+  }
+
+  /**
+   * Get the current user's role/level from user_roles table
+   * @returns {Promise<{level: string, email: string}>}
+   */
+  async getUserRole() {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { data: { user } } = await this.client.auth.getUser();
+    if (!user) return null;
+
+    const { data, error } = await this.client
+      .from('user_roles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching user role:', error);
+      // If no role exists, create a default member role
+      return { level: 'member', email: user.email };
+    }
+
+    return data;
+  }
+
+  /**
+   * Update a user's role/level (directors only)
+   * @param {string} userId 
+   * @param {string} newLevel - 'member', 'leader', or 'director'
+   */
+  async updateUserRole(userId, newLevel) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { data, error } = await this.client
+      .from('user_roles')
+      .update({ level: newLevel })
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  /**
+   * Get all users and their roles (directors only)
+   */
+  async getAllUserRoles() {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { data, error } = await this.client
+      .from('user_roles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  /**
+   * Request a password reset email
+   * @param {string} email 
+   */
+  async resetPassword(email) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { error } = await this.client.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`
+    });
+
+    if (error) throw error;
+  }
+
+  /**
+   * Update user password (when they have a reset token)
+   * @param {string} newPassword 
+   */
+  async updatePassword(newPassword) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { data, error } = await this.client.auth.updateUser({
+      password: newPassword
+    });
+
+    if (error) throw error;
+    return data;
+  }
+
+  /**
+   * Verify OTP code for email confirmation
+   * @param {string} email 
+   * @param {string} token - 6-digit OTP code
+   */
+  async verifyOTP(email, token) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { data, error } = await this.client.auth.verifyOtp({
+      email,
+      token,
+      type: 'email'
+    });
+
+    if (error) throw error;
+    return data;
+  }
+
+  /**
+   * Resend confirmation email
+   * @param {string} email 
+   */
+  async resendConfirmationEmail(email) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { error } = await this.client.auth.resend({
+      type: 'signup',
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/confirm-email`
+      }
+    });
+
+    if (error) throw error;
+  }
+
+  /**
+   * Listen to auth state changes
+   * @param {Function} callback - Called with (event, session)
+   */
+  onAuthStateChange(callback) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    return this.client.auth.onAuthStateChange(callback);
+  }
+
+  /**
+   * Get current session
+   */
+  async getSession() {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { data: { session } } = await this.client.auth.getSession();
+    return session;
   }
 }
 

@@ -11,7 +11,7 @@ const Admin = () => {
 
   useEffect(() => {
     // Check if user is already authenticated
-    const checkAuth = () => {
+    const checkAuth = async () => {
       const authenticated = authService.isAuthenticated();
       setIsAuthenticated(authenticated);
       setIsLoading(false);
@@ -24,10 +24,17 @@ const Admin = () => {
     setIsAuthenticated(true);
   };
 
-  const handleLogout = () => {
-    authService.logout();
-    setIsAuthenticated(false);
-    navigate('/'); // Redirect to home page after logout
+  const handleLogout = async () => {
+    try {
+      await authService.signOut();
+      setIsAuthenticated(false);
+      navigate('/'); // Redirect to home page after logout
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Still log out locally even if API call fails
+      setIsAuthenticated(false);
+      navigate('/');
+    }
   };
 
   if (isLoading) {

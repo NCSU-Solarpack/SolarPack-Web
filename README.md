@@ -6,6 +6,7 @@ A modern web application for the NC State SolarPack team, providing public infor
 
 ## Table of Contents
 - [Project Overview](#project-overview)
+- [Authentication](#authentication)
 - [Pages](#pages)
 - [Components](#components)
 - [Admin Components](#admin-components)
@@ -22,6 +23,49 @@ SolarPack-Web is the official website and management portal for the NC State Sol
 - Public-facing pages for team info, blogs, sponsors, and donations
 - Admin tools for managing alumni, blogs, orders, schedules, sponsors, and team members
 - Real-time data integration with Supabase
+- **Secure authentication with Supabase Auth** (email/password, verification, password reset)
+
+---
+
+## Authentication
+
+### 🔐 Supabase Authentication System
+
+The application uses **Supabase Authentication** for secure user management with role-based access control.
+
+#### User Roles
+- **Member** (Default): View-only access to most content
+- **Leader**: Can edit schedules, team, sponsors, alumni, and submit orders
+- **Director**: Full administrative access, can manage users and approve orders
+
+#### Features
+- ✅ Email/password sign up and sign in
+- ✅ Email verification with OTP codes
+- ✅ Forgot password / password reset
+- ✅ Secure session management with auto-refresh
+- ✅ Role-based permissions
+- ✅ Protected admin routes
+
+#### Quick Setup
+1. **Configure Supabase** (see [SUPABASE_AUTH_SETUP.md](./SUPABASE_AUTH_SETUP.md))
+2. **Set environment variables** in `.env`:
+   ```env
+   VITE_SUPABASE_URL=https://xxxxx.supabase.co
+   VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+   ```
+3. **Run database schema**: Execute `supabase-user-roles-schema.sql` in Supabase SQL Editor
+4. **Create first director**: Sign up through UI, then promote via SQL:
+   ```sql
+   UPDATE user_roles SET level = 'director' WHERE email = 'your@email.com';
+   ```
+
+#### Auth Components
+- `Login.jsx` - Email/password login with sign up toggle
+- `ConfirmEmail.jsx` - Email verification with OTP
+- `ForgotPassword.jsx` - Password reset request
+- `ResetPassword.jsx` - Set new password
+
+📚 **Full Documentation**: See [SUPABASE_AUTH_SETUP.md](./SUPABASE_AUTH_SETUP.md) for complete setup guide
 
 ---
 

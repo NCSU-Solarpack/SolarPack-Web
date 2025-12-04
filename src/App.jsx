@@ -11,6 +11,9 @@ import Sponsors from './pages/Sponsors'
 import Team from './pages/Team'
 import NotFound from './pages/NotFound'
 import Admin from './components/Admin'
+import ConfirmEmail from './components/ConfirmEmail'
+import ForgotPassword from './components/ForgotPassword'
+import ResetPassword from './components/ResetPassword'
 import { AlertProvider } from './contexts/AlertContext'
 
 //App Router with Layout wrapping regular pages and Admin page without layout
@@ -18,8 +21,11 @@ function AppRouter() {
   return (
     <AlertProvider>
       <Routes>
-      {/* Admin route without layout */}
+      {/* Auth routes without layout */}
       <Route path="/admin" element={<Admin />} />
+      <Route path="/confirm-email" element={<ConfirmEmail />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       
       {/* Regular routes with layout */}
       <Route path="/*" element={
