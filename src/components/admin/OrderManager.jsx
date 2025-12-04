@@ -38,6 +38,10 @@ const OrderManager = forwardRef((props, ref) => {
     purchaseOrderNumber: '',
     trackingNumber: ''
   });
+  // Multi-product purchase state
+  const [isMultiProductPurchase, setIsMultiProductPurchase] = useState(false);
+  const [selectedAdditionalOrders, setSelectedAdditionalOrders] = useState([]);
+  const [individualDeliveryDates, setIndividualDeliveryDates] = useState({});
   // Toggle for Purchase Order info tooltip
   const [showPoInfo, setShowPoInfo] = useState(false);
   // Receipt drag & drop state (PDF only)
@@ -152,18 +156,83 @@ const OrderManager = forwardRef((props, ref) => {
       const zip = new JSZip();
       const ordersFolder = zip.folder('order-packages');
       
+      // Build purchase group map so we can bundle group members into the primary order's folder
+      const purchaseGroups = {};
+      ordersInRange.forEach(o => {
+        const gid = o.purchaseStatus?.purchaseGroupId;
+        if (gid) {
+          if (!purchaseGroups[gid]) purchaseGroups[gid] = [];
+          purchaseGroups[gid].push(o);
+        }
+      });
+
       let processedCount = 0;
       const errors = [];
+      
+      // Track processed purchase groups to avoid duplicate receipts
+      const processedPurchaseGroups = new Set();
 
       // Process each order
       for (const order of ordersInRange) {
         try {
-          // Generate order details PDF
+          // If this order belongs to a purchase group and we're creating complete packages,
+          // only process the primary order and include all group members inside that folder.
+          const groupId = order.purchaseStatus?.purchaseGroupId;
+          if (downloadOption === 'all' && groupId) {
+            // Only the primary order should create the group folder
+            if (!order.purchaseStatus.purchaseGroupPrimary) {
+              continue;
+            }
+
+            // Avoid duplicate processing of the same group
+            if (processedPurchaseGroups.has(groupId)) {
+              continue;
+            }
+            processedPurchaseGroups.add(groupId);
+
+            const groupOrders = purchaseGroups[groupId] || [order];
+            // Use the primary order id for the folder name (keeps previous naming scheme)
+            const groupFolder = ordersFolder.folder(`order_${order.id}`);
+
+            // Add order details for every member in the group
+            for (const member of groupOrders) {
+              try {
+                const memberPdf = await generateOrderDetailsPDF(member);
+                const memberPdfBlob = memberPdf.output('blob');
+                groupFolder.file(`order_details_${member.id}.pdf`, memberPdfBlob);
+                processedCount++;
+              } catch (memberErr) {
+                console.warn(`Failed to generate details PDF for order ${member.id}:`, memberErr);
+                errors.push(`Order ${member.id}: Could not generate details PDF`);
+              }
+            }
+
+            // Try to include the shared group receipt (prefer purchaseGroupReceiptFile)
+            const receiptUrl = order.purchaseStatus.purchaseGroupReceiptFile || order.documentation?.receiptInvoice?.fileName;
+            if (receiptUrl) {
+              try {
+                const receiptFileName = supabaseService.getFileNameFromStorageUrl(receiptUrl);
+                if (receiptFileName) {
+                  const receiptBlob = await supabaseService.downloadFileFromStorage('order-receipts', receiptFileName);
+                  // Use primary order ID for receipt filename (groupId is now the primary order's ID)
+                  groupFolder.file(`receipt_${order.id}.pdf`, receiptBlob);
+                  processedCount++;
+                } else {
+                  errors.push(`Order ${order.id}: Could not extract receipt filename`);
+                }
+              } catch (receiptErr) {
+                console.warn(`Could not download group receipt for order ${order.id}:`, receiptErr);
+                errors.push(`Order ${order.id}: Receipt unavailable - included order details only`);
+              }
+            }
+
+            // Done with this group
+            continue;
+          }
+
+          // Non-group or single orders: generate order details and optionally include receipt
           const orderPdf = await generateOrderDetailsPDF(order);
           
-          let finalPdfBlob;
-          let fileName;
-
           if (downloadOption === 'all') {
             // For complete package, try to include receipt if available
             const receiptInfo = order.documentation?.receiptInvoice;
@@ -174,8 +243,7 @@ const OrderManager = forwardRef((props, ref) => {
                 if (receiptFileName) {
                   const receiptBlob = await supabaseService.downloadFileFromStorage('order-receipts', receiptFileName);
                   
-                  // For now, we'll include both files separately since merging is complex
-                  // In production, you'd merge them using a PDF library
+                  // Include both files separately since merging is complex
                   const orderPdfBlob = orderPdf.output('blob');
                   
                   // Create a folder for this order
@@ -200,11 +268,20 @@ const OrderManager = forwardRef((props, ref) => {
               processedCount++;
             }
           } else {
-            // Receipts only option (existing functionality)
+            // Receipts only option
             const receiptInfo = order.documentation?.receiptInvoice;
             if (!receiptInfo?.fileName) {
               console.warn(`Order ${order.id} has no receipt file`);
               continue;
+            }
+
+            // Skip if this is part of a purchase group and we've already processed it
+            if (order.purchaseStatus?.purchaseGroupId) {
+              if (processedPurchaseGroups.has(order.purchaseStatus.purchaseGroupId)) {
+                console.log(`Skipping duplicate receipt for purchase group ${order.purchaseStatus.purchaseGroupId}`);
+                continue;
+              }
+              processedPurchaseGroups.add(order.purchaseStatus.purchaseGroupId);
             }
 
             const fileName = supabaseService.getFileNameFromStorageUrl(receiptInfo.fileName);
@@ -213,13 +290,16 @@ const OrderManager = forwardRef((props, ref) => {
               continue;
             }
 
-            const safeMaterialName = (order.materialDetails?.materialName || 'material')
-              .replace(/[^a-z0-9]/gi, '_')
-              .toLowerCase()
-              .substring(0, 50);
+            // Use order ID for consistent naming (works for both single and purchase groups)
+            const namePrefix = order.purchaseStatus?.purchaseGroupId 
+              ? `order_${order.purchaseStatus.purchaseGroupId}`
+              : `order_${order.id}_${(order.materialDetails?.materialName || 'material')
+                  .replace(/[^a-z0-9]/gi, '_')
+                  .toLowerCase()
+                  .substring(0, 50)}`;
             
             const fileExtension = fileName.includes('.') ? fileName.split('.').pop() : 'pdf';
-            const meaningfulFileName = `order_${order.id}_${safeMaterialName}.${fileExtension}`;
+            const meaningfulFileName = `${namePrefix}.${fileExtension}`;
 
             const fileBlob = await supabaseService.downloadFileFromStorage('order-receipts', fileName);
             ordersFolder.file(meaningfulFileName, fileBlob);
@@ -711,7 +791,7 @@ const OrderManager = forwardRef((props, ref) => {
           if (sponsorshipStatus === 'successful') {
             // Obtained for free - skip purchase approval entirely
             updatedOrder.status = 'approved';
-            updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval.status = 'not_required';
+            updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval.status = 'approved';
             updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval.comments = 'Material obtained through sponsorship - no purchase needed';
           } else if (sponsorshipStatus === 'failed' || sponsorshipStatus === 'not_applicable') {
             // Need to purchase - require purchase approval
@@ -744,7 +824,7 @@ const OrderManager = forwardRef((props, ref) => {
         // Update purchase approval status based on sponsorship search status
         if (statusUpdate.searchStatus === 'successful') {
           // Sponsorship successful - obtained for free, no purchase approval needed
-          updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval.status = 'not_required';
+          updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval.status = 'approved';
           updatedOrder.approvalWorkflow.projectDirectorPurchaseApproval.comments = 'Obtained through sponsorship - no purchase needed';
           // Don't auto-change the order status - let tech director approve normally
           // The status will be set when they click approve/deny
@@ -768,6 +848,9 @@ const OrderManager = forwardRef((props, ref) => {
           purchased: true,
           purchaseDate: now,
           purchaseOrderNumber: statusUpdate.purchaseOrderNumber || '',
+          purchaseGroupId: statusUpdate.purchaseGroupId || null,
+          purchaseGroupPrimary: statusUpdate.purchaseGroupPrimary || false,
+          purchaseGroupReceiptFile: statusUpdate.purchaseGroupReceiptFile || null,
           actualCost: statusUpdate.actualCost || updatedOrder.costBreakdown.totalCost,
           purchasedBy: statusUpdate.purchasedBy || ''
         };
@@ -1104,39 +1187,74 @@ const OrderManager = forwardRef((props, ref) => {
 
   // Accept optional receiptInfo so we can merge receipt metadata when marking as purchased
   const handlePurchaseSubmit = async (opts = {}) => {
-    if (!purchaseFormData.expectedDeliveryDate) {
+    if (!purchaseFormData.expectedDeliveryDate && !isMultiProductPurchase) {
       await showError('Please enter an expected delivery date', 'Required Field');
       return;
     }
 
-    // Build the purchase payload
-    const purchasePayload = {
-      type: 'purchase',
-      purchaseOrderNumber: purchaseFormData.purchaseOrderNumber || `PO-${Date.now()}`,
-      actualCost: purchasingOrder.costBreakdown.totalCost,
-      purchasedBy: authService.currentUser?.level || 'director',
-      expectedDeliveryDate: purchaseFormData.expectedDeliveryDate,
-      deliveryNotes: purchaseFormData.deliveryNotes,
-      trackingNumber: purchaseFormData.trackingNumber
-    };
-
-    // If the caller included receipt metadata from the storage upload, include it so
-    // updateOrderStatus will merge and persist the documentation.receiptInvoice fields.
-    if (opts.receiptInfo) {
-      purchasePayload.receiptInfo = opts.receiptInfo;
+    // For multi-product purchases, validate individual delivery dates
+    if (isMultiProductPurchase) {
+      const allOrderIds = [purchasingOrder.id, ...selectedAdditionalOrders.map(o => o.id)];
+      const missingDates = allOrderIds.filter(id => !individualDeliveryDates[id]);
+      if (missingDates.length > 0) {
+        await showError('Please set an expected delivery date for each product', 'Required Field');
+        return;
+      }
     }
 
-    await updateOrderStatus(purchasingOrder.id, purchasePayload);
+    if (isMultiProductPurchase) {
+      // Multi-product purchase logic
+      // Use the primary order's ID as the purchase group ID for consistency
+      const purchaseGroupId = purchasingOrder.id;
+      const allOrders = [purchasingOrder, ...selectedAdditionalOrders];
+      const allOrderIds = allOrders.map(o => o.id);
 
-    // Reset and close modal
-    setShowPurchaseModal(false);
-    setPurchasingOrder(null);
-    setPurchaseFormData({
-      expectedDeliveryDate: '',
-      deliveryNotes: '',
-      purchaseOrderNumber: '',
-      trackingNumber: ''
-    });
+      // Update all orders with purchase group info and individual delivery dates
+      const updatePromises = allOrders.map(order => {
+        const purchasePayload = {
+          type: 'purchase',
+          purchaseOrderNumber: purchaseGroupId,
+          purchaseGroupId: purchaseGroupId,
+          purchaseGroupPrimary: order.id === purchasingOrder.id,
+          actualCost: order.costBreakdown.totalCost,
+          purchasedBy: authService.currentUser?.level || 'director',
+          expectedDeliveryDate: individualDeliveryDates[order.id],
+          deliveryNotes: purchaseFormData.deliveryNotes,
+          trackingNumber: purchaseFormData.trackingNumber
+        };
+
+        // Only the primary order gets the receiptInfo
+        if (order.id === purchasingOrder.id && opts.receiptInfo) {
+          purchasePayload.receiptInfo = opts.receiptInfo;
+          purchasePayload.purchaseGroupReceiptFile = opts.receiptInfo.fileName;
+        }
+
+        return updateOrderStatus(order.id, purchasePayload);
+      });
+
+      await Promise.all(updatePromises);
+    } else {
+      // Single product purchase logic (existing)
+      const purchasePayload = {
+        type: 'purchase',
+        purchaseOrderNumber: purchaseFormData.purchaseOrderNumber || `PO-${Date.now()}`,
+        actualCost: purchasingOrder.costBreakdown.totalCost,
+        purchasedBy: authService.currentUser?.level || 'director',
+        expectedDeliveryDate: purchaseFormData.expectedDeliveryDate,
+        deliveryNotes: purchaseFormData.deliveryNotes,
+        trackingNumber: purchaseFormData.trackingNumber
+      };
+
+      // If the caller included receipt metadata from the storage upload, include it so
+      // updateOrderStatus will merge and persist the documentation.receiptInvoice fields.
+      if (opts.receiptInfo) {
+        purchasePayload.receiptInfo = opts.receiptInfo;
+      }
+
+      await updateOrderStatus(purchasingOrder.id, purchasePayload);
+    }
+
+    // Note: Modal closing is now handled in the form submit handler after success message
   };
 
   const canApprove = authService.hasPermission('approve_orders');
@@ -1196,12 +1314,8 @@ const OrderManager = forwardRef((props, ref) => {
       case 'pending_project_approval': return '#f59e0b'; // Same amber for consistency
       case 'approved': return '#10b981'; // Emerald green for approved
       case 'shipped': return '#3b82f6'; // Clean blue for shipped
-      case 'purchased': return '#3b82f6'; // Same as shipped
       case 'delivered': return '#059669'; // Darker green for completion
-      case 'completed': return '#059669'; // Darker green for completion
       case 'denied': return '#ef4444'; // Clean red for denied
-      case 'cancelled': return '#6b7280'; // Gray for cancelled
-      case 'returned': return '#6b7280'; // Gray for returned
       // Legacy statuses (kept for backward compatibility during migration)
       case 'pending_approval': return '#f59e0b';
       case 'awaiting_sponsorship': return '#8b5cf6';
@@ -1216,19 +1330,15 @@ const OrderManager = forwardRef((props, ref) => {
     switch (status) {
       case 'pending_technical_approval': return 'Pending Tech Director Approval';
       case 'pending_project_approval': return 'Pending Purchase Approval';
-      case 'approved': return 'Approved - Ready to Purchase';
+      case 'approved': return 'Approved';
       case 'shipped': return 'In Transit';
-      case 'purchased': return 'Purchased';
       case 'delivered': return 'Delivered';
-      case 'completed': return 'Completed';
       case 'denied': return 'Denied';
-      case 'cancelled': return 'Cancelled';
-      case 'returned': return 'Returned';
       // Legacy statuses (kept for backward compatibility during migration)
       case 'pending_approval': return 'Pending Approval';
       case 'awaiting_sponsorship': return 'Awaiting Sponsorship Search';
       case 'pending_purchase_approval': return 'Pending Purchase Approval';
-      case 'approved_for_purchase': return 'Approved - Ready to Purchase';
+      case 'approved_for_purchase': return 'Approved';
       case 'in_transit': return 'In Transit';
       default: return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     }
@@ -1777,26 +1887,94 @@ const OrderManager = forwardRef((props, ref) => {
                 <div className="detail-header">
                   <h4>Purchase Information</h4>
 
-                  {isDirectorLevel && order.documentation?.receiptInvoice?.uploaded && order.documentation?.receiptInvoice?.fileName && (
-                    <button
-                      className="receipt-icon-button"
-                      title="Download receipt"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const fileUrl = order.documentation.receiptInvoice.fileName;
-                        const suggested = `order-${order.id}-receipt.pdf`;
-                        downloadReceipt(fileUrl, suggested);
-                      }}
-                      aria-label="Download receipt"
-                    >
-                      {/* Simple paper/receipt SVG icon */}
-                      <svg className="receipt-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 2v20l3-2 3 2 3-2 3 2 3-2V2z" />
-                        <path d="M7 7h10M7 11h6" />
-                      </svg>
-                    </button>
-                  )}
+                  {isDirectorLevel && (() => {
+                    // For multi-product purchases, check if any order in the group has a receipt
+                    const hasReceipt = order.purchaseStatus.purchaseGroupId
+                      ? orders.some(o => 
+                          o.purchaseStatus?.purchaseGroupId === order.purchaseStatus.purchaseGroupId && 
+                          o.documentation?.receiptInvoice?.uploaded && 
+                          o.documentation?.receiptInvoice?.fileName
+                        )
+                      : order.documentation?.receiptInvoice?.uploaded && order.documentation?.receiptInvoice?.fileName;
+                    
+                    return hasReceipt ? (
+                      <button
+                        className="receipt-icon-button"
+                        title="Download receipt"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Find the receipt from any order in the purchase group
+                          const receiptOrder = order.purchaseStatus.purchaseGroupId
+                            ? orders.find(o => 
+                                o.purchaseStatus?.purchaseGroupId === order.purchaseStatus.purchaseGroupId && 
+                                o.documentation?.receiptInvoice?.uploaded && 
+                                o.documentation?.receiptInvoice?.fileName
+                              )
+                            : order;
+                          
+                          const fileUrl = receiptOrder.documentation.receiptInvoice.fileName;
+                          const suggested = order.purchaseStatus.purchaseGroupId 
+                            ? `${order.purchaseStatus.purchaseGroupId}-receipt.pdf`
+                            : `order-${order.id}-receipt.pdf`;
+                          downloadReceipt(fileUrl, suggested);
+                        }}
+                        aria-label="Download receipt"
+                      >
+                        {/* Simple paper/receipt SVG icon */}
+                        <svg className="receipt-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 2v20l3-2 3 2 3-2 3 2 3-2V2z" />
+                          <path d="M7 7h10M7 11h6" />
+                        </svg>
+                      </button>
+                    ) : null;
+                  })()}
                 </div>
+
+                {order.purchaseStatus.purchaseGroupId && (
+                  <div className="multi-product-purchase-info">
+                    <div className="multi-product-header">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="2" width="9" height="9" rx="1" ry="1"></rect>
+                        <rect x="13" y="2" width="9" height="9" rx="1" ry="1"></rect>
+                        <rect x="2" y="13" width="9" height="9" rx="1" ry="1"></rect>
+                        <rect x="13" y="13" width="9" height="9" rx="1" ry="1"></rect>
+                      </svg>
+                      <strong>Multi-Product Purchase</strong>
+                    </div>
+                    <p className="multi-product-description">
+                      This order was purchased together with {
+                        orders.filter(o => 
+                          o.purchaseStatus?.purchaseGroupId === order.purchaseStatus.purchaseGroupId && 
+                          o.id !== order.id
+                        ).length
+                      } other product(s).
+                    </p>
+                    {order.purchaseStatus.purchaseGroupPrimary && (
+                      <div className="primary-order-badge">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
+                        <span>Primary order - Receipt stored under this purchase group</span>
+                      </div>
+                    )}
+                    <div className="multi-product-items">
+                      <strong>Other items in this purchase:</strong>
+                      <ul>
+                        {orders
+                          .filter(o => 
+                            o.purchaseStatus?.purchaseGroupId === order.purchaseStatus.purchaseGroupId && 
+                            o.id !== order.id
+                          )
+                          .map(groupOrder => (
+                            <li key={groupOrder.id}>
+                              <span className="item-name">{groupOrder.materialDetails.materialName}</span>
+                              <span className="item-cost">${groupOrder.costBreakdown.totalCost.toFixed(2)}</span>
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
 
                 <div className="detail-grid">
                   <div><strong>Purchase Date:</strong> {new Date(order.purchaseStatus.purchaseDate).toLocaleDateString()}</div>
@@ -2481,12 +2659,8 @@ const OrderManager = forwardRef((props, ref) => {
       {/* Summary Statistics */}
       <div className="stats-summary">
         <div className="stat-card">
-          <div className="stat-number">{filteredOrders.filter(o => o.status === 'pending_technical_approval' || o.status === 'pending_approval').length}</div>
-          <div className="stat-label">Pending Tech Approval</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-number">{filteredOrders.filter(o => o.status === 'pending_project_approval').length}</div>
-          <div className="stat-label">Pending Purchase Approval</div>
+          <div className="stat-number">{filteredOrders.filter(o => o.status === 'pending_technical_approval' || o.status === 'pending_project_approval' || o.status === 'pending_approval').length}</div>
+          <div className="stat-label">Pending Approval</div>
         </div>
         <div className="stat-card">
           <div className="stat-number">{filteredOrders.filter(o => o.status === 'approved').length}</div>
@@ -2516,14 +2690,10 @@ const OrderManager = forwardRef((props, ref) => {
             <option value="all">All Statuses</option>
             <option value="pending_technical_approval">Pending Tech Director Approval</option>
             <option value="pending_project_approval">Pending Purchase Approval</option>
-            <option value="approved">Approved - Ready to Purchase</option>
+            <option value="approved">Approved</option>
             <option value="shipped">Shipped</option>
-            <option value="purchased">Purchased</option>
             <option value="delivered">Delivered</option>
-            <option value="completed">Completed</option>
             <option value="denied">Denied</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="returned">Returned</option>
           </select>
         </div>
         
@@ -2695,10 +2865,15 @@ const OrderManager = forwardRef((props, ref) => {
       {/* Purchase Modal */}
       {showPurchaseModal && purchasingOrder && (
         <div className="modal-overlay" onClick={() => setShowPurchaseModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
+          <div className="modal-content purchase-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '800px' }}>
             <div className="modal-header">
               <h3>Mark Order as Purchased</h3>
-              <button className="modal-close" onClick={() => setShowPurchaseModal(false)}>×</button>
+              <button className="modal-close" onClick={() => {
+                setShowPurchaseModal(false);
+                setIsMultiProductPurchase(false);
+                setSelectedAdditionalOrders([]);
+                setIndividualDeliveryDates({});
+              }}>×</button>
             </div>
             
             <div className="modal-body">
@@ -2717,49 +2892,288 @@ const OrderManager = forwardRef((props, ref) => {
                 }
                 try {
                   const userEmail = authService.currentUser?.email || 'unknown';
-                  // Upload receipt and get the updated order object from DB (application format)
-                  const updatedOrderFromDB = await supabaseService.uploadOrderReceipt(
-                    purchaseFormData.receiptPdf,
-                    purchasingOrder.id,
-                    userEmail
-                  );
+                  
+                  if (isMultiProductPurchase) {
+                    // Multi-product purchase: upload receipt with parent order ID (purchasingOrder.id)
+                    const purchaseGroupId = purchasingOrder.id; // Use parent order ID
+                    const allOrders = [purchasingOrder, ...selectedAdditionalOrders];
+                    const allOrderIds = allOrders.map(o => o.id);
+                    
+                    // Upload receipt for the entire purchase group (will use first order ID as filename)
+                    const { publicUrl, updatedOrders } = await supabaseService.uploadPurchaseGroupReceipt(
+                      purchaseFormData.receiptPdf,
+                      purchaseGroupId,
+                      allOrderIds,
+                      userEmail
+                    );
 
-                  // Replace the local order with the DB truth returned from the service
-                  const updatedOrders = orders.map(o => o.id === purchasingOrder.id ? updatedOrderFromDB : o);
-                  setOrders(updatedOrders);
-                  setDisplayedData({ orders: updatedOrders });
+                    // Update local state with all updated orders
+                    const updatedOrdersMap = new Map(updatedOrders.map(o => [o.id, o]));
+                    const newOrders = orders.map(o => updatedOrdersMap.get(o.id) || o);
+                    setOrders(newOrders);
+                    setDisplayedData({ orders: newOrders });
 
-                  // Extract receipt metadata from the DB response and pass to purchase handler
-                  const receiptInvoice = updatedOrderFromDB?.documentation?.receiptInvoice || {};
-                  const receiptInfo = {
-                    fileName: receiptInvoice.fileName || '',
-                    uploadDate: receiptInvoice.uploadDate || new Date().toISOString(),
-                    uploadedBy: receiptInvoice.uploadedBy || userEmail
-                  };
+                    // Pass receipt info to purchase handler
+                    const receiptInfo = {
+                      fileName: publicUrl,
+                      uploadDate: new Date().toISOString(),
+                      uploadedBy: userEmail
+                    };
 
-                  // Continue with purchase logic (update order status, etc.) and wait for it to finish
-                  await handlePurchaseSubmit({ receiptInfo });
+                    // Close modal and reset state BEFORE calling handlePurchaseSubmit
+                    // This ensures modal closes before the success message appears
+                    setShowPurchaseModal(false);
+                    setPurchasingOrder(null);
+                    setIsMultiProductPurchase(false);
+                    setSelectedAdditionalOrders([]);
+                    setIndividualDeliveryDates({});
+                    setReceiptFile(null);
+                    setReceiptFileName(null);
+                    setPurchaseFormData({
+                      expectedDeliveryDate: '',
+                      deliveryNotes: '',
+                      purchaseOrderNumber: '',
+                      trackingNumber: ''
+                    });
+                    
+                    // Small delay to ensure React renders the modal closure before showing success
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    
+                    // Now handle the purchase status update (which will show success message)
+                    await handlePurchaseSubmit({ receiptInfo });
+                  } else {
+                    // Single product purchase: upload receipt with order ID
+                    const updatedOrderFromDB = await supabaseService.uploadOrderReceipt(
+                      purchaseFormData.receiptPdf,
+                      purchasingOrder.id,
+                      userEmail
+                    );
+
+                    // Replace the local order with the DB truth returned from the service
+                    const updatedOrders = orders.map(o => o.id === purchasingOrder.id ? updatedOrderFromDB : o);
+                    setOrders(updatedOrders);
+                    setDisplayedData({ orders: updatedOrders });
+
+                    // Extract receipt metadata from the DB response and pass to purchase handler
+                    const receiptInvoice = updatedOrderFromDB?.documentation?.receiptInvoice || {};
+                    const receiptInfo = {
+                      fileName: receiptInvoice.fileName || '',
+                      uploadDate: receiptInvoice.uploadDate || new Date().toISOString(),
+                      uploadedBy: receiptInvoice.uploadedBy || userEmail
+                    };
+
+                    // Close modal and reset state BEFORE calling handlePurchaseSubmit
+                    // This ensures modal closes before the success message appears
+                    setShowPurchaseModal(false);
+                    setPurchasingOrder(null);
+                    setIsMultiProductPurchase(false);
+                    setSelectedAdditionalOrders([]);
+                    setIndividualDeliveryDates({});
+                    setReceiptFile(null);
+                    setReceiptFileName(null);
+                    setPurchaseFormData({
+                      expectedDeliveryDate: '',
+                      deliveryNotes: '',
+                      purchaseOrderNumber: '',
+                      trackingNumber: ''
+                    });
+                    
+                    // Small delay to ensure React renders the modal closure before showing success
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    
+                    // Now handle the purchase status update (which will show success message)
+                    await handlePurchaseSubmit({ receiptInfo });
+                  }
                 } catch (err) {
                   alert('Failed to upload receipt: ' + err.message);
                 }
               }}>
                 <div className="form-section">
+                  <h4>Purchase Type</h4>
+                  
+                  <div className="purchase-type-options">
+                    <div 
+                      className={`purchase-type-card ${!isMultiProductPurchase ? 'selected' : ''}`}
+                      onClick={() => {
+                        setIsMultiProductPurchase(false);
+                        setSelectedAdditionalOrders([]);
+                        setIndividualDeliveryDates({});
+                      }}
+                    >
+                      <div className="type-option-header">
+                        <div className="type-option-icon">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="9" y1="9" x2="15" y2="9"></line>
+                            <line x1="9" y1="12" x2="15" y2="12"></line>
+                            <line x1="9" y1="15" x2="15" y2="15"></line>
+                          </svg>
+                        </div>
+                        <div className="type-option-radio">
+                          <div className="radio-outer">
+                            {!isMultiProductPurchase && <div className="radio-inner"></div>}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="type-option-content">
+                        <h5>Single Item</h5>
+                        <p>Purchase only this current item</p>
+                      </div>
+                    </div>
+
+                    <div 
+                      className={`purchase-type-card ${isMultiProductPurchase ? 'selected' : ''}`}
+                      onClick={() => setIsMultiProductPurchase(true)}
+                    >
+                      <div className="type-option-header">
+                        <div className="type-option-icon">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="2" y="2" width="9" height="9" rx="1" ry="1"></rect>
+                            <rect x="13" y="2" width="9" height="9" rx="1" ry="1"></rect>
+                            <rect x="2" y="13" width="9" height="9" rx="1" ry="1"></rect>
+                            <rect x="13" y="13" width="9" height="9" rx="1" ry="1"></rect>
+                          </svg>
+                        </div>
+                        <div className="type-option-radio">
+                          <div className="radio-outer">
+                            {isMultiProductPurchase && <div className="radio-inner"></div>}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="type-option-content">
+                        <h5>Multi-Product Order</h5>
+                        <p>Purchase multiple approved items together</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {isMultiProductPurchase && (
+                    <p style={{ fontSize: '0.9rem', color: 'var(--subtxt)', marginTop: '1rem', padding: '0.75rem', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '6px', borderLeft: '3px solid #3b82f6' }}>
+                      Select additional approved orders that were purchased together with this one. You'll upload <strong>one receipt</strong> for all items.
+                    </p>
+                  )}
+
+                  {isMultiProductPurchase && (
+                    <div className="additional-orders-section">
+                      <label className="additional-orders-label">Select Additional Orders to Purchase Together:</label>
+                      <div className="additional-orders-container">
+                        {orders.filter(o => 
+                          o.id !== purchasingOrder.id && 
+                          o.status === 'approved' &&
+                          o.approvalWorkflow?.projectDirectorPurchaseApproval?.status === 'approved'
+                        ).length === 0 ? (
+                          <div className="no-additional-orders">
+                            <p>No other approved orders available for multi-purchase.</p>
+                          </div>
+                        ) : (
+                          <div className="additional-orders-list">
+                            {orders
+                              .filter(o => 
+                                o.id !== purchasingOrder.id && 
+                                o.status === 'approved' &&
+                                o.approvalWorkflow?.projectDirectorPurchaseApproval?.status === 'approved'
+                              )
+                              .map(order => (
+                                <div 
+                                  key={order.id} 
+                                  className={`additional-order-item ${selectedAdditionalOrders.find(o => o.id === order.id) ? 'selected' : ''}`}
+                                  onClick={() => {
+                                    if (selectedAdditionalOrders.find(o => o.id === order.id)) {
+                                      setSelectedAdditionalOrders(selectedAdditionalOrders.filter(o => o.id !== order.id));
+                                      const newDates = { ...individualDeliveryDates };
+                                      delete newDates[order.id];
+                                      setIndividualDeliveryDates(newDates);
+                                    } else {
+                                      setSelectedAdditionalOrders([...selectedAdditionalOrders, order]);
+                                    }
+                                  }}
+                                >
+                                  <div className="order-item-checkbox">
+                                    <div className="checkbox-outer">
+                                      {selectedAdditionalOrders.find(o => o.id === order.id) && (
+                                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                          <path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                        </svg>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="order-item-content">
+                                    <div className="order-item-name">
+                                      {order.materialDetails?.materialName || 'Unnamed Item'}
+                                    </div>
+                                    <div className="order-item-meta">
+                                      <span className="order-item-cost">${order.costBreakdown?.totalCost?.toFixed(2) || '0.00'}</span>
+                                      <span className="order-item-separator">•</span>
+                                      <span className="order-item-team">{order.submissionDetails?.subteam}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                      {selectedAdditionalOrders.length > 0 && (
+                        <div style={{ 
+                          marginTop: '1rem', 
+                          padding: '0.75rem', 
+                          background: 'rgba(16, 185, 129, 0.08)', 
+                          border: '1px solid rgba(16, 185, 129, 0.3)', 
+                          borderRadius: '6px',
+                          color: 'var(--text)'
+                        }}>
+                          <strong style={{ color: '#10b981' }}>{selectedAdditionalOrders.length}</strong> additional order(s) selected • 
+                          <strong style={{ color: '#10b981', marginLeft: '0.5rem' }}>
+                            Total: ${(purchasingOrder.costBreakdown.totalCost + 
+                              selectedAdditionalOrders.reduce((sum, o) => sum + o.costBreakdown.totalCost, 0)).toFixed(2)}
+                          </strong>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-section">
                   <h4>Delivery Information</h4>
                   
-                  <div className="form-group">
-                    <label>Expected Delivery Date *</label>
-                    <input 
-                      type="date"
-                      value={purchaseFormData.expectedDeliveryDate}
-                      onChange={(e) => setPurchaseFormData({
-                        ...purchaseFormData,
-                        expectedDeliveryDate: e.target.value
-                      })}
-                      required
-                      min={new Date().toISOString().split('T')[0]}
-                    />
-                  </div>
+                  {isMultiProductPurchase ? (
+                    <>
+                      <p style={{ fontSize: '0.9rem', color: 'var(--muted)', marginBottom: '12px' }}>
+                        Set expected delivery date for each product:
+                      </p>
+                      {[purchasingOrder, ...selectedAdditionalOrders].map(order => (
+                        <div key={order.id} className="form-group">
+                          <label>{order.materialDetails.materialName} *</label>
+                          <input 
+                            type="date"
+                            value={individualDeliveryDates[order.id] || ''}
+                            onChange={(e) => setIndividualDeliveryDates({
+                              ...individualDeliveryDates,
+                              [order.id]: e.target.value
+                            })}
+                            required
+                            min={new Date().toISOString().split('T')[0]}
+                          />
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <div className="form-group">
+                      <label>Expected Delivery Date *</label>
+                      <input 
+                        type="date"
+                        value={purchaseFormData.expectedDeliveryDate}
+                        onChange={(e) => setPurchaseFormData({
+                          ...purchaseFormData,
+                          expectedDeliveryDate: e.target.value
+                        })}
+                        required
+                        min={new Date().toISOString().split('T')[0]}
+                      />
+                    </div>
+                  )}
+                </div>
 
+                <div className="form-section">
                   <div className="form-group">
                     <label>Delivery Notes</label>
                     <textarea 
@@ -2827,6 +3241,22 @@ const OrderManager = forwardRef((props, ref) => {
 
                     <div className="form-group">
                       <label>Receipt PDF *</label>
+                      {isMultiProductPurchase && selectedAdditionalOrders.length > 0 && (
+                        <div className="multi-product-receipt-warning info">
+                          <div className="info-icon" aria-hidden>
+                            <svg width="36" height="36" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="info">
+                              <g fill="none" fillRule="evenodd">
+                                <circle cx="12" cy="12" r="10" fill="#fff" opacity="0" />
+                                  <path d="M12 7.5a1 1 0 100 2 1 1 0 000-2zm-.75 4.25h1.5v4.5h-1.5z" fill="currentColor" transform="translate(0 0)" />
+                              </g>
+                            </svg>
+                          </div>
+                          <div className="info-content">
+                            <strong>Single Receipt for All Items</strong>
+                            <p>Upload ONE receipt that covers all {1 + selectedAdditionalOrders.length} products in this purchase. This receipt will be shared across all selected orders.</p>
+                          </div>
+                        </div>
+                      )}
                       <div
                         className={`image-upload-area ${receiptFile ? 'has-image' : ''}`}
                         onDrop={handleReceiptDrop}
@@ -2884,9 +3314,6 @@ const OrderManager = forwardRef((props, ref) => {
                           style={{ display: 'none' }}
                         />
                       </div>
-                      {receiptFile && (
-                        <p className="upload-status">Ready to upload: {receiptFileName}</p>
-                      )}
                     </div>
                 </div>
 

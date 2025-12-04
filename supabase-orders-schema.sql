@@ -1,149 +1,171 @@
--- Orders table schema for SolarPack team order management system
--- This table tracks material orders from submission through delivery
-
-CREATE TABLE public.orders (
-  id bigserial NOT NULL,
-  submission_timestamp timestamp with time zone NULL DEFAULT now(),
-  subteam text NULL,
-  submitter_name text NULL,
-  submitter_email text NULL,
-  created_by text NULL,
-  material_name text NOT NULL,
-  specifications text NULL,
-  material_link text NULL,
-  supplier text NULL,
-  supplier_contact text NULL,
-  unit_price numeric(10, 2) NULL,
-  quantity integer NULL DEFAULT 1,
-  subtotal numeric(10, 2) NULL,
-  shipping_cost numeric(10, 2) NULL DEFAULT 0,
-  taxes numeric(10, 2) NULL DEFAULT 0,
-  fees numeric(10, 2) NULL DEFAULT 0,
-  total_cost numeric(10, 2) NULL,
-  purpose text NULL,
-  priority text NULL DEFAULT 'medium'::text,
-  urgency text NULL DEFAULT 'flexible'::text,
-  needed_by_date timestamp with time zone NULL,
-  tech_approval_status text NULL DEFAULT 'pending'::text,
-  tech_approved_by text NULL,
-  tech_approval_date timestamp with time zone NULL,
-  tech_comments text NULL,
-  tech_denial_reason text NULL,
-  project_approval_status text NULL DEFAULT 'pending'::text,
-  project_approved_by text NULL,
-  project_approval_date timestamp with time zone NULL,
-  project_comments text NULL,
-  project_denial_reason text NULL,
-  can_be_sponsored boolean NULL DEFAULT false,
-  sponsor_contact_name text NULL,
-  sponsor_contact_email text NULL,
-  sponsor_company text NULL,
-  sponsorship_requested boolean NULL DEFAULT false,
-  sponsorship_request_date timestamp with time zone NULL,
-  sponsorship_successful boolean NULL DEFAULT false,
-  sponsorship_response text NULL,
-  sponsorship_response_date timestamp with time zone NULL,
-  sponsorship_search_status text NULL DEFAULT 'not_started'::text,
-  purchased boolean NULL DEFAULT false,
-  purchase_date timestamp with time zone NULL,
-  purchase_order_number text NULL,
-  actual_cost numeric(10, 2) NULL,
-  purchased_by text NULL,
-  expected_arrival_date timestamp with time zone NULL,
-  actual_arrival_date timestamp with time zone NULL,
-  delivered_to_subteam boolean NULL DEFAULT false,
-  delivery_confirmed_by text NULL,
-  delivery_notes text NULL,
-  tracking_number text NULL,
-  receipt_uploaded boolean NULL DEFAULT false,
-  receipt_file_name text NULL,
-  receipt_upload_date timestamp with time zone NULL,
-  receipt_uploaded_by text NULL,
-  additional_documents jsonb NULL DEFAULT '[]'::jsonb,
-  returned boolean NULL DEFAULT false,
-  return_date timestamp with time zone NULL,
-  return_reason text NULL,
-  return_authorized_by text NULL,
-  refund_amount numeric(10, 2) NULL,
-  refund_processed boolean NULL DEFAULT false,
-  status text NULL DEFAULT 'pending_technical_approval'::text,
-  last_updated timestamp with time zone NULL DEFAULT now(),
-  created_at timestamp with time zone NULL DEFAULT now(),
-  updated_at timestamp with time zone NULL DEFAULT now(),
-  CONSTRAINT orders_pkey PRIMARY KEY (id)
+create table public.orders (
+  id bigserial not null,
+  submission_timestamp timestamp with time zone null default now(),
+  subteam text null,
+  submitter_name text null,
+  submitter_email text null,
+  created_by text null,
+  material_name text not null,
+  specifications text null,
+  material_link text null,
+  supplier text null,
+  supplier_contact text null,
+  unit_price numeric(10, 2) null,
+  quantity integer null default 1,
+  subtotal numeric(10, 2) null,
+  shipping_cost numeric(10, 2) null default 0,
+  taxes numeric(10, 2) null default 0,
+  fees numeric(10, 2) null default 0,
+  total_cost numeric(10, 2) null,
+  purpose text null,
+  priority text null default 'medium'::text,
+  urgency text null default 'flexible'::text,
+  needed_by_date timestamp with time zone null,
+  tech_approval_status text null default 'pending'::text,
+  tech_approved_by text null,
+  tech_approval_date timestamp with time zone null,
+  tech_comments text null,
+  tech_denial_reason text null,
+  project_approval_status text null default 'pending'::text,
+  project_approved_by text null,
+  project_approval_date timestamp with time zone null,
+  project_comments text null,
+  project_denial_reason text null,
+  can_be_sponsored boolean null default false,
+  sponsor_contact_name text null,
+  sponsor_contact_email text null,
+  sponsor_company text null,
+  sponsorship_requested boolean null default false,
+  sponsorship_request_date timestamp with time zone null,
+  sponsorship_successful boolean null default false,
+  sponsorship_response text null,
+  sponsorship_response_date timestamp with time zone null,
+  sponsorship_search_status text null default 'not_started'::text,
+  purchased boolean null default false,
+  purchase_date timestamp with time zone null,
+  purchase_order_number text null,
+  actual_cost numeric(10, 2) null,
+  purchased_by text null,
+  expected_arrival_date timestamp with time zone null,
+  actual_arrival_date timestamp with time zone null,
+  delivered_to_subteam boolean null default false,
+  delivery_confirmed_by text null,
+  delivery_notes text null,
+  tracking_number text null,
+  receipt_uploaded boolean null default false,
+  receipt_file_name text null,
+  receipt_upload_date timestamp with time zone null,
+  receipt_uploaded_by text null,
+  additional_documents jsonb null default '[]'::jsonb,
+  returned boolean null default false,
+  return_date timestamp with time zone null,
+  return_reason text null,
+  return_authorized_by text null,
+  refund_amount numeric(10, 2) null,
+  refund_processed boolean null default false,
+  status text null default 'pending_technical_approval'::text,
+  last_updated timestamp with time zone null default now(),
+  created_at timestamp with time zone null default now(),
+  updated_at timestamp with time zone null default now(),
+  purchase_group_id text null,
+  purchase_group_primary boolean null default false,
+  purchase_group_receipt_file text null,
+  constraint orders_pkey primary key (id),
+  constraint check_project_approval_status check (
+    (
+      project_approval_status = any (
+        array[
+          'pending'::text,
+          'approved'::text,
+          'denied'::text,
+          'on_hold'::text
+        ]
+      )
+    )
+  ),
+  constraint check_sponsorship_search_status check (
+    (
+      sponsorship_search_status = any (
+        array[
+          'not_started'::text,
+          'in_progress'::text,
+          'successful'::text,
+          'failed'::text,
+          'not_applicable'::text
+        ]
+      )
+    )
+  ),
+  constraint check_priority check (
+    (
+      priority = any (
+        array[
+          'low'::text,
+          'medium'::text,
+          'high'::text,
+          'critical'::text
+        ]
+      )
+    )
+  ),
+  constraint check_tech_approval_status check (
+    (
+      tech_approval_status = any (
+        array[
+          'pending'::text,
+          'approved'::text,
+          'denied'::text,
+          'on_hold'::text
+        ]
+      )
+    )
+  ),
+  constraint check_urgency check (
+    (
+      urgency = any (
+        array[
+          'flexible'::text,
+          'moderate'::text,
+          'urgent'::text,
+          'critical'::text
+        ]
+      )
+    )
+  ),
+  constraint check_status check (
+    (
+      status = any (
+        array[
+          'pending_technical_approval'::text,
+          'pending_project_approval'::text,
+          'approved'::text,
+          'denied'::text,
+          'purchased'::text,
+          'shipped'::text,
+          'delivered'::text,
+          'completed'::text,
+          'cancelled'::text,
+          'returned'::text
+        ]
+      )
+    )
+  )
 ) TABLESPACE pg_default;
 
--- Add indexes for commonly queried fields
-CREATE INDEX idx_orders_status ON public.orders(status);
-CREATE INDEX idx_orders_subteam ON public.orders(subteam);
-CREATE INDEX idx_orders_submitter_email ON public.orders(submitter_email);
-CREATE INDEX idx_orders_created_at ON public.orders(created_at);
-CREATE INDEX idx_orders_tech_approval_status ON public.orders(tech_approval_status);
-CREATE INDEX idx_orders_project_approval_status ON public.orders(project_approval_status);
+create index IF not exists idx_orders_purchase_group_id on public.orders using btree (purchase_group_id) TABLESPACE pg_default;
 
--- Add check constraints for enum-like fields
-ALTER TABLE public.orders 
-  ADD CONSTRAINT check_priority 
-  CHECK (priority IN ('low', 'medium', 'high', 'critical'));
+create index IF not exists idx_orders_status on public.orders using btree (status) TABLESPACE pg_default;
 
-ALTER TABLE public.orders 
-  ADD CONSTRAINT check_urgency 
-  CHECK (urgency IN ('flexible', 'moderate', 'urgent', 'critical'));
+create index IF not exists idx_orders_subteam on public.orders using btree (subteam) TABLESPACE pg_default;
 
-ALTER TABLE public.orders 
-  ADD CONSTRAINT check_tech_approval_status 
-  CHECK (tech_approval_status IN ('pending', 'approved', 'denied', 'on_hold'));
+create index IF not exists idx_orders_submitter_email on public.orders using btree (submitter_email) TABLESPACE pg_default;
 
-ALTER TABLE public.orders 
-  ADD CONSTRAINT check_project_approval_status 
-  CHECK (project_approval_status IN ('pending', 'approved', 'denied', 'on_hold'));
+create index IF not exists idx_orders_created_at on public.orders using btree (created_at) TABLESPACE pg_default;
 
-ALTER TABLE public.orders 
-  ADD CONSTRAINT check_sponsorship_search_status 
-  CHECK (sponsorship_search_status IN ('not_started', 'in_progress', 'successful', 'failed', 'not_applicable'));
+create index IF not exists idx_orders_tech_approval_status on public.orders using btree (tech_approval_status) TABLESPACE pg_default;
 
-ALTER TABLE public.orders 
-  ADD CONSTRAINT check_status 
-  CHECK (status IN (
-    'pending_technical_approval',
-    'pending_project_approval', 
-    'approved',
-    'denied',
-    'purchased',
-    'shipped',
-    'delivered',
-    'completed',
-    'cancelled',
-    'returned'
-  ));
+create index IF not exists idx_orders_project_approval_status on public.orders using btree (project_approval_status) TABLESPACE pg_default;
 
--- Add trigger to automatically update the updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = now();
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
-CREATE TRIGGER update_orders_updated_at 
-  BEFORE UPDATE ON public.orders 
-  FOR EACH ROW 
-  EXECUTE FUNCTION update_updated_at_column();
-
--- Add RLS (Row Level Security) policies if needed
--- ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
-
--- Example policy for authenticated users
--- CREATE POLICY "Users can view orders" ON public.orders
---   FOR SELECT USING (auth.role() = 'authenticated');
-
--- Example policy for order creators
--- CREATE POLICY "Users can insert their own orders" ON public.orders
---   FOR INSERT WITH CHECK (auth.email() = submitter_email);
-
--- Grant permissions
-GRANT ALL ON public.orders TO authenticated;
-GRANT ALL ON public.orders TO service_role;
-GRANT USAGE ON SEQUENCE public.orders_id_seq TO authenticated;
-GRANT USAGE ON SEQUENCE public.orders_id_seq TO service_role;
+create trigger update_orders_updated_at BEFORE
+update on orders for EACH row
+execute FUNCTION update_updated_at_column ();

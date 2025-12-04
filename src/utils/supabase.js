@@ -92,6 +92,81 @@ class SupabaseService {
       };
     }
   }
+
+  /**
+   * Upload a receipt PDF for a purchase group (multiple orders in one purchase)
+   * @param {File} file - PDF file to upload
+   * @param {string} purchaseGroupId - Purchase group ID (e.g., PG-timestamp)
+   * @param {Array<number>} orderIds - Array of order IDs in this purchase group
+   * @param {string} uploadedBy - User email or name
+   * @returns {Promise<Object>} - Object with publicUrl and updated orders
+   */
+  async uploadPurchaseGroupReceipt(file, purchaseGroupId, orderIds, uploadedBy) {
+    if (!this.client) throw new Error('Supabase not configured');
+    if (!file || file.type !== 'application/pdf') {
+      throw new Error('Invalid file type. Only PDF receipts are allowed.');
+    }
+    if (!orderIds || orderIds.length === 0) {
+      throw new Error('At least one order ID is required.');
+    }
+
+    // Name file as the parent order ID (first order in the group) for consistency
+    const parentOrderId = orderIds[0];
+    const fileName = `${parentOrderId}.pdf`;
+    const filePath = fileName;
+    
+    // Upload to 'order-receipts' bucket
+    const { data, error } = await this.client.storage
+      .from('order-receipts')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true
+      });
+    if (error) throw error;
+
+    // Get public URL
+    const { data: urlData } = this.client.storage
+      .from('order-receipts')
+      .getPublicUrl(filePath);
+    const publicUrl = urlData?.publicUrl || '';
+
+    // Update all orders in the group with shared receipt info
+    const now = new Date().toISOString();
+    const updatePromises = orderIds.map((orderId, index) => {
+      return this.client
+        .from('orders')
+        .update({
+          receipt_file_name: publicUrl,
+          receipt_uploaded: true,
+          receipt_upload_date: now,
+          receipt_uploaded_by: uploadedBy,
+          purchase_group_id: purchaseGroupId,
+          purchase_group_primary: index === 0, // First order is primary
+          purchase_group_receipt_file: publicUrl
+        })
+        .eq('id', orderId)
+        .select()
+        .single();
+    });
+
+    const results = await Promise.all(updatePromises);
+    
+    // Check for errors
+    const errors = results.filter(r => r.error);
+    if (errors.length > 0) {
+      console.error('Failed to update some orders with receipt metadata:', errors);
+      throw new Error(`Failed to update ${errors.length} order(s)`);
+    }
+
+    // Transform all updated orders and return them
+    const updatedOrders = results.map(r => this.transformOrderFromDB(r.data));
+    
+    return {
+      publicUrl,
+      updatedOrders
+    };
+  }
+
   constructor() {
     this.client = initializeSupabase();
   }
@@ -932,19 +1007,51 @@ class SupabaseService {
 
   async updateOrder(id, orderData) {
     if (!this.client) throw new Error('Supabase not configured');
-    
-    // Transform application format to database format
-    const dbOrder = this.transformOrderToDB(orderData);
+    // Fetch existing DB row so we can merge partial updates safely
+    const { data: existingDbRow, error: fetchError } = await this.client
+      .from('orders')
+      .select()
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      // If the row doesn't exist or fetch failed, surface the error
+      throw fetchError;
+    }
+
+    // Transform DB row to application format and merge with provided partial update
+    const existingAppOrder = this.transformOrderFromDB(existingDbRow);
+
+    // Deep-merge nested objects so partial updates don't wipe other fields
+    const deepMerge = (target, source) => {
+      if (!source) return target;
+      const out = Array.isArray(target) ? target.slice() : { ...target };
+      Object.keys(source).forEach(key => {
+        const srcVal = source[key];
+        const tgtVal = out[key];
+        if (srcVal && typeof srcVal === 'object' && !Array.isArray(srcVal)) {
+          out[key] = deepMerge(tgtVal || {}, srcVal);
+        } else {
+          out[key] = srcVal;
+        }
+      });
+      return out;
+    };
+
+    const mergedAppOrder = deepMerge(existingAppOrder, orderData);
+
+    // Transform merged application-format order to DB format for update
+    const dbOrder = this.transformOrderToDB(mergedAppOrder);
     dbOrder.updated_at = new Date().toISOString();
     dbOrder.last_updated = new Date().toISOString();
-    
+
     const { data, error } = await this.client
       .from('orders')
       .update(dbOrder)
       .eq('id', id)
       .select()
       .single();
-    
+
     if (error) throw error;
     return this.transformOrderFromDB(data);
   }
@@ -1026,6 +1133,9 @@ class SupabaseService {
         purchased: dbOrder.purchased || false,
         purchaseDate: dbOrder.purchase_date,
         purchaseOrderNumber: dbOrder.purchase_order_number || '',
+        purchaseGroupId: dbOrder.purchase_group_id || null,
+        purchaseGroupPrimary: dbOrder.purchase_group_primary || false,
+        purchaseGroupReceiptFile: dbOrder.purchase_group_receipt_file || null,
         actualCost: dbOrder.actual_cost ? parseFloat(dbOrder.actual_cost) : null,
         purchasedBy: dbOrder.purchased_by || ''
       },
@@ -1122,6 +1232,9 @@ class SupabaseService {
       purchased: order.purchaseStatus?.purchased || false,
       purchase_date: order.purchaseStatus?.purchaseDate,
       purchase_order_number: order.purchaseStatus?.purchaseOrderNumber || '',
+      purchase_group_id: order.purchaseStatus?.purchaseGroupId || null,
+      purchase_group_primary: order.purchaseStatus?.purchaseGroupPrimary || false,
+      purchase_group_receipt_file: order.purchaseStatus?.purchaseGroupReceiptFile || null,
       actual_cost: order.purchaseStatus?.actualCost,
       purchased_by: order.purchaseStatus?.purchasedBy || '',
       
