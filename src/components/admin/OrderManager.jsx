@@ -38,6 +38,8 @@ const OrderManager = forwardRef((props, ref) => {
     purchaseOrderNumber: '',
     trackingNumber: ''
   });
+  // Toggle for Purchase Order info tooltip
+  const [showPoInfo, setShowPoInfo] = useState(false);
   // Receipt drag & drop state (PDF only)
   const [receiptFile, setReceiptFile] = useState(null);
   const [receiptFileName, setReceiptFileName] = useState(null);
@@ -1061,10 +1063,10 @@ const OrderManager = forwardRef((props, ref) => {
       return;
     }
 
-    // Validate file size (max 10MB)
-    const maxSize = 10 * 1024 * 1024;
+    // Validate file size (max 1MB)
+    const maxSize = 1 * 1024 * 1024;
     if (file.size > maxSize) {
-      await showError('Maximum file size is 10MB. Please choose a smaller file.', 'File Too Large');
+      await showError('Maximum file size is 1MB. Please choose a smaller file.', 'File Too Large');
       return;
     }
 
@@ -2784,8 +2786,19 @@ const OrderManager = forwardRef((props, ref) => {
                     />
                   </div>
 
-                  <div className="form-group">
-                    <label>Purchase Order Number</label>
+                  <div className="form-group" style={{ position: 'relative' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      Purchase Order Number
+                      <button
+                        type="button"
+                        aria-label="What is this?"
+                        onClick={() => setShowPoInfo(!showPoInfo)}
+                        style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '0.95rem' }}
+                        title="What is this?"
+                      >
+                        ℹ
+                      </button>
+                    </label>
                     <input
                       type="text"
                       value={purchasingOrder?.id ? purchasingOrder.id.toString() : ''}
@@ -2793,6 +2806,23 @@ const OrderManager = forwardRef((props, ref) => {
                       className="inline-edit-input"
                       style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--text)', border: '1px solid #555', borderRadius: '4px' }}
                     />
+
+                    {showPoInfo && (
+                      <div
+                        role="note"
+                        className="po-info-box"
+                        style={{
+                          marginTop: '8px',
+                          padding: '10px',
+                          background: 'rgba(0,0,0,0.06)',
+                          borderRadius: '6px',
+                          fontSize: '0.92rem',
+                          lineHeight: '1.25'
+                        }}
+                      >
+                        <strong>Internal Order Number:</strong> This number is assigned automatically for SolarPack internal records. It links receipts and documentation to this specific SolarPack order for accounting and tracking. It is not the vendor's or merchant's order number (for example, Amazon's order number) and should not be used as the external shipment or merchant reference.
+                      </div>
+                    )}
                   </div>
 
                     <div className="form-group">
@@ -2842,7 +2872,7 @@ const OrderManager = forwardRef((props, ref) => {
                               <line x1="12" y1="3" x2="12" y2="15"></line>
                             </svg>
                             <p>Drop PDF here or click to upload</p>
-                            <p className="upload-hint">PDF only • Max 10MB</p>
+                            <p className="upload-hint">PDF only • Max 1MB</p>
                           </div>
                         )}
 
@@ -2894,31 +2924,27 @@ const OrderManager = forwardRef((props, ref) => {
                   <div className="date-range-grid">
                     <div className="form-group">
                       <label>Start Date *</label>
-                      <div className="input-with-icon">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                          <path d="M14 2h-1V1a1 1 0 0 0-2 0v1H5V1a1 1 0 0 0-2 0v1H2a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM2 3h12a1 1 0 0 1 1 1v1H1V4a1 1 0 0 1 1-1zm12 11H2a1 1 0 0 1-1-1V7h14v6a1 1 0 0 1-1 1z"/>
-                        </svg>
-                        <input 
-                          type="date" 
-                          value={downloadStartDate} 
-                          onChange={(e) => setDownloadStartDate(e.target.value)}
-                          required
-                        />
-                      </div>
+                        <div className="input-with-icon" style={{ position: 'relative' }}>
+                          <input 
+                            type="date" 
+                            value={downloadStartDate} 
+                            onChange={(e) => setDownloadStartDate(e.target.value)}
+                            required
+                            style={{ paddingRight: '20px', background: 'linear-gradient(to right, transparent 0%, transparent 80%, white 80%, white 100%)' }}
+                          />
+                        </div>
                     </div>
                     <div className="form-group">
                       <label>End Date *</label>
-                      <div className="input-with-icon">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                          <path d="M14 2h-1V1a1 1 0 0 0-2 0v1H5V1a1 1 0 0 0-2 0v1H2a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM2 3h12a1 1 0 0 1 1 1v1H1V4a1 1 0 0 1 1-1zm12 11H2a1 1 0 0 1-1-1V7h14v6a1 1 0 0 1-1 1z"/>
-                        </svg>
-                        <input 
-                          type="date" 
-                          value={downloadEndDate} 
-                          onChange={(e) => setDownloadEndDate(e.target.value)}
-                          required
-                        />
-                      </div>
+                        <div className="input-with-icon" style={{ position: 'relative' }}>
+                          <input 
+                            type="date" 
+                            value={downloadEndDate} 
+                            onChange={(e) => setDownloadEndDate(e.target.value)}
+                            required
+                            style={{ paddingRight: '20px', background: 'linear-gradient(to right, transparent 0%, transparent 80%, white 80%, white 100%)' }}
+                          />
+                        </div>
                     </div>
                   </div>
                 </div>

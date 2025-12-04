@@ -15,6 +15,7 @@ const ScheduleManager = forwardRef((props, ref) => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTeam, setSelectedTeam] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [sortOption, setSortOption] = useState('priority');
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedDateInfo, setSelectedDateInfo] = useState(null); // { date: Date, items: [] }
   const [calendarView, setCalendarView] = useState('month'); // month, week
@@ -91,14 +92,49 @@ const ScheduleManager = forwardRef((props, ref) => {
   };
 
   const getTeamName = (teamId) => {
-    const team = scheduleData.teams.find(t => t.id === teamId);
+    const team = (normalizedTeams || []).find(t => t.id === teamId);
     return team ? team.name : teamId;
   };
 
   const getTeamColor = (teamId) => {
-    const team = scheduleData.teams.find(t => t.id === teamId);
+    const team = (normalizedTeams || []).find(t => t.id === teamId);
     return team ? team.color : '#6c757d';
   };
+
+  // Normalize team ids so that any "technical-director" or "project-director"
+  // map to a single `director` team. This allows the UI to treat both as
+  // one Director role and display a single "Director" option.
+  const normalizeTeamId = (teamId) => {
+    if (!teamId) return teamId;
+    const id = String(teamId).toLowerCase();
+    if (id === 'technical-director' || id === 'project-director' || /technical director|project director/i.test(String(teamId))) return 'director';
+    return teamId;
+  };
+
+  const normalizedTeams = useMemo(() => {
+    const map = {};
+    (scheduleData.teams || []).forEach(t => {
+      const nid = normalizeTeamId(t.id);
+      if (!map[nid]) {
+        map[nid] = {
+          id: nid,
+          name: nid === 'director' ? 'Director' : t.name,
+          color: t.color || '#6c757d'
+        };
+      } else {
+        // prefer an assigned color if not present
+        if (!map[nid].color && t.color) map[nid].color = t.color;
+      }
+    });
+
+    // Ensure there's at least a Director option if projects reference it
+    const hasDirectorFromProjects = (scheduleData.projects || []).some(p => normalizeTeamId(p.team) === 'director');
+    if (hasDirectorFromProjects && !map['director']) {
+      map['director'] = { id: 'director', name: 'Director', color: '#6c757d' };
+    }
+
+    return Object.values(map);
+  }, [scheduleData.teams, scheduleData.projects]);
 
   // Helper function to format dates without timezone issues
   // When we store "2024-12-03", we want to display "12/3/2024" regardless of timezone
@@ -125,7 +161,8 @@ const ScheduleManager = forwardRef((props, ref) => {
   };
 
   const isOverdue = (dueDate, status) => {
-    if (status === 'completed') return false;
+    // Treat cancelled items like completed: they should never be marked overdue
+    if (status === 'completed' || status === 'cancelled') return false;
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Reset time to midnight for accurate date comparison
     const due = parseDateLocal(dueDate);
@@ -160,6 +197,75 @@ const ScheduleManager = forwardRef((props, ref) => {
 
   const PROJECT_STATUSES = ['planning', 'in-progress', 'completed', 'on-hold', 'cancelled'];
   const TASK_STATUSES = ['in-progress', 'completed', 'blocked', 'cancelled'];
+
+  // Sort option constants and comparator
+  const SORT_OPTIONS = [
+    { value: 'priority', label: 'Priority' },
+    { value: 'due-asc', label: 'Due Date ↑' },
+    { value: 'due-desc', label: 'Due Date ↓' },
+    { value: 'title-asc', label: 'Title A→Z' },
+    { value: 'title-desc', label: 'Title Z→A' },
+    { value: 'status', label: 'Status' }
+  ];
+
+  const sortProjects = (a, b, option = sortOption) => {
+    // Helper for safe date parsing; null/empty dates go to far future
+    const safeDate = (d) => {
+      if (!d) return new Date(8640000000000000);
+      return parseDateLocal(d);
+    };
+
+    // Overdue check
+    const aOver = isOverdue(a.dueDate, a.status);
+    const bOver = isOverdue(b.dueDate, b.status);
+
+    switch (option) {
+      case 'priority':
+        // Overdue items always come first
+        if (aOver !== bOver) return aOver ? -1 : 1;
+
+        // For sorting we need safe due dates for both
+        const aDue = safeDate(a.dueDate);
+        const bDue = safeDate(b.dueDate);
+
+        // Completed / cancelled should be grouped at the bottom,
+        // but within that group we want the most-future due dates first
+        const lowStatus = (s) => (s === 'completed' || s === 'cancelled');
+        const aLow = lowStatus(a.status);
+        const bLow = lowStatus(b.status);
+        if (aLow && bLow) {
+          // Both completed/cancelled: newest (furthest in future) first
+          return bDue - aDue;
+        }
+        if (aLow !== bLow) return aLow ? 1 : -1; // put low status items after active ones
+
+        // Remaining (active) items: show closest due date first
+        if (aDue - bDue !== 0) return aDue - bDue;
+
+        // Then by priority (critical, high, medium, low)
+        const pr = { critical: 3, high: 2, medium: 1, low: 0 };
+        const pa = pr[a.priority] || 0;
+        const pb = pr[b.priority] || 0;
+        if (pa !== pb) return pb - pa; // higher priority first
+
+        return a.title.localeCompare(b.title);
+
+      case 'due-asc':
+        return safeDate(a.dueDate) - safeDate(b.dueDate);
+      case 'due-desc':
+        return safeDate(b.dueDate) - safeDate(a.dueDate);
+      case 'title-asc':
+        return a.title.localeCompare(b.title);
+      case 'title-desc':
+        return b.title.localeCompare(a.title);
+      case 'status':
+        // Use PROJECT_STATUSES order
+        const idx = (s) => PROJECT_STATUSES.indexOf(s) === -1 ? PROJECT_STATUSES.length : PROJECT_STATUSES.indexOf(s);
+        return idx(a.status) - idx(b.status) || a.title.localeCompare(b.title);
+      default:
+        return 0;
+    }
+  };
 
   const handleProjectStatusChange = async (project, newStatus) => {
     if (!canEdit) {
@@ -234,7 +340,8 @@ const ScheduleManager = forwardRef((props, ref) => {
   };
 
   const calculateProgress = (startDate, dueDate, status) => {
-    if (status === 'completed') return 100;
+    // Consider cancelled projects/tasks as finished for progress calculations
+    if (status === 'completed' || status === 'cancelled') return 100;
     if (!startDate || !dueDate) return 0;
     
     const start = parseDateLocal(startDate);
@@ -525,7 +632,7 @@ const ScheduleManager = forwardRef((props, ref) => {
 
   const filterItemsByTeam = (items, teamKey = 'team') => {
     if (selectedTeam === 'all') return items;
-    return items.filter(item => item[teamKey] === selectedTeam);
+    return items.filter(item => normalizeTeamId(item[teamKey]) === selectedTeam);
   };
 
   // Calendar utility functions
@@ -576,8 +683,8 @@ const ScheduleManager = forwardRef((props, ref) => {
 
   // Calculate team statistics
   const teamStats = useMemo(() => {
-    return scheduleData.teams.map(team => {
-      const teamProjects = scheduleData.projects.filter(p => p.team === team.id);
+    return (normalizedTeams || []).map(team => {
+      const teamProjects = scheduleData.projects.filter(p => normalizeTeamId(p.team) === team.id);
       const completed = teamProjects.filter(p => p.status === 'completed').length;
       // Count both 'in-progress' and 'planning' as active
       const active = teamProjects.filter(p => p.status === 'in-progress' || p.status === 'planning').length;
@@ -676,13 +783,22 @@ const ScheduleManager = forwardRef((props, ref) => {
               style={{cursor: 'pointer'}}
               title="Click to view completed projects"
             >
-              <div className="stat-label">Completed</div>
-              <div className="stat-value" style={{color: 'var(--subtxt)', display: 'flex', alignItems: 'baseline', gap: '0.5rem'}}>
-                {overallStats.completed}
-                <span style={{fontSize: '0.9rem', color: 'var(--muted)'}}>
-                  {overallStats.totalProjects > 0 ? Math.round(overallStats.completed / overallStats.totalProjects * 100) : 0}%
-                </span>
-              </div>
+                <div className="stat-label">Completed</div>
+                <div
+                  className="stat-value"
+                  style={{
+                    color: 'var(--subtxt)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  {overallStats.completed}
+                  <span style={{fontSize: '0.9rem', color: 'var(--muted)'}}>
+                    {overallStats.totalProjects > 0 ? Math.round(overallStats.completed / overallStats.totalProjects * 100) : 0}%
+                  </span>
+                </div>
             </div>
             <div 
               className="stat-card"
@@ -730,15 +846,6 @@ const ScheduleManager = forwardRef((props, ref) => {
                 </span>
               </div>
               <div className="stat-value">{overallStats.avgProgress}%</div>
-              <div className="progress-bar" style={{marginTop: '0.75rem'}}>
-                <div 
-                  className="progress-fill"
-                  style={{ 
-                    width: `${overallStats.avgProgress}%`,
-                    backgroundColor: 'var(--accent)'
-                  }}
-                />
-              </div>
             </div>
           </div>
 
@@ -836,28 +943,30 @@ const ScheduleManager = forwardRef((props, ref) => {
         <div className="calendar-view">
           <div className="calendar-header">
             <div className="calendar-nav">
-              <button 
-                className="calendar-nav-btn"
+              <button
+                className="calendar-arrow-btn"
+                aria-label="Previous month"
                 onClick={() => {
                   const newDate = new Date(currentDate);
                   newDate.setMonth(newDate.getMonth() - 1);
                   setCurrentDate(newDate);
                 }}
               >
-                ← Previous
+                <i className="fas fa-chevron-left" aria-hidden="true"></i>
               </button>
               <div className="calendar-month">
                 {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
               </div>
-              <button 
-                className="calendar-nav-btn"
+              <button
+                className="calendar-arrow-btn"
+                aria-label="Next month"
                 onClick={() => {
                   const newDate = new Date(currentDate);
                   newDate.setMonth(newDate.getMonth() + 1);
                   setCurrentDate(newDate);
                 }}
               >
-                Next →
+                <i className="fas fa-chevron-right" aria-hidden="true"></i>
               </button>
             </div>
             <button 
@@ -888,7 +997,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                 >
                   <div className="calendar-date">{date.getDate()}</div>
                   <div className="calendar-items">
-                    {items.slice(0, 1).map(item => (
+                    {items.slice(0, 2).map(item => (
                       <div 
                         key={`${item.itemType}-${item.id}`}
                         className="calendar-item"
@@ -906,12 +1015,13 @@ const ScheduleManager = forwardRef((props, ref) => {
                         {item.title}
                       </div>
                     ))}
-                    {items.length > 1 && (
+                    {items.length > 2 && (
                       <div 
                         className="calendar-more"
                         onClick={(e) => { e.stopPropagation(); openDateModal(date); }}
+                        title={`${items.length} items on this day`}
                       >
-                        +{items.length - 1} more
+                        +{items.length - 2} more
                       </div>
                     )}
                   </div>
@@ -937,7 +1047,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                 onChange={(e) => setSelectedTeam(e.target.value)}
               >
                 <option value="all">All Teams</option>
-                {scheduleData.teams.map(team => (
+                {(normalizedTeams || []).map(team => (
                   <option key={team.id} value={team.id}>{team.name}</option>
                 ))}
               </select>
@@ -957,6 +1067,20 @@ const ScheduleManager = forwardRef((props, ref) => {
                 ))}
                 <option value="overdue">Overdue</option>
               </select>
+              
+              <label htmlFor="sort-select" style={{fontWeight: 600, color: 'var(--text)'}}>
+                Sort:
+              </label>
+              <select
+                id="sort-select"
+                className="team-filter"
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value)}
+              >
+                {SORT_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -967,6 +1091,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                 if (selectedStatus === 'overdue') return isOverdue(p.dueDate, p.status);
                 return p.status === selectedStatus;
               })
+              .sort((a, b) => sortProjects(a, b, sortOption))
               .map(project => (
               <div 
                 key={project.id} 
@@ -974,9 +1099,9 @@ const ScheduleManager = forwardRef((props, ref) => {
                 style={{'--team-color': getTeamColor(project.team)}}
                 onClick={() => setSelectedProject(project)}
               >
-              <div className="project-header">
-                <div>
-                  <h3 className="project-title">{project.title}</h3>
+              <div className="project-header" style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+                <div className="project-header-left" style={{ flex: 1, minWidth: 0 }}>
+                  <h3 className="project-title" style={{ margin: 0, wordBreak: 'break-word', whiteSpace: 'normal' }}>{project.title}</h3>
                   <div 
                     className="project-team"
                     style={{ backgroundColor: 'var(--muted)' }}
@@ -984,21 +1109,25 @@ const ScheduleManager = forwardRef((props, ref) => {
                     {getTeamName(project.team)}
                   </div>
                 </div>
-                {canEdit ? (
-                  <StatusDropdown
-                    value={project.status}
-                    options={PROJECT_STATUSES}
-                    color={getStatusColor(project.status, project.dueDate)}
-                    onChange={(status) => handleProjectStatusChange(project, status)}
-                  />
-                ) : (
-                  <div
-                    className="project-status"
-                    style={{ backgroundColor: getStatusColor(project.status, project.dueDate) }}
-                  >
-                    {isOverdue(project.dueDate, project.status) ? 'OVERDUE' : project.status.toUpperCase()}
-                  </div>
-                )}
+
+                <div className="project-status-wrapper" style={{ flex: '0 0 auto', whiteSpace: 'nowrap', alignSelf: 'center' }}>
+                  {canEdit ? (
+                    <StatusDropdown
+                      value={project.status}
+                      options={PROJECT_STATUSES}
+                      color={getStatusColor(project.status, project.dueDate)}
+                      onChange={(status) => handleProjectStatusChange(project, status)}
+                      className="status-dropdown"
+                    />
+                  ) : (
+                    <div
+                      className="project-status"
+                      style={{ backgroundColor: getStatusColor(project.status, project.dueDate), whiteSpace: 'nowrap' }}
+                    >
+                      {isOverdue(project.dueDate, project.status) ? 'OVERDUE' : project.status.toUpperCase()}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <p>{project.description}</p>
@@ -1216,10 +1345,10 @@ const ScheduleManager = forwardRef((props, ref) => {
           if (e.target === e.currentTarget) setSelectedProject(null);
         }}>
           <div className="modal project-detail-modal">
-            <div className="modal-project-header">
-              <div className="modal-project-info">
-                <h2>{selectedProject.title}</h2>
-                <div className="modal-badges">
+            <div className="modal-project-header" style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', justifyContent: 'space-between' }}>
+                  <div className="modal-project-info" style={{ flex: 1, minWidth: 0 }}>
+                    <h2 style={{ margin: 0, wordBreak: 'break-word', whiteSpace: 'normal' }}>{selectedProject.title}</h2>
+                    <div className="modal-badges">
                   <div 
                     className="project-team"
                     style={{ backgroundColor: 'var(--muted)' }}
@@ -1469,7 +1598,7 @@ const ScheduleManager = forwardRef((props, ref) => {
                       onChange={(e) => setEditingItem({...editingItem, team: e.target.value})}
                       required
                     >
-                      {scheduleData.teams.map(team => (
+                      {(normalizedTeams || []).map(team => (
                         <option key={team.id} value={team.id}>{team.name}</option>
                       ))}
                     </select>

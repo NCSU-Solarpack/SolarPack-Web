@@ -298,6 +298,40 @@
     transform: translateY(-2px);
 }
 
+/* Red circular chevron buttons for calendar navigation */
+.calendar-arrow-btn {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    background: #e31b23; /* bright red */
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+    font-size: 1rem;
+}
+
+.calendar-arrow-btn i {
+    width: 1em;
+    height: 1em;
+    line-height: 1;
+}
+
+.calendar-arrow-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 18px rgba(0,0,0,0.45);
+    opacity: 0.98;
+}
+
+.calendar-arrow-btn:active {
+    transform: translateY(0);
+}
+
 .calendar-month {
     font-size: 1.5rem;
     font-weight: 700;
@@ -306,7 +340,7 @@
 
 .calendar-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, minmax(140px, 1fr));
     gap: 0.5rem;
 }
 
@@ -319,13 +353,17 @@
 }
 
 .calendar-day {
-    min-height: 100px;
+    height: 130px;
     border: 1px solid #333;
     border-radius: 8px;
     padding: 0.5rem;
     background: var(--surface);
     transition: all 0.3s ease;
     cursor: pointer;
+    position: relative;
+    box-sizing: border-box;
+    padding-top: 1.8rem;
+    overflow: hidden;
 }
 
 .calendar-day:hover {
@@ -347,15 +385,25 @@
     font-weight: 700;
     color: var(--text);
     margin-bottom: 0.5rem;
+    position: absolute;
+    top: 6px;
+    left: 8px;
+    font-size: 0.9rem;
+    background: rgba(0,0,0,0.0);
+    padding: 0 4px;
 }
 
 .calendar-items {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
+    margin-top: 0.25rem;
 }
 
 .calendar-item {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
     font-size: 0.75rem;
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
@@ -366,18 +414,26 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    height: 1.6rem;
+    line-height: 1.1rem;
+}
+
+.calendar-item:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    z-index: 10;
 }
 
 .calendar-more {
     font-size: 0.75rem;
     color: var(--subtxt);
     margin-top: 0.25rem;
-    font-weight: 600;
-}
-
-.calendar-item:hover {
-    transform: scale(1.05);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0.15rem 0.35rem;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.02);
+    display: inline-block;
 }
 
 /* Projects View Styles */
