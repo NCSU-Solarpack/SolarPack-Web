@@ -29,6 +29,11 @@ const FILE_TYPES = {
   default: { icon: 'fa-file', class: '' }
 };
 
+// Toggle PDF preview support. Set to false to disable rendering PDFs in-browser
+// (some deployments choose to avoid PDF rendering due to complexity). When
+// disabled the preview modal will show file info and a download button.
+const ALLOW_PDF_PREVIEW = false;
+
 const FilesManager = () => {
   // State
   const [currentPath, setCurrentPath] = useState([]); // Array of folder names for breadcrumb
@@ -48,7 +53,12 @@ const FilesManager = () => {
   
   const fileInputRef = useRef(null);
   const dropZoneRef = useRef(null);
+  const pdfCanvasRef = useRef(null);
+  const pdfRenderStateRef = useRef({ pdf: null, renderTask: null });
   const { showConfirm, showError, showSuccess } = useAlert();
+
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfSnapshotUrl, setPdfSnapshotUrl] = useState(null);
 
   // Auth checks
   const userLevel = authService.getLevel();
@@ -357,15 +367,15 @@ const FilesManager = () => {
       const userId = user?.id || null;
 
       let folderPath;
-      if (
-        bucket === MAIN_BUCKET &&
-        !isInWebsiteData &&
-        (!pathStr || pathStr.trim() === '') &&
-        userId
-      ) {
-        folderPath = `${userId}/${newFolderName.trim()}/.keep`;
+      // Create the .keep file at the requested path. Previously we prefixed
+      // the root path with the user's id (to satisfy some RLS setups), which
+      // resulted in a top-level folder named by the user's UUID containing
+      // the new folder. To create the folder exactly where the user requested
+      // (no extra parent UUID folder), always use the current path.
+      if (pathStr && pathStr.trim() !== '') {
+        folderPath = `${pathStr}/${newFolderName.trim()}/.keep`;
       } else {
-        folderPath = pathStr ? `${pathStr}/${newFolderName.trim()}/.keep` : `${newFolderName.trim()}/.keep`;
+        folderPath = `${newFolderName.trim()}/.keep`;
       }
       
       // Supabase requires uploading a file to create a folder
@@ -571,6 +581,112 @@ const FilesManager = () => {
       data: { ...item, url }
     });
   };
+
+  // Render PDF first-page thumbnail when preview modal opens for PDFs
+  useEffect(() => {
+    let cancelled = false;
+    // Only render PDFs if allowed by the flag
+    if (!ALLOW_PDF_PREVIEW) return undefined;
+
+    const renderPdfPreview = async (url) => {
+      try {
+        setPdfLoading(true);
+        const pdfjs = await import('pdfjs-dist/legacy/build/pdf');
+        // set worker (use CDN path matching version)
+        if (pdfjs && pdfjs.GlobalWorkerOptions) {
+          pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/legacy/build/pdf.worker.js`;
+        }
+
+        const loadingTask = pdfjs.getDocument(url);
+        const pdf = await loadingTask.promise;
+        if (cancelled) return;
+        // keep reference for cleanup
+        pdfRenderStateRef.current.pdf = pdf;
+
+        const page = await pdf.getPage(1);
+        if (cancelled) return;
+
+        const canvas = pdfCanvasRef.current;
+        if (!canvas) return;
+
+        // Determine target width based on modal container size
+        const container = canvas.parentElement || document.body;
+        const containerWidth = Math.max(300, Math.min(container.clientWidth - 32, 900));
+
+        // Base viewport at scale 1 to get intrinsic page width
+        const baseViewport = page.getViewport({ scale: 1 });
+        const targetScale = containerWidth / baseViewport.width;
+
+        // Use device pixel ratio to render sharp image on high-DPI screens
+        const outputScale = window.devicePixelRatio || 1;
+
+        const renderViewport = page.getViewport({ scale: targetScale * outputScale });
+
+        // Set canvas physical size to renderViewport (pixels), and CSS size to the logical viewport
+        canvas.width = Math.floor(renderViewport.width);
+        canvas.height = Math.floor(renderViewport.height);
+        canvas.style.width = `${Math.floor(renderViewport.width / outputScale)}px`;
+        canvas.style.height = `${Math.floor(renderViewport.height / outputScale)}px`;
+
+        const renderContext = {
+          canvasContext: canvas.getContext('2d'),
+          viewport: renderViewport
+        };
+
+        // cancel any existing render
+        if (pdfRenderStateRef.current.renderTask) {
+          try { pdfRenderStateRef.current.renderTask.cancel(); } catch (e) {}
+          pdfRenderStateRef.current.renderTask = null;
+        }
+
+        const renderTask = page.render(renderContext);
+        pdfRenderStateRef.current.renderTask = renderTask;
+        await renderTask.promise;
+        pdfRenderStateRef.current.renderTask = null;
+
+        // Convert to data URL and store snapshot for display as an image
+        try {
+          const dataUrl = canvas.toDataURL('image/png');
+          if (!cancelled) setPdfSnapshotUrl(dataUrl);
+        } catch (e) {
+          console.warn('Failed to convert canvas to image', e);
+        }
+      } catch (err) {
+        console.warn('PDF preview failed', err);
+      } finally {
+        if (!cancelled) setPdfLoading(false);
+      }
+    };
+
+    if (modal?.type === 'preview' && modal?.data?.fileType === 'pdf' && modal?.data?.url) {
+      // reset previous snapshot
+      setPdfSnapshotUrl(null);
+      renderPdfPreview(modal.data.url);
+
+      const onResize = () => {
+        // re-render on resize to fit container
+        if (modal?.data?.url) renderPdfPreview(modal.data.url);
+      };
+      window.addEventListener('resize', onResize);
+      return () => {
+        cancelled = true;
+        window.removeEventListener('resize', onResize);
+        // cleanup pdf resources
+        try {
+          if (pdfRenderStateRef.current.renderTask) {
+            pdfRenderStateRef.current.renderTask.cancel();
+            pdfRenderStateRef.current.renderTask = null;
+          }
+          if (pdfRenderStateRef.current.pdf) {
+            pdfRenderStateRef.current.pdf.destroy();
+            pdfRenderStateRef.current.pdf = null;
+          }
+          setPdfSnapshotUrl(null);
+        } catch (e) {}
+      };
+    }
+    return undefined;
+  }, [modal]);
 
   // Drag and drop handlers
   const handleDragOver = (event) => {
@@ -960,7 +1076,7 @@ const FilesManager = () => {
       case 'newFolder':
         return (
           <div className="files-modal-overlay" onClick={() => setModal(null)}>
-            <div className="files-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="files-modal new-folder-modal" onClick={(e) => e.stopPropagation()}>
               <div className="files-modal-header">
                 <h3 className="files-modal-title">Create New Folder</h3>
                 <button className="files-modal-close" onClick={() => setModal(null)}>
@@ -1040,7 +1156,7 @@ const FilesManager = () => {
       case 'upload':
         return (
           <div className="files-modal-overlay" onClick={() => !uploading && setModal(null)}>
-            <div className="files-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="files-modal new-folder-modal" onClick={(e) => e.stopPropagation()}>
               <div className="files-modal-header">
                 <h3 className="files-modal-title">Upload Files</h3>
                 <button 
@@ -1134,12 +1250,22 @@ const FilesManager = () => {
                   {isImage && <img src={previewData.url} alt={previewData.name} />}
                   {isVideo && <video src={previewData.url} controls />}
                   {isAudio && <audio src={previewData.url} controls />}
-                  {isPdf && (
-                    <iframe 
-                      src={previewData.url} 
-                      title={previewData.name}
-                      style={{ width: '100%', height: '60vh', border: 'none' }}
-                    />
+                  {isPdf && !ALLOW_PDF_PREVIEW && (
+                    <div className="pdf-no-preview">
+                      <i className="fa-solid fa-file-pdf" style={{ fontSize: '3rem', color: '#dc3545', marginBottom: '0.75rem' }}></i>
+                    </div>
+                  )}
+
+                  {isPdf && ALLOW_PDF_PREVIEW && (
+                    <div className="pdf-preview-wrapper">
+                      {pdfLoading ? (
+                        <div className="pdf-loading">Loading preview…</div>
+                      ) : pdfSnapshotUrl ? (
+                        <img src={pdfSnapshotUrl} alt={previewData.name} className="pdf-snapshot" />
+                      ) : (
+                        <canvas ref={pdfCanvasRef} className="pdf-canvas" style={{ display: 'none' }} />
+                      )}
+                    </div>
                   )}
                   {!isImage && !isVideo && !isAudio && !isPdf && (
                     <div style={{ textAlign: 'center', padding: '2rem' }}>
