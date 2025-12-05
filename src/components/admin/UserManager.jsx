@@ -21,13 +21,20 @@ function RoleSelect({ currentUserLevel, targetLevel, userId, userEmail, onUpdate
   const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
-    setValue(targetLevel);
+    setValue(targetLevel || 'member');
   }, [targetLevel]);
 
   const getOptions = () => {
-    if (currentUserLevel === 'director') return ['member', 'leader', 'director'];
-    if (currentUserLevel === 'leader') return ['member', 'leader'];
-    return [targetLevel];
+    // Base allowed options depending on the current viewer's level
+    let base = [];
+    if (currentUserLevel === 'director') base = ['member', 'leader', 'director'];
+    else if (currentUserLevel === 'leader') base = ['member', 'leader'];
+    else base = [];
+
+    // Always include the target user's current role so it displays correctly
+    const combined = [...base, (targetLevel || 'member')];
+    // Deduplicate and preserve order
+    return Array.from(new Set(combined));
   };
 
   const handleChange = async (e) => {
@@ -88,7 +95,9 @@ function RoleSelect({ currentUserLevel, targetLevel, userId, userEmail, onUpdate
 
 const UserManager = forwardRef((props, ref) => {
   const [users, setUsers] = useState([]);
+  const [pendingUsers, setPendingUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('approved'); // 'approved' or 'pending'
   // Password column removed
   const [currentUserLevel, setCurrentUserLevel] = useState(null);
   const { showError, showConfirm, showSuccess } = useAlert();
@@ -114,6 +123,7 @@ const UserManager = forwardRef((props, ref) => {
         setCurrentUserLevel(user.level);
       }
       await loadUsers();
+      await loadPendingUsers();
     })();
   }, []);
 
@@ -121,9 +131,11 @@ const UserManager = forwardRef((props, ref) => {
     setIsLoading(true);
     try {
       const allUsers = await supabaseService.getAllUserRoles();
+      // Filter only approved users
+      const approvedUsers = (allUsers || []).filter(u => u.approval_status === 'approved');
       // Sort users: directors first, then leaders, then members
       const priority = { director: 3, leader: 2, member: 1 };
-      const sorted = (allUsers || []).slice().sort((a, b) => {
+      const sorted = approvedUsers.slice().sort((a, b) => {
         const pa = priority[a.level] || 0;
         const pb = priority[b.level] || 0;
         if (pb !== pa) return pb - pa;
@@ -131,8 +143,13 @@ const UserManager = forwardRef((props, ref) => {
         const bKey = (b.full_name || b.name || b.email || '').toLowerCase();
         return aKey.localeCompare(bKey);
       });
-      console.log('✓ Loaded users:', sorted);
-      setUsers(sorted);
+      // Ensure every user row has a valid level (default to 'member')
+      const normalized = sorted.map(u => ({
+        ...u,
+        level: u.level || 'member'
+      }));
+      console.log('✓ Loaded approved users:', normalized);
+      setUsers(normalized);
     } catch (error) {
       console.error('Error loading users:', error);
       await showError(`Failed to load users: ${error.message}`, 'Load Error');
@@ -142,10 +159,69 @@ const UserManager = forwardRef((props, ref) => {
     }
   };
 
+  const loadPendingUsers = async () => {
+    try {
+      const pending = await supabaseService.getPendingUsers();
+      console.log('✓ Loaded pending users:', pending);
+      setPendingUsers(pending || []);
+    } catch (error) {
+      console.error('Error loading pending users:', error);
+      setPendingUsers([]);
+    }
+  };
+
   const canManageUser = (targetLevel) => {
     if (currentUserLevel === 'director') return true;
     if (currentUserLevel === 'leader' && (targetLevel === 'member' || targetLevel === 'leader')) return true;
     return false;
+  };
+
+  const canApproveUsers = () => {
+    // Leaders and directors can approve users
+    return currentUserLevel === 'leader' || currentUserLevel === 'director';
+  };
+
+  const handleApproveUser = async (userId, email, assignedLevel = 'member') => {
+    const currentUser = authService.getUser();
+    if (!currentUser) return;
+
+    const confirmed = await showConfirm(
+      `Approve ${email} as ${capitalize(assignedLevel)}?`,
+      'Approve User'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await supabaseService.approveUser(userId, currentUser.id, assignedLevel);
+      await showSuccess(`Successfully approved ${email}`);
+      await loadPendingUsers();
+      await loadUsers();
+    } catch (error) {
+      console.error('Error approving user:', error);
+      await showError(`Failed to approve user: ${error.message}`, 'Approval Error');
+    }
+  };
+
+  const handleRejectUser = async (userId, email) => {
+    const currentUser = authService.getUser();
+    if (!currentUser) return;
+
+    const confirmed = await showConfirm(
+      `Reject account request from ${email}? This action cannot be undone.`,
+      'Reject User'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await supabaseService.rejectUser(userId, currentUser.id);
+      await showSuccess(`Rejected account request from ${email}`);
+      await loadPendingUsers();
+    } catch (error) {
+      console.error('Error rejecting user:', error);
+      await showError(`Failed to reject user: ${error.message}`, 'Rejection Error');
+    }
   };
 
   const handlePromote = async (userId, currentLevel, email) => {
@@ -215,54 +291,157 @@ const UserManager = forwardRef((props, ref) => {
 
   return (
     <div className="user-manager">
-      <div className="user-list">
-        <table className="user-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Joined</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.length === 0 ? (
+      {/* Tabs */}
+      <div className="user-manager-tabs">
+        <button
+          className={`tab ${activeTab === 'approved' ? 'active' : ''}`}
+          onClick={() => setActiveTab('approved')}
+        >
+          Approved Users ({users.length})
+        </button>
+        {canApproveUsers() && (
+          <button
+            className={`tab ${activeTab === 'pending' ? 'active' : ''}`}
+            onClick={() => setActiveTab('pending')}
+          >
+            Pending Requests ({pendingUsers.length})
+          </button>
+        )}
+      </div>
+
+      {/* Approved Users Tab */}
+      {activeTab === 'approved' && (
+        <div className="user-list">
+          <table className="user-table">
+            <thead>
               <tr>
-                <td colSpan={4} style={{ textAlign: 'center', padding: '2rem' }}>
-                  No users found
-                </td>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Joined</th>
               </tr>
-            ) : (
-              users.map((user) => (
-                <tr key={user.id}>
-                  <td className="user-email">
-                    {((user.first_name || user.last_name) ? `${(user.first_name||'').trim()} ${(user.last_name||'').trim()}`.trim() : (user.full_name || user.name || user.email))}
-                  </td>
-
-                  <td className="user-email">
-                    {user.email}
-                  </td>
-
-                  <td className="role-cell">
-                    <RoleSelect
-                      currentUserLevel={currentUserLevel}
-                      targetLevel={user.level}
-                      userId={user.user_id}
-                      userEmail={user.email}
-                      onUpdated={loadUsers}
-                      canEdit={canManageUser(user.level)}
-                    />
-                  </td>
-
-                  <td className="joined-cell">
-                    {formatJoinedDate(user.created_at)}
+            </thead>
+            <tbody>
+              {users.length === 0 ? (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', padding: '2rem' }}>
+                    No approved users found
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              ) : (
+                users.map((user) => (
+                  <tr key={user.id}>
+                    <td className="user-email">
+                      {((user.first_name || user.last_name) ? `${(user.first_name||'').trim()} ${(user.last_name||'').trim()}`.trim() : (user.full_name || user.name || user.email))}
+                    </td>
+
+                    <td className="user-email">
+                      {user.email}
+                    </td>
+
+                    <td className="role-cell">
+                      <RoleSelect
+                        currentUserLevel={currentUserLevel}
+                        targetLevel={user.level}
+                        userId={user.user_id}
+                        userEmail={user.email}
+                        onUpdated={loadUsers}
+                        canEdit={canManageUser(user.level)}
+                      />
+                    </td>
+
+                    <td className="joined-cell">
+                      {formatJoinedDate(user.created_at)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Pending Users Tab */}
+      {activeTab === 'pending' && canApproveUsers() && (
+        <div className="pending-user-list">
+          <table className="user-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Requested</th>
+                <th>Assign Role</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendingUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: 'center', padding: '2rem' }}>
+                    No pending requests
+                  </td>
+                </tr>
+              ) : (
+                pendingUsers.map((user) => (
+                  <tr key={user.id}>
+                    <td className="user-email">
+                      {((user.first_name || user.last_name) ? `${(user.first_name||'').trim()} ${(user.last_name||'').trim()}`.trim() : (user.full_name || user.name || user.email))}
+                    </td>
+
+                    <td className="user-email">
+                      {user.email}
+                    </td>
+
+                    <td className="joined-cell">
+                      {formatJoinedDate(user.created_at)}
+                    </td>
+
+                    <td className="role-cell">
+                      <select
+                        className="role-select-styled pending-role-select"
+                        defaultValue="member"
+                        id={`role-${user.id}`}
+                        aria-label={`Select role for ${user.email}`}
+                      >
+                        <option value="member">Member</option>
+                        {(currentUserLevel === 'leader' || currentUserLevel === 'director') && (
+                          <option value="leader">Leader</option>
+                        )}
+                        {currentUserLevel === 'director' && (
+                          <option value="director">Director</option>
+                        )}
+                      </select>
+                    </td>
+
+                    <td className="actions-cell">
+                      <div className="action-buttons">
+                        <button
+                          className="btn-approve"
+                          onClick={() => {
+                            const select = document.getElementById(`role-${user.id}`);
+                            const assignedLevel = select?.value || 'member';
+                            handleApproveUser(user.user_id, user.email, assignedLevel);
+                          }}
+                          title="Approve user"
+                        >
+                          ✓ Approve
+                        </button>
+                        <button
+                          className="btn-reject"
+                          onClick={() => handleRejectUser(user.user_id, user.email)}
+                          title="Reject user"
+                        >
+                          ✕ Reject
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div className="user-manager-info">
         <h4>Permission Levels:</h4>

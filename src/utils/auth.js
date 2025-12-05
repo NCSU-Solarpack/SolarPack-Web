@@ -161,7 +161,10 @@ class AuthService {
         last_name: role?.last_name || user?.user_metadata?.last_name || null,
         phone_number: role?.phone_number || null,
         specific_role: role?.specific_role || null,
-        joined_at: user.created_at || null
+        joined_at: user.created_at || null,
+        approval_status: role?.approval_status || 'pending',
+        approved_at: role?.approved_at || null,
+        approved_by: role?.approved_by || null
       };
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -182,6 +185,24 @@ class AuthService {
       if (lastName) metadata.last_name = lastName;
 
       const data = await supabaseService.signUp(email, password, Object.keys(metadata).length ? metadata : undefined);
+
+      // Best-effort: if signUp returned a user object, try to persist first/last
+      // name into the `user_roles` table immediately using the service method.
+      // This helps in setups where email confirmation prevents immediate session
+      // but we still want the names available in the admin UI.
+      try {
+        if (data && data.user && (firstName || lastName)) {
+          await supabaseService.upsertUserRoleForUserId(data.user.id, {
+            first_name: firstName || undefined,
+            last_name: lastName || undefined,
+            email
+          });
+        }
+      } catch (e) {
+        // Non-fatal: ignore failures (likely RLS restrictions). We'll still
+        // attempt to upsert when the user signs in (loadUserData flow).
+        console.warn('Signup: could not upsert names into user_roles:', e?.message || e);
+      }
       
       // Check if email confirmation is required
       let needsEmailConfirmation = !data.session;
@@ -202,6 +223,20 @@ class AuthService {
           // If immediate sign-in fails, fall back to original response and indicate
           // that email confirmation is required (keeps behavior predictable).
           console.warn('Auto sign-in after signup failed:', signinError);
+          // Try best-effort upsert of the user_roles row using the returned user id
+          // if Supabase returned a user object (some setups return user even without a session).
+          try {
+            if (data.user && (metadata.first_name || metadata.last_name)) {
+              await supabaseService.upsertUserRoleForUserId(data.user.id, {
+                first_name: metadata.first_name,
+                last_name: metadata.last_name,
+                email
+              });
+            }
+          } catch (e) {
+            // Non-fatal: RLS or permission may prevent anon upsert. Ignore.
+            console.warn('Could not upsert user_roles after signup (likely RLS):', e?.message || e);
+          }
         }
       } else {
         // User is signed in immediately (email confirmation disabled)
@@ -335,8 +370,29 @@ class AuthService {
    * Check if user is authenticated
    */
   isAuthenticated() {
-    // Email confirmation is no longer required for authentication.
-    return this.currentUser !== null;
+    // User must be logged in AND approved to be authenticated
+    return this.currentUser !== null && this.currentUser.approval_status === 'approved';
+  }
+
+  /**
+   * Check if user is approved
+   */
+  isApproved() {
+    return this.currentUser !== null && this.currentUser.approval_status === 'approved';
+  }
+
+  /**
+   * Check if user is pending approval
+   */
+  isPending() {
+    return this.currentUser !== null && this.currentUser.approval_status === 'pending';
+  }
+
+  /**
+   * Check if user is rejected
+   */
+  isRejected() {
+    return this.currentUser !== null && this.currentUser.approval_status === 'rejected';
   }
 
   /**

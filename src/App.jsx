@@ -15,6 +15,7 @@ import NotFound from './pages/NotFound'
 import Admin from './components/Admin'
 import ForgotPassword from './components/ForgotPassword'
 import ResetPassword from './components/ResetPassword'
+import PendingApproval from './components/PendingApproval'
 import { AlertProvider } from './contexts/AlertContext'
 
 //App Router with Layout wrapping regular pages and Admin page without layout
@@ -26,6 +27,7 @@ function AppRouter() {
       {/* Auth routes without layout */}
       <Route path="/admin" element={<Admin />} />
       <Route path="/login" element={<Login onLogin={() => navigate('/admin')} />} />
+      <Route path="/pending-approval" element={<PendingApproval />} />
       {/* Removed confirm-email route - email confirmation not required anymore */}
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />

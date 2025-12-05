@@ -83,17 +83,16 @@ const Login = ({ onLogin }) => {
           return;
         }
 
-        const result = await authService.signUp(
+        await authService.signUp(
           formData.email,
           formData.password,
           formData.firstName,
           formData.lastName
         );
 
-        // After signup we attempt an immediate sign-in in the auth service.
-        // Treat the signup as successful and proceed to the admin area.
-        showAlert('Account created successfully!', 'success');
-        onLogin();
+        // After signup, redirect to pending approval page
+        showAlert('Account created! Awaiting approval from team leaders.', 'success');
+        navigate('/pending-approval');
       } else {
         // Login flow
         if (!formData.email || !formData.password) {
@@ -103,6 +102,20 @@ const Login = ({ onLogin }) => {
         }
 
         await authService.signIn(formData.email, formData.password);
+        
+        // Check approval status after sign in
+        if (authService.isPending()) {
+          showAlert('Your account is pending approval', 'info');
+          navigate('/pending-approval');
+          return;
+        }
+        
+        if (authService.isRejected()) {
+          showAlert('Your account request was not approved', 'error');
+          navigate('/pending-approval');
+          return;
+        }
+        
         showAlert('Welcome back!', 'success');
         onLogin();
       }
@@ -333,8 +346,7 @@ const Login = ({ onLogin }) => {
         {mode === 'signup' && (
           <div className="login-footer">
             <p className="text-muted">
-              New accounts start as <strong>Members</strong>. 
-              Contact a director to upgrade your permissions.
+              Your account will require approval from a team leader or director before you can access the dashboard.
             </p>
           </div>
         )}

@@ -1642,12 +1642,13 @@ class SupabaseService {
     // Pass along optional user metadata to Supabase Auth so it is saved
     // on the auth user row (useful when email confirmation prevents
     // immediate authenticated upserts into `user_roles`).
-    const options = metadata ? { data: metadata } : undefined;
-
-    const { data, error } = await this.client.auth.signUp({
+    const signUpOptions = {
       email,
-      password
-    }, options);
+      password,
+      ...(metadata ? { options: { data: metadata } } : {})
+    };
+
+    const { data, error } = await this.client.auth.signUp(signUpOptions);
 
     if (error) throw error;
     return data;
@@ -1714,6 +1715,35 @@ class SupabaseService {
       return { level: 'member', email: user.email };
     }
 
+    return data;
+  }
+
+  /**
+   * Upsert a user_roles row for a specific user id (used after signUp when
+   * the client may not yet have an active session). This will try to create
+   * or update the row using the anon key — if Row Level Security prevents
+   * this operation the caller should catch and ignore the error.
+   * @param {string} userId
+   * @param {object} updates - fields to upsert (first_name, last_name, email, phone_number)
+   */
+  async upsertUserRoleForUserId(userId, updates = {}) {
+    if (!this.client) throw new Error('Supabase not configured');
+
+    const payload = {
+      user_id: userId,
+      ...(updates.email !== undefined ? { email: updates.email } : {}),
+      ...(updates.first_name !== undefined ? { first_name: updates.first_name } : {}),
+      ...(updates.last_name !== undefined ? { last_name: updates.last_name } : {}),
+      ...(updates.phone_number !== undefined ? { phone_number: updates.phone_number } : {})
+    };
+
+    const { data, error } = await this.client
+      .from('user_roles')
+      .upsert(payload, { onConflict: 'user_id' })
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
     return data;
   }
 
@@ -1808,6 +1838,70 @@ class SupabaseService {
 
     if (error) throw error;
     return data || [];
+  }
+
+  /**
+   * Get pending user approval requests
+   */
+  async getPendingUsers() {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { data, error } = await this.client
+      .from('user_roles')
+      .select('*')
+      .eq('approval_status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  /**
+   * Approve a user's account
+   * @param {string} userId - The user_id to approve
+   * @param {string} approvedByUserId - The user_id of the approver
+   * @param {string} assignedLevel - Role level to assign (member, leader, director)
+   */
+  async approveUser(userId, approvedByUserId, assignedLevel = 'member') {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { data, error } = await this.client
+      .from('user_roles')
+      .update({
+        approval_status: 'approved',
+        approved_by: approvedByUserId,
+        approved_at: new Date().toISOString(),
+        level: assignedLevel
+      })
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  /**
+   * Reject a user's account request
+   * @param {string} userId - The user_id to reject
+   * @param {string} rejectedByUserId - The user_id of the rejector
+   */
+  async rejectUser(userId, rejectedByUserId) {
+    if (!this.client) throw new Error('Supabase not configured');
+    
+    const { data, error } = await this.client
+      .from('user_roles')
+      .update({
+        approval_status: 'rejected',
+        approved_by: rejectedByUserId,
+        approved_at: new Date().toISOString()
+      })
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   /**

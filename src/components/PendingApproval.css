@@ -1,0 +1,170 @@
+
+/* Use login-container and login-card for layout */
+.pending-approval-page {
+  background: var(--bg);
+}
+
+.pending-approval-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  border: 1px solid #222;
+  max-width: 480px;
+  width: 100%;
+  padding: 2.5rem 2rem;
+  text-align: center;
+}
+
+.pending-status-icon {
+  margin: 0 auto 1.5rem;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.8; }
+}
+
+.pending-approval-message {
+  font-size: 1.1rem;
+  color: var(--subtxt);
+  margin-bottom: 1.5rem;
+  line-height: 1.7;
+}
+.pending-approval-message .pending-highlight {
+  color: var(--accent);
+  font-weight: 600;
+}
+.pending-approval-message.rejected {
+  color: #ef4444;
+}
+
+.pending-approval-info {
+  background: #181818;
+  border-radius: 8px;
+  padding: 1.2rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+  color: var(--subtxt);
+  border-left: 4px solid var(--accent);
+}
+.pending-approval-info h2 {
+  font-size: 1.1rem;
+  color: var(--accent);
+  margin-bottom: 0.7rem;
+}
+.pending-approval-info ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.pending-approval-info li {
+  padding: 0.4rem 0 0.4rem 1.2rem;
+  position: relative;
+}
+.pending-approval-info li:before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: bold;
+}
+
+.pending-approval-contact {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+.contact-label {
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+.contact-email a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  font-size: 1rem;
+}
+.contact-email a:hover {
+  color: #ff4a45;
+}
+
+.pending-approval-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+.login-button {
+  padding: 0.75rem 2rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 8px #0006;
+  transition: background .2s, box-shadow .2s, transform .05s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.login-button:hover:not(:disabled) {
+  background: #ff4a45;
+  box-shadow: 0 4px 12px #0008;
+  transform: translateY(-2px);
+}
+.login-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.btn-signout {
+  background: #222;
+  color: var(--subtxt);
+}
+.btn-signout:hover {
+  background: #333;
+  color: #fff;
+}
+
+.pending-approval-user-info {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #222;
+}
+.pending-approval-user-info small {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+.pending-user-email {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 640px) {
+  .pending-approval-card {
+    padding: 1.5rem 0.7rem;
+  }
+  .pending-approval-actions {
+    flex-direction: column;
+  }
+  .login-button {
+    width: 100%;
+    justify-content: center;
+  }
+}

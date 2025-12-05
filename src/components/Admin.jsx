@@ -18,8 +18,23 @@ const Admin = () => {
       await authService.waitForInit();
       
       if (mounted) {
+        const user = authService.getUser();
+        
+        // Check if user is pending or rejected and redirect
+        if (user && authService.isPending()) {
+          console.log('User is pending approval, redirecting to pending page');
+          navigate('/pending-approval');
+          return;
+        }
+        
+        if (user && authService.isRejected()) {
+          console.log('User is rejected, redirecting to pending page');
+          navigate('/pending-approval');
+          return;
+        }
+        
         const authenticated = authService.isAuthenticated();
-        console.log('Admin auth check after init:', authenticated, authService.getUser()?.email);
+        console.log('Admin auth check after init:', authenticated, user?.email);
         setIsAuthenticated(authenticated);
         setIsLoading(false);
       }
@@ -31,6 +46,18 @@ const Admin = () => {
     const unsubscribe = authService.onAuthStateChange((authenticated, user) => {
       if (mounted) {
         console.log('Admin received auth state change:', authenticated, user?.email);
+        
+        // Check approval status on auth state change
+        if (user && authService.isPending()) {
+          navigate('/pending-approval');
+          return;
+        }
+        
+        if (user && authService.isRejected()) {
+          navigate('/pending-approval');
+          return;
+        }
+        
         setIsAuthenticated(authenticated);
       }
     });
@@ -39,7 +66,7 @@ const Admin = () => {
       mounted = false;
       unsubscribe();
     };
-  }, []);
+  }, [navigate]);
 
   const handleLogin = () => {
     setIsAuthenticated(true);
