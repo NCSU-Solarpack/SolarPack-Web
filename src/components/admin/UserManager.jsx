@@ -220,9 +220,9 @@ const UserManager = forwardRef((props, ref) => {
           <thead>
             <tr>
               <th>Name</th>
+              <th>Email</th>
               <th>Role</th>
               <th>Joined</th>
-              <th className="contact-header">Contact</th>
             </tr>
           </thead>
           <tbody>
@@ -236,7 +236,11 @@ const UserManager = forwardRef((props, ref) => {
               users.map((user) => (
                 <tr key={user.id}>
                   <td className="user-email">
-                    {user.full_name || user.name || user.email}
+                    {((user.first_name || user.last_name) ? `${(user.first_name||'').trim()} ${(user.last_name||'').trim()}`.trim() : (user.full_name || user.name || user.email))}
+                  </td>
+
+                  <td className="user-email">
+                    {user.email}
                   </td>
 
                   <td className="role-cell">
@@ -252,20 +256,6 @@ const UserManager = forwardRef((props, ref) => {
 
                   <td className="joined-cell">
                     {formatJoinedDate(user.created_at)}
-                  </td>
-
-                  <td className="contact-cell">
-                    <a
-                      className="contact-btn"
-                      href={`mailto:${user.email}`}
-                      title={`Email ${user.full_name || user.name || user.email}`}
-                      aria-label={`Email ${user.full_name || user.name || user.email}`}
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                        <path d="M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v11a2.5 2.5 0 01-2.5 2.5h-11A2.5 2.5 0 014 17.5v-11z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M21 7.25l-9 6-9-6" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </a>
                   </td>
                 </tr>
               ))

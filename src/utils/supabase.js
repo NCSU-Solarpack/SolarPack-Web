@@ -193,10 +193,40 @@ class SupabaseService {
       .from('team_members')
       .select('*')
       .order('order', { ascending: true });
-    
+
     if (error) throw error;
+
+    const teamMembers = Array.isArray(data) ? data : [];
+
+    // If any team members are linked to a user account, fetch those users' emails
+    const linkedUserIds = teamMembers
+      .map(m => m.user_id)
+      .filter(Boolean);
+
+    if (linkedUserIds.length > 0) {
+      try {
+        const { data: usersData, error: usersErr } = await this.client
+          .from('user_roles')
+          .select('user_id, email')
+          .in('user_id', linkedUserIds);
+
+        if (!usersErr && Array.isArray(usersData)) {
+          const emailMap = new Map(usersData.map(u => [u.user_id, u.email]));
+          // Attach `user_email` to each team member when available
+          teamMembers.forEach(member => {
+            if (member.user_id && emailMap.has(member.user_id)) {
+              member.user_email = emailMap.get(member.user_id) || null;
+            }
+          });
+        }
+      } catch (err) {
+        // Non-fatal: return team members without attached emails if lookup fails
+        console.warn('Failed to fetch linked user emails for team members', err);
+      }
+    }
+
     return {
-      teamMembers: data || [],
+      teamMembers,
       lastUpdated: new Date().toISOString()
     };
   }

@@ -99,6 +99,16 @@ const OrderManager = forwardRef((props, ref) => {
     }
   }));
 
+  // Helper function to get current user's full name
+  const getCurrentUserFullName = () => {
+    const user = authService.currentUser;
+    if (!user) return 'Unknown User';
+    const firstName = user.first_name || '';
+    const lastName = user.last_name || '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    return fullName || user.email || 'Unknown User';
+  };
+
   // Helper function to get semester information
   const getSemesterInfo = (date = new Date()) => {
     const month = date.getMonth(); // 0-11
@@ -485,9 +495,9 @@ const OrderManager = forwardRef((props, ref) => {
     pdf.setFontSize(10);
     pdf.setTextColor(0, 0, 0);
     
-    // Technical Director Approval
+    // Technical Approval
     const techApproval = order.approvalWorkflow?.technicalDirectorApproval || { status: 'pending' };
-    pdf.text(`Technical Director: ${techApproval.status?.toUpperCase() || 'PENDING'}`, 20, yPosition);
+    pdf.text(`Technical Approval: ${techApproval.status?.toUpperCase() || 'PENDING'}`, 20, yPosition);
     yPosition += 6;
     if (techApproval.approvedBy) {
       pdf.text(`Approved by: ${techApproval.approvedBy}`, 30, yPosition);
@@ -499,9 +509,9 @@ const OrderManager = forwardRef((props, ref) => {
       yPosition += (techComments.length * 5) + 6;
     }
 
-    // Project Director Approval
+    // Purchase Approval
     const projectApproval = order.approvalWorkflow?.projectDirectorPurchaseApproval || { status: 'pending' };
-    pdf.text(`Project Director: ${projectApproval.status?.toUpperCase() || 'PENDING'}`, 20, yPosition);
+    pdf.text(`Purchase Approval: ${projectApproval.status?.toUpperCase() || 'PENDING'}`, 20, yPosition);
     yPosition += 6;
     if (projectApproval.approvedBy) {
       pdf.text(`Approved by: ${projectApproval.approvedBy}`, 30, yPosition);
@@ -762,8 +772,8 @@ const OrderManager = forwardRef((props, ref) => {
       }
 
       // Handle different types of status updates
-      // New workflow: Technical Director handles sponsorship during approval
-      // 1. Technical Director approval with sponsorship status (always required)
+      // New workflow: Technical approval handles sponsorship during approval
+      // 1. Technical approval with sponsorship status (always required)
       // 2. Purchase approval (only if sponsorship fails or not applicable)
       // Status flow: pending_technical_approval -> (if successful) approved OR (if failed/N/A) pending_project_approval -> approved -> shipped -> delivered
       if (statusUpdate.type === 'technical_director_approval') {
@@ -1103,11 +1113,12 @@ const OrderManager = forwardRef((props, ref) => {
   };
 
   const resetOrderForm = () => {
+    const user = authService.getUser();
     setOrderFormData({
       submissionDetails: {
-        subteam: '',
-        submitterName: '',
-        submitterEmail: ''
+        subteam: (user && user.specific_role) ? user.specific_role : '',
+        submitterName: (user && (user.first_name || user.last_name)) ? `${user.first_name || ''}${user.first_name && user.last_name ? ' ' : ''}${user.last_name || ''}`.trim() : (user ? (user.email || '') : ''),
+        submitterEmail: (user && user.email) ? user.email : ''
       },
       materialDetails: {
         materialName: '',
@@ -1217,7 +1228,7 @@ const OrderManager = forwardRef((props, ref) => {
           purchaseGroupId: purchaseGroupId,
           purchaseGroupPrimary: order.id === purchasingOrder.id,
           actualCost: order.costBreakdown.totalCost,
-          purchasedBy: authService.currentUser?.level || 'director',
+          purchasedBy: getCurrentUserFullName(),
           expectedDeliveryDate: individualDeliveryDates[order.id],
           deliveryNotes: purchaseFormData.deliveryNotes,
           trackingNumber: purchaseFormData.trackingNumber
@@ -1239,7 +1250,7 @@ const OrderManager = forwardRef((props, ref) => {
         type: 'purchase',
         purchaseOrderNumber: purchaseFormData.purchaseOrderNumber || `PO-${Date.now()}`,
         actualCost: purchasingOrder.costBreakdown.totalCost,
-        purchasedBy: authService.currentUser?.level || 'director',
+        purchasedBy: getCurrentUserFullName(),
         expectedDeliveryDate: purchaseFormData.expectedDeliveryDate,
         deliveryNotes: purchaseFormData.deliveryNotes,
         trackingNumber: purchaseFormData.trackingNumber
@@ -1373,6 +1384,53 @@ const OrderManager = forwardRef((props, ref) => {
   };
 
   const teams = [...new Set(orders.map(order => order.submissionDetails?.subteam).filter(Boolean))];
+
+  // Auto-fill submitter info and optionally preselect subteam when opening the order form
+  // Use a ref to ensure we only prefill once per open so we don't overwrite user edits.
+  const hasPrefilledRef = useRef(false);
+  useEffect(() => {
+    if (!showOrderForm) {
+      hasPrefilledRef.current = false; // reset when form closes
+      return;
+    }
+
+    if (hasPrefilledRef.current) return;
+
+    try {
+      const user = authService.getUser();
+      if (!user) return;
+
+      setOrderFormData(prev => {
+        const nameParts = [];
+        if (user.first_name) nameParts.push(user.first_name);
+        if (user.last_name) nameParts.push(user.last_name);
+        const submitterName = nameParts.length > 0 ? nameParts.join(' ') : (user.email || prev.submissionDetails.submitterName || '');
+        const submitterEmail = user.email || prev.submissionDetails.submitterEmail || '';
+
+        // If the form doesn't already have a subteam selected, try to preselect
+        // based on the user's `specific_role` matching one of the available teams.
+        let subteam = prev.submissionDetails.subteam || '';
+        if ((!subteam || subteam === '') && user.specific_role) {
+          const match = teams.find(t => t && t.toLowerCase() === String(user.specific_role).toLowerCase());
+          if (match) subteam = match;
+        }
+
+        return {
+          ...prev,
+          submissionDetails: {
+            ...prev.submissionDetails,
+            submitterName,
+            submitterEmail,
+            subteam
+          }
+        };
+      });
+
+      hasPrefilledRef.current = true;
+    } catch (e) {
+      console.warn('Could not auto-fill submitter info:', e);
+    }
+  }, [showOrderForm]);
 
   const OrderDetailModal = useMemo(() => {
     return ({ order, onClose }) => {
@@ -1804,7 +1862,7 @@ const OrderManager = forwardRef((props, ref) => {
               <div className="detail-section">
                 <h4>Sponsorship Information</h4>
                 <p style={{color: 'var(--subtxt)', fontSize: '0.9rem', fontStyle: 'italic', marginBottom: '1rem'}}>
-                  Determined by Technical Director during approval
+                  Determined during technical approval
                 </p>
                 <div className="detail-grid">
                   <div><strong>Search Status:</strong> 
@@ -1836,7 +1894,7 @@ const OrderManager = forwardRef((props, ref) => {
               <h4>Approval Workflow</h4>
               <div className="approval-grid">
                 <div className="approval-item">
-                  <strong>1. Technical Director Approval:</strong>
+                  <strong>1. Technical Approval:</strong>
                   <span className={`approval-status ${
                     order.approvalWorkflow?.technicalDirectorApproval?.status || 'pending'
                   }`}>
@@ -2013,7 +2071,7 @@ const OrderManager = forwardRef((props, ref) => {
                   {order.approvalWorkflow?.projectDirectorPurchaseApproval?.comments ? (
                     <p>{order.approvalWorkflow.projectDirectorPurchaseApproval.comments}</p>
                   ) : (
-                    <p>The Technical Director has determined this material needs to be purchased. Awaiting Project Director approval for budget allocation.</p>
+                    <p>Technical approval has determined this material needs to be purchased. Awaiting purchase approval for budget allocation.</p>
                   )}
                 </div>
               </div>
@@ -2055,7 +2113,7 @@ const OrderManager = forwardRef((props, ref) => {
               </div>
             )}
 
-            {/* Step 1: Technical Director - Sponsorship Search Status Update */}
+            {/* Step 1: Sponsorship Search Status Update */}
             {isDirector && (order.status === 'pending_approval' || order.status === 'pending_technical_approval' || order.status === 'pending_project_approval') && (
               <div className="detail-section approval-actions">
                 <h4>Step 1: Sponsorship Search Status</h4>
@@ -2176,20 +2234,20 @@ const OrderManager = forwardRef((props, ref) => {
               </div>
             )}
 
-            {/* Step 2: Technical Director - Approval/Denial (only after sponsorship status is set) */}
+            {/* Step 2: Technical Approval - Approval/Denial (only after sponsorship status is set) */}
             {isDirector && 
              (order.status === 'pending_approval' || order.status === 'pending_technical_approval') && 
              (order.sponsorshipInfo?.sponsorshipSearchStatus === 'not_applicable' || 
               order.sponsorshipInfo?.sponsorshipSearchStatus === 'failed' ||
               order.sponsorshipInfo?.sponsorshipSearchStatus === 'successful') && (
               <div className="detail-section approval-actions">
-                <h4>Step 2: Technical Director Approval</h4>
+                <h4>Step 2: Technical Approval</h4>
                 <p className="approval-help-text">
                   Sponsorship status has been set. Now you can approve or deny this order request.
                 </p>
                 <div className="approval-form">
                   <div className="form-group">
-                    <label>Technical Director Comments / Denial Reason</label>
+                    <label>Technical Approval Comments / Denial Reason</label>
                     <textarea 
                       id={`tech-approval-comments-${order.id}`}
                       placeholder="Add comments for approval or reason for denial..."
@@ -2207,7 +2265,7 @@ const OrderManager = forwardRef((props, ref) => {
                         await updateOrderStatus(order.id, {
                           type: 'technical_director_approval',
                           approved: true,
-                          approvedBy: authService.currentUser?.email || 'Tech Director',
+                          approvedBy: getCurrentUserFullName(),
                           comments: comments || 'Approved - material needed for project',
                           sponsorshipStatus: sponsorshipStatus,
                           sponsorshipNotes: order.sponsorshipInfo?.sponsorshipResponse || ''
@@ -2235,7 +2293,7 @@ const OrderManager = forwardRef((props, ref) => {
                         await updateOrderStatus(order.id, {
                           type: 'technical_director_approval',
                           approved: false,
-                          approvedBy: authService.currentUser?.email || 'tech.director@solarpack.com',
+                          approvedBy: getCurrentUserFullName(),
                           denialReason: comments
                         });
                         setSelectedOrder(null);
@@ -2251,7 +2309,7 @@ const OrderManager = forwardRef((props, ref) => {
             {/* Purchase Approval Actions */}
             {isDirector && order.status === 'pending_project_approval' && (
               <div className="detail-section approval-actions">
-                <h4>Purchase Approval (Project Director)</h4>
+                <h4>Purchase Approval</h4>
                 <p className="approval-help-text">Sponsorship was unsuccessful. Approve purchase to spend money on this material.</p>
                 <div className="approval-form">
                   <div className="form-group">
@@ -2271,7 +2329,7 @@ const OrderManager = forwardRef((props, ref) => {
                         await updateOrderStatus(order.id, {
                           type: 'purchase_approval',
                           approved: true,
-                          approvedBy: authService.currentUser?.email || 'Project Director',
+                          approvedBy: getCurrentUserFullName(),
                           comments: comments || 'Budget approved - proceed with purchase'
                         });
                         setSelectedOrder(null);
@@ -2297,7 +2355,7 @@ const OrderManager = forwardRef((props, ref) => {
                         await updateOrderStatus(order.id, {
                           type: 'purchase_approval',
                           approved: false,
-                          approvedBy: authService.currentUser?.email || 'project.director@solarpack.com',
+                          approvedBy: getCurrentUserFullName(),
                           denialReason: comments
                         });
                         setSelectedOrder(null);
@@ -2838,7 +2896,7 @@ const OrderManager = forwardRef((props, ref) => {
                       className="action-btn mark-delivered-btn"
                       onClick={() => updateOrderStatus(order.id, {
                         type: 'delivery',
-                        confirmedBy: authService.currentUser?.level || 'director',
+                        confirmedBy: getCurrentUserFullName(),
                         notes: 'Delivered to subteam'
                       })}
                     >
@@ -3575,7 +3633,7 @@ const OrderManager = forwardRef((props, ref) => {
                     await updateOrderStatus(approvingOrder.id, {
                       type: 'director_approval',
                       approved: false,
-                      approvedBy: authService.currentUser?.level || 'director',
+                      approvedBy: getCurrentUserFullName(),
                       denialReason: approvalComments
                     });
                     setShowApprovalModal(false);
@@ -3592,7 +3650,7 @@ const OrderManager = forwardRef((props, ref) => {
                     await updateOrderStatus(approvingOrder.id, {
                       type: 'director_approval',
                       approved: true,
-                      approvedBy: authService.currentUser?.level || 'director',
+                      approvedBy: getCurrentUserFullName(),
                       comments: approvalComments || 'Approved by director'
                     });
                     setShowApprovalModal(false);

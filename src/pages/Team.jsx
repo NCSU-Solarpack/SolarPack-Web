@@ -146,19 +146,27 @@ const Team = () => {
         }
 
         .read-more-btn {
-          background: none;
+          background: transparent;
           border: none;
           color: var(--accent);
-          font-size: 0.9rem;
+          font-size: 0.95rem;
           cursor: pointer;
-          padding: 0.3rem 0;
-          margin-top: 0.3rem;
-          text-decoration: underline;
-          transition: color 0.3s ease;
+          padding: 0.35rem 0.6rem;
+          margin-top: 0.5rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          font-weight: 600;
+          border-radius: 6px;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          transition: color 0.18s ease, background 0.18s ease, transform 0.12s ease;
         }
 
         .read-more-btn:hover {
+          background: rgba(255,255,255,0.04);
           color: #fff;
+          transform: translateY(-2px);
         }
 
         /* Modal Styles */
@@ -224,6 +232,25 @@ const Team = () => {
           margin-bottom: 1rem;
         }
 
+        .member-contact {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          justify-content: center;
+          margin-top: 0.5rem;
+        }
+
+        .contact-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          color: var(--accent);
+          text-decoration: none;
+          font-weight: 600;
+        }
+
+        .contact-link svg { width: 18px; height: 18px; }
+
         .close-modal-btn {
           position: absolute;
           top: 1rem;
@@ -280,6 +307,7 @@ const Team = () => {
               <div className="member-name">{member.name}</div>
               <div className="member-role">{member.role}</div>
               <p className="member-bio">{truncateBio(member.bio)}</p>
+              {/* Contact is shown in the modal only; not on the card */}
               {needsReadMore(member.bio) && (
                 <button 
                   className="read-more-btn" 
@@ -306,6 +334,21 @@ const Team = () => {
               <div className="modal-role">{selectedMember.role}</div>
             </div>
             <p className="modal-bio">{selectedMember.bio}</p>
+            {(selectedMember.user_email || selectedMember.email) && (
+              <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '1rem', paddingLeft: '0.25rem' }}>
+                <a
+                  className="contact-link"
+                  href={`mailto:${selectedMember.user_email || selectedMember.email}`}
+                  title={`Email ${selectedMember.name}`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 4h16v16H4z" />
+                    <polyline points="22,6 12,13 2,6" />
+                  </svg>
+                  <span style={{ marginLeft: '0.5rem' }}>{selectedMember.user_email || selectedMember.email}</span>
+                </a>
+              </div>
+            )}
           </div>
         </div>
       )}
