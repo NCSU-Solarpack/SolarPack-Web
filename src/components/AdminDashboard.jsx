@@ -11,7 +11,8 @@ import BlogManager from './admin/BlogManager';
 import { Settings as SettingsIcon } from 'lucide-react';
 import Settings from './admin/Settings';
 // import GitHubSettings from './admin/GitHubSettings'; // Removed - no longer using GitHub for data storage
-import { BarChart3, Users, Calendar, Package, GraduationCap, Award, BookOpen, Plus, ShoppingCart, Newspaper, UserPlus } from 'lucide-react';
+import { BarChart3, Users, Calendar, Package, GraduationCap, Award, BookOpen, Plus, ShoppingCart, Newspaper, UserPlus, Folder } from 'lucide-react';
+import FilesManager from './admin/FilesManager';
 
 const AdminDashboard = ({ onLogout }) => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -69,6 +70,7 @@ const AdminDashboard = ({ onLogout }) => {
     { id: 'overview', label: 'Overview', icon: BarChart3, permission: 'view_schedules' },
     { id: 'schedules', label: 'Schedules', icon: Calendar, permission: 'view_schedules' },
     { id: 'orders', label: 'Orders', icon: Package, permission: 'view_orders' },
+    { id: 'files', label: 'Files', icon: Folder },
     { id: 'blogs', label: 'Blogs', icon: BookOpen, permission: 'view_announcements' },
     { id: 'sponsors', label: 'Sponsors', icon: Award, permission: 'view_sponsors' },
     { id: 'team', label: 'Team', icon: Users, permission: 'view_team' },
@@ -96,6 +98,8 @@ const AdminDashboard = ({ onLogout }) => {
         return <SponsorsManager ref={sponsorsManagerRef} />;
       case 'blogs':
         return <BlogManager ref={blogManagerRef} />;
+      case 'files':
+        return <FilesManager />;
       case 'settings':
         return <Settings />;
       default:
