@@ -19,7 +19,7 @@ const SponsorsManager = forwardRef((props, ref) => {
   const { showError, showConfirm } = useAlert();
 
   // Real-time sync status
-  const { status, lastSync, startSaving, finishSaving, acknowledgeNewData, setDisplayedData } = useSupabaseSyncStatus(
+  const { status, lastSync, connectionError, startSaving, finishSaving, acknowledgeNewData, setDisplayedData, forceReconnect } = useSupabaseSyncStatus(
     () => supabaseService.getSponsors(),
     2000 // Check every 2 seconds
   );
@@ -27,6 +27,29 @@ const SponsorsManager = forwardRef((props, ref) => {
   useEffect(() => {
     loadSponsorData();
   }, []);
+
+  // Handle visibility change to refresh data when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (!document.hidden && !loading) {
+        console.log('📱 Tab visible - refreshing sponsors');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        loadSponsorData();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [loading]);
+
+  // Manual refresh handler for SyncStatusBadge
+  const handleRefreshData = async () => {
+    if (status === 'error') {
+      await forceReconnect();
+    }
+    await loadSponsorData();
+    acknowledgeNewData(); // Reset status to 'synced'
+  };
 
   // Expose methods to parent component via ref
   useImperativeHandle(ref, () => ({
@@ -222,10 +245,7 @@ const SponsorsManager = forwardRef((props, ref) => {
   };
 
   // Handle refresh when new data is detected
-  const handleRefreshData = async () => {
-    await loadSponsorData();
-    acknowledgeNewData(); // Reset status to 'synced'
-  };
+  // (Removed duplicate handleRefreshData function to fix redeclaration error)
 
   const getTierIcon = (tierName) => {
     const tier = tierName.toLowerCase();
@@ -649,6 +669,7 @@ const SponsorsManager = forwardRef((props, ref) => {
             status={status} 
             lastSync={lastSync}
             onRefresh={handleRefreshData}
+            connectionError={connectionError}
           />
           {canEdit && (
             <button className="add-sponsor-btn" onClick={() => handleAddSponsor()}>

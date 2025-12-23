@@ -59,6 +59,11 @@ const FilesManager = () => {
 
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfSnapshotUrl, setPdfSnapshotUrl] = useState(null);
+  
+  // Track if a load is in progress to prevent overlapping requests
+  const isLoadingRef = useRef(false);
+  // Track the current load request ID to ignore stale responses
+  const loadRequestIdRef = useRef(0);
 
   // Auth checks
   const userLevel = authService.getLevel();
@@ -85,20 +90,51 @@ const FilesManager = () => {
     return currentPath.join('/');
   }, [currentPath, isInWebsiteData, websiteDataBucket]);
 
-  // Load files and folders
-  const loadItems = useCallback(async () => {
+  // Load files and folders with request tracking to ignore stale responses
+  const loadItems = useCallback(async (isVisibilityRestore = false) => {
+    // If a load is already in progress and this isn't a visibility restore, skip
+    if (isLoadingRef.current && !isVisibilityRestore) {
+      console.log('⏭️ Load already in progress, skipping');
+      return;
+    }
+    
+    // If this is a visibility restore, wait longer for browser to fully restore
+    if (isVisibilityRestore) {
+      console.log('⏳ Waiting for browser to restore before loading...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    
+    // Generate a unique request ID
+    const requestId = ++loadRequestIdRef.current;
+    isLoadingRef.current = true;
     setLoading(true);
+    
     try {
       if (!supabaseService || !supabaseService.client) {
         throw new Error('Supabase not configured');
       }
+      
+      // Ensure auth session is valid before storage operations
+      await supabaseService.ensureAuth();
+      
+      // Check if this request is still current (not superseded by a newer one)
+      if (requestId !== loadRequestIdRef.current) {
+        console.log('⏭️ Request superseded, ignoring response');
+        return;
+      }
 
       // Check if we're viewing the root with Website Data virtual folder
       if (currentPath.length === 0) {
-        // Load root of main bucket
+        // Load root of main bucket - NO timeout wrapper, just direct call
         const { data, error } = await supabaseService.client.storage
           .from(MAIN_BUCKET)
           .list('', { limit: 500, sortBy: { column: 'name', order: 'asc' } });
+        
+        // Check if this request is still current
+        if (requestId !== loadRequestIdRef.current) {
+          console.log('⏭️ Request superseded, ignoring response');
+          return;
+        }
         
         if (error) throw error;
         
@@ -109,7 +145,6 @@ const FilesManager = () => {
           isFolder: true,
           isVirtual: true,
           isProtected: true,
-          // Ensure the virtual "Website Data" entry displays a folder icon
           icon: 'fa-folder',
           iconClass: ''
         };
@@ -151,6 +186,12 @@ const FilesManager = () => {
             .from(bucket.id)
             .list(pathInBucket, { limit: 500, sortBy: { column: 'name', order: 'asc' } });
           
+          // Check if this request is still current
+          if (requestId !== loadRequestIdRef.current) {
+            console.log('⏭️ Request superseded, ignoring response');
+            return;
+          }
+          
           if (error) throw error;
           
           const processed = processItems(data || [], true);
@@ -164,6 +205,12 @@ const FilesManager = () => {
           .from(MAIN_BUCKET)
           .list(pathString, { limit: 500, sortBy: { column: 'name', order: 'asc' } });
         
+        // Check if this request is still current
+        if (requestId !== loadRequestIdRef.current) {
+          console.log('⏭️ Request superseded, ignoring response');
+          return;
+        }
+        
         if (error) throw error;
         
         const processed = processItems(data || []);
@@ -171,14 +218,48 @@ const FilesManager = () => {
         setIsInWebsiteData(false);
         setWebsiteDataBucket(null);
       }
+      
+      console.log('✅ Files loaded successfully');
     } catch (err) {
+      // Check if this request is still current before showing error
+      if (requestId !== loadRequestIdRef.current) {
+        console.log('⏭️ Request superseded, ignoring error');
+        return;
+      }
+      
       console.error('Failed to load files:', err);
       await showError(`Failed to load files: ${err.message}`, 'Load Error');
       setItems([]);
     } finally {
-      setLoading(false);
+      // Only update loading state if this is still the current request
+      if (requestId === loadRequestIdRef.current) {
+        isLoadingRef.current = false;
+        setLoading(false);
+      }
     }
   }, [currentPath, showError]);
+
+  // Handle visibility change to refresh data when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (!document.hidden) {
+        console.log('📱 Tab visible - will refresh files after delay');
+        
+        // Cancel any in-flight request by incrementing the request ID
+        loadRequestIdRef.current++;
+        isLoadingRef.current = false;
+        
+        // Reload files with visibility restore flag (includes longer delay)
+        loadItems(true);
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [loadItems]);
 
   // Process raw Supabase items into our format
   const processItems = (data, isProtected = false) => {

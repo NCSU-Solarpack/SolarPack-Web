@@ -20,7 +20,7 @@ const AlumniManager = forwardRef((props, ref) => {
   const { showError, showConfirm } = useAlert();
 
   // Real-time sync status
-  const { status, lastSync, startSaving, finishSaving, acknowledgeNewData, setDisplayedData } = useSupabaseSyncStatus(
+  const { status, lastSync, connectionError, startSaving, finishSaving, acknowledgeNewData, setDisplayedData, forceReconnect } = useSupabaseSyncStatus(
     () => supabaseService.getAlumni(),
     2000 // Check every 2 seconds
   );
@@ -28,6 +28,20 @@ const AlumniManager = forwardRef((props, ref) => {
   useEffect(() => {
     loadAlumniData();
   }, []);
+
+  // Handle visibility change to refresh data when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (!document.hidden && !loading) {
+        console.log('📱 Tab visible - refreshing alumni');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        loadAlumniData();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [loading]);
 
   // Auto-refresh alumni data if new data is detected by sync status
   useEffect(() => {
@@ -39,6 +53,9 @@ const AlumniManager = forwardRef((props, ref) => {
 
   // Manual refresh handler for SyncStatusBadge
   const handleRefreshData = async () => {
+    if (status === 'error') {
+      await forceReconnect();
+    }
     await loadAlumniData();
     acknowledgeNewData(); // Reset status to 'synced'
   };
@@ -526,6 +543,7 @@ const AlumniManager = forwardRef((props, ref) => {
             status={status} 
             lastSync={lastSync}
             onRefresh={handleRefreshData}
+            connectionError={connectionError}
           />
           {canEdit && (
             <button 

@@ -23,6 +23,9 @@ class AuthService {
     this.isInitialized = false;
     this.initPromise = null;
     this.authStateListeners = new Set();
+    this.connectionUnsubscribe = null;
+    this.isLoadingUserData = false; // Prevent concurrent loads
+    this.lastNotifiedAuthState = null; // Track last notified state to prevent redundant updates
     this.initializeAuth();
   }
 
@@ -52,21 +55,62 @@ class AuthService {
         await this.loadUserData();
       }
 
-      // Listen for auth state changes
-      this.authSubscription = supabaseService.onAuthStateChange(async (event, session) => {
-        console.log('Auth state changed:', event, session ? 'with session' : 'no session');
-        
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
-          if (session) {
-            await this.loadUserData();
+      // Listen for auth state changes - SINGLE listener, never duplicated
+      // IMPORTANT: According to Supabase docs, only call onAuthStateChange once
+      // and it must be registered early in the app lifecycle
+      if (!this.authSubscription) {
+        this.authSubscription = supabaseService.onAuthStateChange(async (event, session) => {
+          console.log('Auth state changed:', event, session ? 'with session' : 'no session');
+          
+          // Track if we should notify listeners (only on real auth state changes)
+          let shouldNotify = false;
+          
+          // Handle various auth events
+          if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+            if (session) {
+              await this.loadUserData();
+              shouldNotify = true; // Actual sign-in - notify UI
+            }
+          } else if (event === 'TOKEN_REFRESHED') {
+            // Token was refreshed silently - DON'T reload or notify
+            // This is just a background token refresh, not a state change
+            // The user is still authenticated with the same identity
+            console.log('Token refreshed silently (not reloading UI)');
+            
+            // Only load user data if we somehow don't have it yet
+            if (session && !this.currentUser) {
+              await this.loadUserData();
+              shouldNotify = true;
+            }
+            // If we already have currentUser, do nothing - stay silent
+          } else if (event === 'SIGNED_OUT') {
+            this.currentUser = null;
+            shouldNotify = true; // User signed out - notify UI
           }
-        } else if (event === 'SIGNED_OUT') {
-          this.currentUser = null;
-        }
-        
-        // Notify all listeners of auth state change
-        this._notifyListeners();
-      });
+          
+          // Only notify listeners if auth state actually changed
+          if (shouldNotify) {
+            this._notifyListeners();
+          }
+        });
+      }
+
+      // Also listen for connection restoration (tab visibility, network)
+      // Triggers user data reload in background - NON-BLOCKING
+      if (!this.connectionUnsubscribe) {
+        this.connectionUnsubscribe = supabaseService.onConnectionChange((event, isConnected) => {
+          console.log('Connection event:', event, 'connected:', isConnected);
+          
+          // When visibility is restored or network comes back online,
+          // reload user data in background (fire and forget)
+          if ((event === 'visibility_restored' || event === 'focus_restored' || event === 'online') && isConnected) {
+            if (this.currentUser) {
+              // Fire and forget - don't block on this
+              this._refreshUserDataInBackground();
+            }
+          }
+        });
+      }
 
       this.isInitialized = true;
       console.log('Auth initialization complete, user:', this.currentUser?.email || 'none');
@@ -100,9 +144,24 @@ class AuthService {
 
   /**
    * Notify all listeners of auth state change
+   * Only notifies if the auth state actually changed since last notification
    */
   _notifyListeners() {
     const isAuth = this.isAuthenticated();
+    const userId = this.currentUser?.id;
+    
+    // Create a state signature to detect actual changes
+    const currentState = `${isAuth}:${userId || 'none'}`;
+    
+    // Only notify if state actually changed
+    if (this.lastNotifiedAuthState === currentState) {
+      console.log('Auth state unchanged, skipping notification');
+      return;
+    }
+    
+    console.log('Auth state changed from', this.lastNotifiedAuthState, 'to', currentState);
+    this.lastNotifiedAuthState = currentState;
+    
     this.authStateListeners.forEach(callback => {
       try {
         callback(isAuth, this.currentUser);
@@ -113,9 +172,68 @@ class AuthService {
   }
 
   /**
+   * Refresh user data in background after connection restore
+   * Fire-and-forget, with timeout protection - NEVER blocks UI
+   * Only notifies listeners if auth state actually changed
+   */
+  _refreshUserDataInBackground() {
+    (async () => {
+      try {
+        console.log('Verifying session in background...');
+        
+        // Quick timeout - if this takes too long, just skip it
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('timeout')), 5000)
+        );
+        
+        const session = await Promise.race([
+          supabaseService.getSession(),
+          timeoutPromise
+        ]);
+        
+        if (session) {
+          // Session still valid - silently verify user data is current
+          // Don't notify listeners - nothing changed from user's perspective
+          const hadUser = !!this.currentUser;
+          
+          await Promise.race([
+            this.loadUserData(),
+            timeoutPromise
+          ]);
+          
+          // Only notify if we went from no user to having user (edge case)
+          if (!hadUser && this.currentUser) {
+            console.log('User data loaded after restore');
+            this._notifyListeners();
+          } else {
+            console.log('Session verified silently');
+          }
+        } else {
+          // Session gone - clear user and notify (this is a real state change)
+          console.log('Session no longer valid');
+          this.currentUser = null;
+          this._notifyListeners();
+        }
+      } catch (e) {
+        // Timeout or error - don't crash, just log
+        console.warn('Background session verification skipped:', e.message);
+      }
+    })();
+  }
+
+  /**
    * Load user data including role from Supabase
+   * Protected against concurrent calls to prevent race conditions
    */
   async loadUserData() {
+    // Prevent concurrent loads (can happen during rapid auth state changes)
+    if (this.isLoadingUserData) {
+      console.log('loadUserData already in progress, skipping...');
+      return;
+    }
+    
+    this.isLoadingUserData = true;
+    
     try {
       // Get combined profile: auth user + user_roles row
       const profile = await supabaseService.getUserProfile();
@@ -169,6 +287,8 @@ class AuthService {
     } catch (error) {
       console.error('Error loading user data:', error);
       this.currentUser = null;
+    } finally {
+      this.isLoadingUserData = false;
     }
   }
 
@@ -454,11 +574,30 @@ class AuthService {
 
   /**
    * Clean up subscriptions
+   * Call this when the app is unmounting or during cleanup
    */
   cleanup() {
     if (this.authSubscription) {
-      this.authSubscription.data.subscription.unsubscribe();
+      try {
+        // Supabase returns { data: { subscription } } from onAuthStateChange
+        this.authSubscription.data?.subscription?.unsubscribe?.();
+      } catch (e) {
+        console.warn('Error unsubscribing from auth:', e);
+      }
+      this.authSubscription = null;
     }
+    
+    if (this.connectionUnsubscribe) {
+      try {
+        this.connectionUnsubscribe();
+      } catch (e) {
+        console.warn('Error unsubscribing from connection:', e);
+      }
+      this.connectionUnsubscribe = null;
+    }
+    
+    // Clear listeners
+    this.authStateListeners.clear();
   }
 }
 

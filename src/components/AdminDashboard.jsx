@@ -360,6 +360,20 @@ const DashboardOverview = ({ onNavigate, teamManagerRef, scheduleManagerRef, ord
     return () => clearInterval(interval);
   }, []);
 
+  // Handle visibility change to refresh data when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (!document.hidden && !isLoading) {
+        console.log('📱 Tab visible - refreshing dashboard stats');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        loadStats();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isLoading]);
+
   const parseDateLocal = (dateString) => {
     if (!dateString) return null;
     const [year, month, day] = dateString.split('-').map(Number);

@@ -127,6 +127,21 @@ const UserManager = forwardRef((props, ref) => {
     })();
   }, []);
 
+  // Handle visibility change to refresh data when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (!document.hidden && !isLoading) {
+        console.log('📱 Tab visible - refreshing users');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        loadUsers();
+        loadPendingUsers();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isLoading]);
+
   const loadUsers = async () => {
     setIsLoading(true);
     try {

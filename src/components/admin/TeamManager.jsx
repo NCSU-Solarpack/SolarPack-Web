@@ -34,10 +34,19 @@ const TeamManager = forwardRef((props, ref) => {
   const { showError, showConfirm } = useAlert();
 
   // Real-time sync status
-  const { status, lastSync, startSaving, finishSaving, acknowledgeNewData, setDisplayedData } = useSupabaseSyncStatus(
+  const { status, lastSync, connectionError, startSaving, finishSaving, acknowledgeNewData, setDisplayedData, forceReconnect } = useSupabaseSyncStatus(
     () => supabaseService.getTeamMembers(),
     2000 // Check every 2 seconds
   );
+
+  // Handle refresh data - including force reconnect on error
+  const handleRefreshData = async () => {
+    if (status === 'error') {
+      await forceReconnect();
+    }
+    await acknowledgeNewData();
+    await loadTeamData();
+  };
 
   // Expose methods to parent component
   useImperativeHandle(ref, () => ({
@@ -62,6 +71,20 @@ const TeamManager = forwardRef((props, ref) => {
     loadTeamData();
     loadAvailableUsers();
   }, []);
+
+  // Handle visibility change to refresh data when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (!document.hidden && !isLoading) {
+        console.log('📱 Tab visible - refreshing team data');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        loadTeamData();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isLoading]);
 
   const loadTeamData = async () => {
     console.log('Loading team data from Supabase...');
@@ -270,12 +293,6 @@ const TeamManager = forwardRef((props, ref) => {
     } finally {
       finishSaving(); // Update status back to 'synced'
     }
-  };
-
-  // Handle refresh when new data is detected
-  const handleRefreshData = async () => {
-    await loadTeamData();
-    acknowledgeNewData(); // Reset status to 'synced'
   };
 
   // Drag and drop handlers
@@ -787,6 +804,7 @@ const TeamManager = forwardRef((props, ref) => {
             status={status} 
             lastSync={lastSync}
             onRefresh={handleRefreshData}
+            connectionError={connectionError}
           />
           {canEdit && (
             <button className="add-member-btn" onClick={handleAddMember}>

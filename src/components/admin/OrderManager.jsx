@@ -87,7 +87,7 @@ const OrderManager = forwardRef((props, ref) => {
   const { showError, showConfirm, showSuccess } = useAlert();
 
   // Real-time sync status - increase interval when form is open to prevent scroll jumping
-  const { status, lastSync, startSaving, finishSaving, acknowledgeNewData, setDisplayedData } = useSupabaseSyncStatus(
+  const { status, lastSync, connectionError, startSaving, finishSaving, acknowledgeNewData, setDisplayedData, forceReconnect } = useSupabaseSyncStatus(
     () => supabaseService.getOrders(),
     showOrderForm ? 10000 : 2000 // 10 seconds when form is open, 2 seconds otherwise
   );
@@ -599,6 +599,20 @@ const OrderManager = forwardRef((props, ref) => {
     loadOrders();
   }, []);
 
+  // Handle visibility change to refresh data when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (!document.hidden && !isLoading) {
+        console.log('📱 Tab visible - refreshing orders');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        loadOrders();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isLoading]);
+
   // Preserve scroll position in form when component re-renders
   const scrollPositionRef = useRef(0);
   
@@ -732,8 +746,11 @@ const OrderManager = forwardRef((props, ref) => {
     }
   };
 
-  // Handle refresh when new data is detected
+  // Handle refresh when new data is detected or connection error
   const handleRefreshData = async () => {
+    if (status === 'error') {
+      await forceReconnect();
+    }
     await loadOrders();
     acknowledgeNewData(); // Reset status to 'synced'
   };
@@ -2705,7 +2722,7 @@ const OrderManager = forwardRef((props, ref) => {
       <div className="order-header">
         <h2 className="order-title">Order Management</h2>
         <div className="header-actions">
-          <SyncStatusBadge status={status} lastSync={lastSync} onRefresh={handleRefreshData} />
+          <SyncStatusBadge status={status} lastSync={lastSync} onRefresh={handleRefreshData} connectionError={connectionError} />
           {(isLead || isDirector) && (
             <button className="btn-primary" onClick={() => setShowOrderForm(true)}>
               + Submit New Order

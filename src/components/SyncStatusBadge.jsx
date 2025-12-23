@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
  * Clean sync status indicator for Supabase real-time updates
  * Shows current sync state with minimal UI
  */
-const SyncStatusBadge = ({ status, lastSync, onRefresh }) => {
+const SyncStatusBadge = ({ status, lastSync, onRefresh, connectionError }) => {
   const [showTooltip, setShowTooltip] = useState(false);
 
   const statusConfig = {
@@ -27,6 +27,21 @@ const SyncStatusBadge = ({ status, lastSync, onRefresh }) => {
       text: 'Click to update',
       color: '#E31820',
       bgColor: 'rgba(227, 24, 32, 0.1)',
+      pulse: true,
+      clickable: true
+    },
+    reconnecting: {
+      icon: '🔌',
+      text: 'Reconnecting...',
+      color: '#FF9800',
+      bgColor: 'rgba(255, 152, 0, 0.1)',
+      pulse: true
+    },
+    error: {
+      icon: '⚠️',
+      text: 'Connection lost',
+      color: '#f44336',
+      bgColor: 'rgba(244, 67, 54, 0.1)',
       pulse: true,
       clickable: true
     }
@@ -170,9 +185,13 @@ const SyncStatusBadge = ({ status, lastSync, onRefresh }) => {
         <div className={`sync-tooltip ${showTooltip ? 'visible' : ''}`}>
           {status === 'new-data' 
             ? 'Click to refresh and see updates' 
-            : lastSync 
-              ? `Last checked: ${formatLastSync()}` 
-              : 'Real-time sync active'}
+            : status === 'error'
+              ? connectionError || 'Connection lost - click to retry'
+              : status === 'reconnecting'
+                ? 'Attempting to restore connection...'
+                : lastSync 
+                  ? `Last checked: ${formatLastSync()}` 
+                  : 'Real-time sync active'}
         </div>
       )}
     </div>

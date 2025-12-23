@@ -30,7 +30,7 @@ const BlogManager = forwardRef((props, ref) => {
   const { showError, showConfirm, showSuccess } = useAlert();
 
   // Real-time sync status
-  const { status, lastSync, startSaving, finishSaving, acknowledgeNewData, setDisplayedData } = useSupabaseSyncStatus(
+  const { status, lastSync, connectionError, startSaving, finishSaving, acknowledgeNewData, setDisplayedData, forceReconnect } = useSupabaseSyncStatus(
     () => supabaseService.getBlogs(),
     3000 // 3 seconds refresh interval
   );
@@ -38,6 +38,20 @@ const BlogManager = forwardRef((props, ref) => {
   useEffect(() => {
     loadBlogs();
   }, []);
+
+  // Handle visibility change to refresh data when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (!document.hidden && !isLoading) {
+        console.log('📱 Tab visible - refreshing blogs');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        loadBlogs();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isLoading]);
 
   const loadBlogs = async () => {
     setIsLoading(true);
@@ -56,6 +70,9 @@ const BlogManager = forwardRef((props, ref) => {
   };
 
   const handleRefreshData = async () => {
+    if (status === 'error') {
+      await forceReconnect();
+    }
     await loadBlogs();
     acknowledgeNewData();
   };
@@ -555,6 +572,7 @@ const BlogManager = forwardRef((props, ref) => {
             status={status} 
             lastSync={lastSync}
             onRefresh={handleRefreshData}
+            connectionError={connectionError}
           />
           <button className="btn-primary" onClick={() => openBlogForm()}>
             + New Blog Post

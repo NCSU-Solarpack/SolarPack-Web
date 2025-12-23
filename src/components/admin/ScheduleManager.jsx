@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
+import { useState, useEffect, useMemo, forwardRef, useImperativeHandle, useRef } from 'react';
 import { authService, AUTH_LEVELS } from '../../utils/auth';
 import { supabaseService } from '../../utils/supabase';
 import { useAlert } from '../../contexts/AlertContext';
@@ -53,16 +53,48 @@ const ScheduleManager = forwardRef((props, ref) => {
     }
   }));
 
+  // Store subscription refs so we can resubscribe on visibility change
+  const subscriptionsRef = useRef({ projects: null, tasks: null });
+  const isLoadingRef = useRef(false); // Prevent concurrent loads
+  
+  const setupSubscriptions = () => {
+    // Clean up existing subscriptions first
+    if (subscriptionsRef.current.projects) {
+      supabaseService.unsubscribe(subscriptionsRef.current.projects);
+    }
+    if (subscriptionsRef.current.tasks) {
+      supabaseService.unsubscribe(subscriptionsRef.current.tasks);
+    }
+    
+    // Set up new real-time subscriptions
+    try {
+      subscriptionsRef.current.projects = supabaseService.subscribeToTable('schedule_projects', handleDataChange);
+      subscriptionsRef.current.tasks = supabaseService.subscribeToTable('schedule_tasks', handleDataChange);
+      console.log('✅ Real-time subscriptions set up for schedule data');
+    } catch (e) {
+      console.warn('Failed to set up subscriptions:', e);
+    }
+  };
+
   useEffect(() => {
     loadScheduleData();
+    setupSubscriptions();
     
-    // Set up real-time subscriptions
-    const projectsSubscription = supabaseService.subscribeToTable('schedule_projects', handleDataChange);
-    const tasksSubscription = supabaseService.subscribeToTable('schedule_tasks', handleDataChange);
+    // Handle visibility change - this is the key fix
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('📱 Tab visible - refreshing schedule data');
+        // Force a fresh load when tab becomes visible
+        loadScheduleData();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     
     return () => {
-      supabaseService.unsubscribe(projectsSubscription);
-      supabaseService.unsubscribe(tasksSubscription);
+      supabaseService.unsubscribe(subscriptionsRef.current.projects);
+      supabaseService.unsubscribe(subscriptionsRef.current.tasks);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
   
@@ -72,12 +104,18 @@ const ScheduleManager = forwardRef((props, ref) => {
   };
 
   const loadScheduleData = async () => {
+    // Prevent concurrent loads
+    if (isLoadingRef.current) {
+      console.log('⏳ Already loading schedule data, skipping...');
+      return;
+    }
+    
+    isLoadingRef.current = true;
+    setIsLoading(true);
+    
     try {
-      setIsLoading(true);
-      
       if (!supabaseService.isConfigured()) {
         showAlert('Supabase is not configured. Please set up your environment variables.', 'error');
-        setIsLoading(false);
         return;
       }
       
@@ -85,8 +123,17 @@ const ScheduleManager = forwardRef((props, ref) => {
       setScheduleData(data);
     } catch (error) {
       console.error('Error loading schedule data:', error);
-      showAlert(`Failed to load schedule data: ${error.message}`, 'error');
+      
+      // If the request timed out, it's likely due to a stale connection
+      // The timeout handler in supabase.js already marks client for refresh
+      // Just show a user-friendly error
+      if (error.message && error.message.includes('timed out')) {
+        showAlert('Connection timed out. Please try again.', 'error');
+      } else {
+        showAlert(`Failed to load schedule data: ${error.message}`, 'error');
+      }
     } finally {
+      isLoadingRef.current = false;
       setIsLoading(false);
     }
   };

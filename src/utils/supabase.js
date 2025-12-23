@@ -7,8 +7,328 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-// Initialize Supabase client
+// Initialize Supabase client - SINGLE INSTANCE, never recreate
 let supabase = null;
+
+// Track if we need to refresh auth on next request
+let needsAuthRefresh = false;
+
+// Track if a refresh is already in progress
+let authRefreshInProgress = false;
+
+// Request timeout duration (15 seconds)
+const REQUEST_TIMEOUT_MS = 15000;
+
+/**
+ * Wrap any promise with a timeout - CRITICAL for preventing hung requests
+ * When Chrome throttles background tabs, fetch requests can hang forever
+ * This ensures they fail fast so we can retry
+ */
+const withTimeout = (promise, timeoutMs = REQUEST_TIMEOUT_MS, operationName = 'operation') => {
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      console.warn(`⏱️ ${operationName} timed out after ${timeoutMs}ms`);
+      reject(new Error(`Request timed out after ${timeoutMs}ms - please try again`));
+    }, timeoutMs);
+
+    promise
+      .then((result) => {
+        clearTimeout(timeoutId);
+        resolve(result);
+      })
+      .catch((error) => {
+        clearTimeout(timeoutId);
+        reject(error);
+      });
+  });
+};
+
+// Connection state tracking
+let connectionState = {
+  isConnected: true,
+  lastConnectionCheck: Date.now(),
+  reconnectAttempts: 0,
+  maxReconnectAttempts: 5,
+  reconnectDelay: 1000,
+  listeners: new Set(),
+  wasHidden: false,
+  hiddenAt: null
+};
+
+// Auth refresh timeout (5 seconds - fail fast, don't block forever)
+const AUTH_REFRESH_TIMEOUT_MS = 5000;
+
+/**
+ * Check if a session token is stale (expires within 60 seconds)
+ */
+const isSessionStale = (session) => {
+  if (!session?.expires_at) return true;
+  const expiresAtMs = session.expires_at * 1000;
+  const bufferMs = 60 * 1000; // 60 second buffer
+  return expiresAtMs - Date.now() < bufferMs;
+};
+
+/**
+ * Ensure auth session is valid - BEST EFFORT, NON-BLOCKING
+ * This fires off a refresh if needed but NEVER blocks queries.
+ * Individual queries should handle auth failures gracefully.
+ */
+const ensureAuthSession = async () => {
+  if (!supabase) return;
+  
+  // If a refresh is already in progress, don't start another
+  if (authRefreshInProgress) return;
+  
+  // Only refresh if explicitly flagged
+  if (!needsAuthRefresh) return;
+  
+  try {
+    authRefreshInProgress = true;
+    
+    // Get current session (from local storage - fast)
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session) {
+      needsAuthRefresh = false;
+      return;
+    }
+    
+    // Only refresh if session is actually stale
+    if (!isSessionStale(session)) {
+      console.log('✅ Session still fresh, skipping refresh');
+      needsAuthRefresh = false;
+      connectionState.isConnected = true;
+      return;
+    }
+    
+    console.log('🔐 Session stale, refreshing...');
+    
+    // Refresh with timeout - CRITICAL: don't hang forever
+    const { error: refreshError } = await withTimeout(
+      supabase.auth.refreshSession(),
+      AUTH_REFRESH_TIMEOUT_MS,
+      'auth refresh'
+    );
+    
+    if (refreshError) {
+      console.warn('⚠️ Token refresh failed:', refreshError.message);
+      // Don't sign out on timeout - just let queries fail naturally
+    } else {
+      console.log('✅ Auth session refreshed');
+      connectionState.isConnected = true;
+    }
+    
+    needsAuthRefresh = false;
+  } catch (e) {
+    // Timeout or other error - mark as done, allow queries to proceed
+    console.warn('⚠️ Auth refresh error (allowing queries to continue):', e.message);
+    needsAuthRefresh = false;
+  } finally {
+    authRefreshInProgress = false;
+  }
+};
+
+// Track visibility handler registration to prevent duplicates
+let visibilityHandlerRegistered = false;
+
+// Visibility change handler to manage connection on tab focus changes
+const setupVisibilityHandler = () => {
+  if (typeof document === 'undefined') return;
+  if (visibilityHandlerRegistered) return; // Prevent duplicate listeners
+  
+  visibilityHandlerRegistered = true;
+  
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      // Tab became hidden
+      connectionState.hiddenAt = Date.now();
+      connectionState.wasHidden = true;
+      console.log('🔌 Tab hidden');
+    } else {
+      // Tab became visible again
+      const hiddenDuration = connectionState.hiddenAt ? Date.now() - connectionState.hiddenAt : 0;
+      console.log(`🔌 Tab visible after ${Math.round(hiddenDuration / 1000)}s`);
+      
+      // Reset state
+      connectionState.wasHidden = false;
+      connectionState.hiddenAt = null;
+      
+      // Fire and forget - DON'T AWAIT
+      // This prevents the visibility handler from becoming a blocking gate
+      forceSessionRecovery();
+      
+      // Notify listeners immediately (don't wait for recovery)
+      notifyConnectionListeners('visibility_restored');
+    }
+  });
+  
+  // Handle window focus (catches cases where visibilitychange doesn't fire)
+  window.addEventListener('focus', () => {
+    if (connectionState.wasHidden || connectionState.hiddenAt) {
+      console.log('🔌 Window focused');
+      connectionState.wasHidden = false;
+      connectionState.hiddenAt = null;
+      // Fire and forget
+      forceSessionRecovery();
+      notifyConnectionListeners('focus_restored');
+    }
+  });
+  
+  // Handle online/offline events
+  window.addEventListener('online', () => {
+    console.log('🌐 Network online');
+    // Fire and forget
+    forceSessionRecovery();
+    notifyConnectionListeners('online');
+  });
+  
+  window.addEventListener('offline', () => {
+    console.log('🌐 Network went offline');
+    connectionState.isConnected = false;
+    notifyConnectionListeners('offline');
+  });
+};
+
+/**
+ * Attempt session recovery after tab restore - FIRE AND FORGET
+ * This is intentionally non-blocking. If it fails, queries will fail
+ * individually and can show appropriate errors to the user.
+ */
+const forceSessionRecovery = () => {
+  if (!supabase) return;
+  
+  // Fire and forget - don't await, don't block
+  (async () => {
+    try {
+      // Brief delay for browser to restore network stack
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Get session from local storage (fast, won't hang)
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.log('ℹ️ No session to recover');
+        connectionState.isConnected = true;
+        return;
+      }
+      
+      // Only refresh if session is stale
+      if (!isSessionStale(session)) {
+        console.log('✅ Session still valid after tab restore');
+        connectionState.isConnected = true;
+        return;
+      }
+      
+      console.log('🔐 Session stale after tab restore, refreshing...');
+      
+      // Attempt refresh with hard timeout
+      const { error: refreshError } = await withTimeout(
+        supabase.auth.refreshSession(),
+        AUTH_REFRESH_TIMEOUT_MS,
+        'tab restore auth refresh'
+      );
+      
+      if (refreshError) {
+        console.warn('⚠️ Tab restore refresh failed:', refreshError.message);
+        // Don't sign out - let individual queries handle auth errors
+        // This prevents the "everything breaks" cascade
+      } else {
+        console.log('✅ Session recovered after tab restore');
+        connectionState.isConnected = true;
+      }
+      
+      needsAuthRefresh = false;
+      authRefreshInProgress = false;
+      
+    } catch (e) {
+      console.warn('⚠️ Tab restore recovery error:', e.message);
+      // Don't set isConnected = false - let queries determine connectivity
+      needsAuthRefresh = false;
+      authRefreshInProgress = false;
+    }
+  })();
+};
+
+/**
+ * Get the Supabase client - always the same instance
+ * Auth refresh happens via ensureAuthSession before requests
+ */
+const getClient = () => {
+  if (!supabase) {
+    initializeSupabase();
+  }
+  return supabase;
+};
+
+// Check if connection is still alive (non-blocking auth)
+const checkConnection = async () => {
+  if (!supabase) return false;
+  
+  try {
+    // Fire off auth refresh in background (don't block)
+    ensureAuthSession();
+    
+    // Quick lightweight query to verify connection with timeout
+    const { error } = await withTimeout(
+      supabase.from('user_roles').select('count', { count: 'exact', head: true }).limit(1),
+      5000,
+      'connection check'
+    );
+    
+    if (error) {
+      console.warn('⚠️ Connection check failed:', error.message);
+      connectionState.isConnected = false;
+      return false;
+    }
+    
+    connectionState.isConnected = true;
+    connectionState.reconnectAttempts = 0;
+    connectionState.lastConnectionCheck = Date.now();
+    return true;
+  } catch (e) {
+    console.warn('⚠️ Connection check exception:', e.message);
+    connectionState.isConnected = false;
+    return false;
+  }
+};
+
+// Refresh/reconnect the Supabase connection (non-blocking)
+const refreshConnection = async () => {
+  console.log('🔄 Refreshing Supabase connection...');
+  
+  // Trigger auth refresh in background
+  needsAuthRefresh = true;
+  ensureAuthSession(); // Don't await - fire and forget
+  
+  connectionState.isConnected = true;
+  connectionState.reconnectAttempts = 0;
+  console.log('✅ Supabase connection refresh triggered');
+  return true;
+};
+
+// Notify all connection listeners
+const notifyConnectionListeners = (event) => {
+  connectionState.listeners.forEach(callback => {
+    try {
+      callback(event, connectionState.isConnected);
+    } catch (e) {
+      console.error('Connection listener error:', e);
+    }
+  });
+};
+
+// Subscribe to connection state changes
+const onConnectionChange = (callback) => {
+  connectionState.listeners.add(callback);
+  return () => connectionState.listeners.delete(callback);
+};
+
+// Get current connection state
+const getConnectionState = () => ({
+  isConnected: connectionState.isConnected,
+  lastCheck: connectionState.lastConnectionCheck,
+  reconnectAttempts: connectionState.reconnectAttempts
+});
 
 const initializeSupabase = () => {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
@@ -24,15 +344,41 @@ const initializeSupabase = () => {
         storage: window.localStorage,
         autoRefreshToken: true,
         detectSessionInUrl: true
+      },
+      realtime: {
+        params: {
+          eventsPerSecond: 10
+        }
       }
     });
-    console.log('Supabase client initialized with persistent auth');
+    
+    console.log('Supabase client initialized');
+    
+    // Set up visibility change handler for connection management
+    setupVisibilityHandler();
   }
 
   return supabase;
 };
 
 class SupabaseService {
+  
+  /**
+   * Get the Supabase client (always same instance)
+   */
+  get client() {
+    return getClient();
+  }
+  
+  /**
+   * Trigger auth session refresh in background (NEVER blocks queries)
+   * Individual queries handle their own auth errors gracefully.
+   */
+  ensureAuth() {
+    // Fire and forget - DON'T await
+    ensureAuthSession().catch(() => {});
+  }
+  
   /**
    * Upload a receipt PDF for an order, name as order id, update order with metadata
    * @param {File} file - PDF file to upload
@@ -176,12 +522,13 @@ class SupabaseService {
   }
 
   constructor() {
-    this.client = initializeSupabase();
+    // Initialize the Supabase client on construction
+    initializeSupabase();
   }
 
   // Check if Supabase is configured
   isConfigured() {
-    return this.client !== null;
+    return getClient() !== null;
   }
 
   // ===== TEAM DATA =====
@@ -189,10 +536,17 @@ class SupabaseService {
   async getTeamMembers() {
     if (!this.client) throw new Error('Supabase not configured');
     
-    const { data, error } = await this.client
-      .from('team_members')
-      .select('*')
-      .order('order', { ascending: true });
+    // Trigger auth refresh in background (non-blocking)
+    this.ensureAuth();
+    
+    const { data, error } = await withTimeout(
+      this.client
+        .from('team_members')
+        .select('*')
+        .order('order', { ascending: true }),
+      REQUEST_TIMEOUT_MS,
+      'getTeamMembers'
+    );
 
     if (error) throw error;
 
@@ -398,10 +752,17 @@ class SupabaseService {
   async getAlumni() {
     if (!this.client) throw new Error('Supabase not configured');
     
-    const { data, error } = await this.client
-      .from('alumni')
-      .select('*')
-      .order('order', { ascending: false });
+    // Trigger auth refresh in background (non-blocking)
+    this.ensureAuth();
+    
+    const { data, error } = await withTimeout(
+      this.client
+        .from('alumni')
+        .select('*')
+        .order('order', { ascending: false }),
+      REQUEST_TIMEOUT_MS,
+      'getAlumni'
+    );
     
     if (error) throw error;
     return {
@@ -503,10 +864,17 @@ class SupabaseService {
   async getSponsors() {
     if (!this.client) throw new Error('Supabase not configured');
     
-    const { data, error } = await this.client
-      .from('sponsors')
-      .select('*')
-      .order('order', { ascending: true });
+    // Trigger auth refresh in background (non-blocking)
+    this.ensureAuth();
+    
+    const { data, error } = await withTimeout(
+      this.client
+        .from('sponsors')
+        .select('*')
+        .order('order', { ascending: true }),
+      REQUEST_TIMEOUT_MS,
+      'getSponsors'
+    );
     
     if (error) throw error;
     
@@ -664,12 +1032,19 @@ class SupabaseService {
   async getScheduleData() {
     if (!this.client) throw new Error('Supabase not configured');
     
+    // Trigger auth refresh in background (non-blocking)
+    this.ensureAuth();
+    
     try {
-      // Fetch all data in parallel
-      const [teamsResult, projectsResult] = await Promise.all([
-        this.client.from('schedule_teams').select('*').order('name', { ascending: true }),
-        this.client.from('schedule_projects').select('*').order('due_date', { ascending: true })
-      ]);
+      // Fetch all data in parallel with timeouts
+      const [teamsResult, projectsResult] = await withTimeout(
+        Promise.all([
+          this.client.from('schedule_teams').select('*').order('name', { ascending: true }),
+          this.client.from('schedule_projects').select('*').order('due_date', { ascending: true })
+        ]),
+        REQUEST_TIMEOUT_MS,
+        'getScheduleData (teams/projects)'
+      );
       
       if (teamsResult.error) throw teamsResult.error;
       if (projectsResult.error) throw projectsResult.error;
@@ -679,11 +1054,15 @@ class SupabaseService {
       let tasksData = [];
       
       if (projectIds.length > 0) {
-        const { data: tasks, error: tasksError } = await this.client
-          .from('schedule_tasks')
-          .select('*')
-          .in('project_id', projectIds)
-          .order('due_date', { ascending: true });
+        const { data: tasks, error: tasksError } = await withTimeout(
+          this.client
+            .from('schedule_tasks')
+            .select('*')
+            .in('project_id', projectIds)
+            .order('due_date', { ascending: true }),
+          REQUEST_TIMEOUT_MS,
+          'getScheduleData (tasks)'
+        );
         
         if (tasksError) throw tasksError;
         tasksData = tasks || [];
@@ -993,10 +1372,17 @@ class SupabaseService {
   async getOrders() {
     if (!this.client) throw new Error('Supabase not configured');
     
-    const { data, error } = await this.client
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false });
+    // Trigger auth refresh in background (non-blocking)
+    this.ensureAuth();
+    
+    const { data, error } = await withTimeout(
+      this.client
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false }),
+      REQUEST_TIMEOUT_MS,
+      'getOrders'
+    );
     
     if (error) throw error;
     
@@ -1387,10 +1773,17 @@ class SupabaseService {
   async getBlogs() {
     if (!this.client) throw new Error('Supabase not configured');
     
-    const { data, error } = await this.client
-      .from('blogs')
-      .select('*')
-      .order('created_at', { ascending: false });
+    // Trigger auth refresh in background (non-blocking)
+    this.ensureAuth();
+    
+    const { data, error } = await withTimeout(
+      this.client
+        .from('blogs')
+        .select('*')
+        .order('created_at', { ascending: false }),
+      REQUEST_TIMEOUT_MS,
+      'getBlogs'
+    );
     
     if (error) throw error;
     return data || [];
@@ -1984,6 +2377,40 @@ class SupabaseService {
     
     const { data: { session } } = await this.client.auth.getSession();
     return session;
+  }
+
+  /**
+   * Check if the connection to Supabase is alive
+   * @returns {Promise<boolean>}
+   */
+  async checkConnection() {
+    return await checkConnection();
+  }
+
+  /**
+   * Force refresh the Supabase connection
+   * Useful after tab becomes visible or network recovers
+   * @returns {Promise<boolean>}
+   */
+  async refreshConnection() {
+    return await refreshConnection();
+  }
+
+  /**
+   * Subscribe to connection state changes
+   * @param {Function} callback - Called with (event, isConnected)
+   * @returns {Function} - Unsubscribe function
+   */
+  onConnectionChange(callback) {
+    return onConnectionChange(callback);
+  }
+
+  /**
+   * Get current connection state
+   * @returns {Object} - { isConnected, lastCheck, reconnectAttempts }
+   */
+  getConnectionState() {
+    return getConnectionState();
   }
 }
 
