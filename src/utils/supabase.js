@@ -532,6 +532,29 @@ class SupabaseService {
   }
 
   // ===== TEAM DATA =====
+
+  sanitizeTeamMember(member = {}) {
+    const allowedFields = [
+      'id',
+      'name',
+      'role',
+      'image',
+      'bio',
+      'email',
+      'linkedin',
+      'order',
+      'user_id',
+      'created_at',
+      'updated_at'
+    ];
+
+    return allowedFields.reduce((payload, field) => {
+      if (Object.prototype.hasOwnProperty.call(member, field)) {
+        payload[field] = member[field];
+      }
+      return payload;
+    }, {});
+  }
   
   async getTeamMembers() {
     if (!this.client) throw new Error('Supabase not configured');
@@ -587,12 +610,14 @@ class SupabaseService {
 
   async saveTeamMember(member) {
     if (!this.client) throw new Error('Supabase not configured');
+
+    const teamMemberPayload = this.sanitizeTeamMember(member);
     
     // If member has an id, update; otherwise insert
     if (member.id) {
       const { data, error } = await this.client
         .from('team_members')
-        .upsert(member)
+        .upsert(teamMemberPayload)
         .select()
         .single();
       
@@ -601,7 +626,7 @@ class SupabaseService {
     } else {
       const { data, error } = await this.client
         .from('team_members')
-        .insert(member)
+        .insert(teamMemberPayload)
         .select()
         .single();
       
