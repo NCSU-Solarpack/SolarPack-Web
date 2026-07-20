@@ -2437,6 +2437,245 @@ class SupabaseService {
   getConnectionState() {
     return getConnectionState();
   }
+
+  // ==========================================================================
+  // Race Pit Telemetry
+  // --------------------------------------------------------------------------
+  // Live telemetry / history / laps are written by the relay server using the
+  // service role key. The website READS them (public) and writes track/session
+  // config (pit crew only, gated by RLS via is_pit_crew()).
+  // ==========================================================================
+
+  /** The single active session (the one the car reports into) + its track. */
+  async getActiveSession() {
+    if (!this.client) throw new Error('Supabase not configured');
+    const { data, error } = await withTimeout(
+      this.client
+        .from('race_sessions')
+        .select('*, track:race_tracks(*)')
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle(),
+      REQUEST_TIMEOUT_MS,
+      'getActiveSession'
+    );
+    if (error) throw error;
+    return data || null;
+  }
+
+  /** Recent sessions (newest first) for the history picker. */
+  async getSessions(limit = 50) {
+    if (!this.client) throw new Error('Supabase not configured');
+    const { data, error } = await withTimeout(
+      this.client
+        .from('race_sessions')
+        .select('*, track:race_tracks(*)')
+        .order('created_at', { ascending: false })
+        .limit(limit),
+      REQUEST_TIMEOUT_MS,
+      'getSessions'
+    );
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getSessionById(id) {
+    if (!this.client) throw new Error('Supabase not configured');
+    const { data, error } = await withTimeout(
+      this.client.from('race_sessions').select('*, track:race_tracks(*)').eq('id', id).maybeSingle(),
+      REQUEST_TIMEOUT_MS,
+      'getSessionById'
+    );
+    if (error) throw error;
+    return data || null;
+  }
+
+  async getTracks() {
+    if (!this.client) throw new Error('Supabase not configured');
+    const { data, error } = await withTimeout(
+      this.client.from('race_tracks').select('*').order('created_at', { ascending: false }),
+      REQUEST_TIMEOUT_MS,
+      'getTracks'
+    );
+    if (error) throw error;
+    return data || [];
+  }
+
+  /** Latest live snapshot for a session (single row). */
+  async getLiveTelemetry(sessionId) {
+    if (!this.client) throw new Error('Supabase not configured');
+    if (!sessionId) return null;
+    const { data, error } = await withTimeout(
+      this.client.from('live_telemetry').select('*').eq('session_id', sessionId).maybeSingle(),
+      REQUEST_TIMEOUT_MS,
+      'getLiveTelemetry'
+    );
+    if (error) throw error;
+    return data || null;
+  }
+
+  async getLaps(sessionId) {
+    if (!this.client) throw new Error('Supabase not configured');
+    if (!sessionId) return [];
+    const { data, error } = await withTimeout(
+      this.client.from('race_laps').select('*').eq('session_id', sessionId).order('lap_number', { ascending: true }),
+      REQUEST_TIMEOUT_MS,
+      'getLaps'
+    );
+    if (error) throw error;
+    return data || [];
+  }
+
+  /** Downsampled history rows for charts / replay (oldest first). */
+  async getHistory(sessionId, { limit = 5000 } = {}) {
+    if (!this.client) throw new Error('Supabase not configured');
+    if (!sessionId) return [];
+    const { data, error } = await withTimeout(
+      this.client
+        .from('race_telemetry')
+        .select('ts, captured_at, lat, lon, speed_mph, pack_soc, battery_voltage, battery_watts, current_draw, solar_watts, motor_temp_f, inverter_temp_f, rpm')
+        .eq('session_id', sessionId)
+        .order('ts', { ascending: true })
+        .limit(limit),
+      REQUEST_TIMEOUT_MS,
+      'getHistory'
+    );
+    if (error) throw error;
+    return data || [];
+  }
+
+  // ---- Pit-crew writes (RLS: is_pit_crew) --------------------------------
+
+  async saveTrack(track) {
+    if (!this.client) throw new Error('Supabase not configured');
+    this.ensureAuth();
+    const payload = { ...track, updated_at: new Date().toISOString() };
+    const { data, error } = await withTimeout(
+      this.client.from('race_tracks').upsert(payload).select().single(),
+      REQUEST_TIMEOUT_MS,
+      'saveTrack'
+    );
+    if (error) throw error;
+    return data;
+  }
+
+  async deleteTrack(id) {
+    if (!this.client) throw new Error('Supabase not configured');
+    this.ensureAuth();
+    const { error } = await withTimeout(
+      this.client.from('race_tracks').delete().eq('id', id),
+      REQUEST_TIMEOUT_MS,
+      'deleteTrack'
+    );
+    if (error) throw error;
+    return true;
+  }
+
+  /** Set / move the start-finish line for a track. */
+  async setTrackStartFinish(trackId, lat, lon) {
+    return this.updateSessionTrack ? null : this.saveTrack({ id: trackId, start_lat: lat, start_lon: lon });
+  }
+
+  async createSession({ name, track_id = null } = {}) {
+    if (!this.client) throw new Error('Supabase not configured');
+    this.ensureAuth();
+    const { data, error } = await withTimeout(
+      this.client.from('race_sessions').insert({ name: name || 'Session', track_id }).select().single(),
+      REQUEST_TIMEOUT_MS,
+      'createSession'
+    );
+    if (error) throw error;
+    return data;
+  }
+
+  async updateSession(id, patch) {
+    if (!this.client) throw new Error('Supabase not configured');
+    this.ensureAuth();
+    const { data, error } = await withTimeout(
+      this.client.from('race_sessions').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id).select().single(),
+      REQUEST_TIMEOUT_MS,
+      'updateSession'
+    );
+    if (error) throw error;
+    return data;
+  }
+
+  /** Clear the active flag on every session (the partial unique index allows only one). */
+  async _clearActiveSessions() {
+    await withTimeout(
+      this.client.from('race_sessions').update({ is_active: false }).eq('is_active', true),
+      REQUEST_TIMEOUT_MS,
+      'clearActiveSessions'
+    );
+  }
+
+  /** Make this session the active one and start it running. */
+  async startSession(id) {
+    if (!this.client) throw new Error('Supabase not configured');
+    this.ensureAuth();
+    await this._clearActiveSessions();
+    return this.updateSession(id, { is_active: true, status: 'running', started_at: new Date().toISOString(), ended_at: null });
+  }
+
+  async pauseSession(id) {
+    return this.updateSession(id, { status: 'paused' });
+  }
+
+  async resumeSession(id) {
+    return this.updateSession(id, { status: 'running' });
+  }
+
+  async stopSession(id) {
+    return this.updateSession(id, { status: 'stopped', is_active: false, ended_at: new Date().toISOString() });
+  }
+
+  async deleteSession(id) {
+    if (!this.client) throw new Error('Supabase not configured');
+    this.ensureAuth();
+    const { error } = await withTimeout(
+      this.client.from('race_sessions').delete().eq('id', id),
+      REQUEST_TIMEOUT_MS,
+      'deleteSession'
+    );
+    if (error) throw error;
+    return true;
+  }
+
+  // ---- Realtime subscriptions --------------------------------------------
+  // Each returns an unsubscribe function.
+
+  subscribeLive(sessionId, callback) {
+    if (!this.client || !sessionId) return () => {};
+    const channel = this.client
+      .channel(`live_telemetry:${sessionId}`)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'live_telemetry', filter: `session_id=eq.${sessionId}` },
+        (payload) => callback(payload.new || null))
+      .subscribe();
+    return () => { try { this.client.removeChannel(channel); } catch { /* noop */ } };
+  }
+
+  subscribeLaps(sessionId, callback) {
+    if (!this.client || !sessionId) return () => {};
+    const channel = this.client
+      .channel(`race_laps:${sessionId}`)
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'race_laps', filter: `session_id=eq.${sessionId}` },
+        (payload) => callback(payload.new || null))
+      .subscribe();
+    return () => { try { this.client.removeChannel(channel); } catch { /* noop */ } };
+  }
+
+  subscribeSessions(callback) {
+    if (!this.client) return () => {};
+    const channel = this.client
+      .channel('race_sessions:all')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'race_sessions' },
+        (payload) => callback(payload))
+      .subscribe();
+    return () => { try { this.client.removeChannel(channel); } catch { /* noop */ } };
+  }
 }
 
 // Export singleton instance

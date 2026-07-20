@@ -1,0 +1,327 @@
+/* ==========================================================================
+   Race Pit Telemetry — modern design system (scoped to .tlm)
+   Builds on the site brand tokens (red #e31b23, near-black surfaces) but with
+   layered surfaces, hairline borders, tabular-numeric data type, and a
+   status palette shared with the vehicle app.
+   ========================================================================== */
+.tlm {
+  --tlm-bg: #08090c;
+  --tlm-surface: #101216;
+  --tlm-surface-2: #161a20;
+  --tlm-elev: #1c2129;
+  --tlm-line: rgba(255, 255, 255, 0.07);
+  --tlm-line-strong: rgba(255, 255, 255, 0.14);
+  --tlm-text: #f4f6fa;
+  --tlm-sub: #aab2c0;
+  --tlm-muted: #6b7482;
+  --tlm-accent: #e31b23;
+  --tlm-accent-soft: rgba(227, 27, 35, 0.14);
+  --tlm-good: #00e676;
+  --tlm-warn: #ffd600;
+  --tlm-bad: #ff1744;
+  --tlm-info: #2979ff;
+  --tlm-solar: #ffb300;
+  --tlm-radius: 16px;
+  --tlm-radius-sm: 10px;
+  --tlm-mono: "SF Mono", "JetBrains Mono", "Roboto Mono", ui-monospace, Menlo, Consolas, monospace;
+
+  min-height: calc(100vh - 64px);
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(227, 27, 35, 0.10), transparent 60%),
+    radial-gradient(900px 500px at 0% 0%, rgba(41, 121, 255, 0.06), transparent 55%),
+    var(--tlm-bg);
+  color: var(--tlm-text);
+  padding: 1.5rem clamp(1rem, 3vw, 2.5rem) 4rem;
+  font-family: "DM Sans", system-ui, sans-serif;
+}
+
+.tlm * { box-sizing: border-box; }
+
+/* ---------- Header / hero ---------- */
+.tlm-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+.tlm-hero h1 {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: clamp(2.4rem, 5vw, 3.6rem);
+  letter-spacing: 1px;
+  line-height: 0.95;
+  margin: 0;
+}
+.tlm-hero h1 span { color: var(--tlm-accent); }
+.tlm-hero .tlm-sub { color: var(--tlm-sub); margin-top: 0.35rem; font-size: 0.95rem; }
+
+/* ---------- Live status pill ---------- */
+.tlm-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--tlm-line);
+  background: var(--tlm-surface);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.tlm-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--tlm-muted); }
+.tlm-status.is-live .tlm-dot { background: var(--tlm-good); box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.6); animation: tlm-pulse 1.6s infinite; }
+.tlm-status.is-stale .tlm-dot { background: var(--tlm-warn); }
+.tlm-status.is-fault { border-color: rgba(255, 23, 68, 0.5); color: #ff7a8f; }
+.tlm-status.is-fault .tlm-dot { background: var(--tlm-bad); box-shadow: 0 0 0 0 rgba(255, 23, 68, 0.6); animation: tlm-pulse 1s infinite; }
+@keyframes tlm-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.5); }
+  70% { box-shadow: 0 0 0 10px rgba(0, 230, 118, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 230, 118, 0); }
+}
+
+/* ---------- Tabs ---------- */
+.tlm-tabs {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.35rem;
+  background: var(--tlm-surface);
+  border: 1px solid var(--tlm-line);
+  border-radius: 999px;
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+  position: sticky;
+  top: 76px;
+  z-index: 20;
+  backdrop-filter: blur(8px);
+}
+.tlm-tab {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--tlm-sub);
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+  padding: 0.5rem 1.1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 180ms ease;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.tlm-tab:hover { color: var(--tlm-text); }
+.tlm-tab.active { background: var(--tlm-accent); color: #fff; box-shadow: 0 4px 16px rgba(227, 27, 35, 0.35); }
+
+/* ---------- Cards / grid ---------- */
+.tlm-grid { display: grid; gap: 1rem; }
+.tlm-card {
+  background: linear-gradient(180deg, var(--tlm-surface-2), var(--tlm-surface));
+  border: 1px solid var(--tlm-line);
+  border-radius: var(--tlm-radius);
+  padding: 1.1rem 1.2rem;
+  position: relative;
+}
+.tlm-card.pad0 { padding: 0; overflow: hidden; }
+.tlm-card-title {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tlm-muted);
+  margin: 0 0 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.tlm-card-title .lucide { width: 15px; height: 15px; }
+
+/* ---------- Stat tile ---------- */
+.tlm-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.85rem; }
+.tlm-tile {
+  background: linear-gradient(180deg, var(--tlm-surface-2), var(--tlm-surface));
+  border: 1px solid var(--tlm-line);
+  border-radius: var(--tlm-radius);
+  padding: 0.95rem 1.05rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-height: 92px;
+  position: relative;
+  overflow: hidden;
+}
+.tlm-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--accent, var(--tlm-accent));
+  opacity: 0.9;
+}
+.tlm-tile .label {
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tlm-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.tlm-tile .value {
+  font-family: var(--tlm-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.6rem, 3vw, 2.1rem);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+.tlm-tile .value .unit { font-size: 0.9rem; color: var(--tlm-sub); font-weight: 500; margin-left: 0.25rem; }
+.tlm-tile .sub { font-size: 0.78rem; color: var(--tlm-sub); font-variant-numeric: tabular-nums; }
+.tlm-tile.big .value { font-size: clamp(2.4rem, 6vw, 3.6rem); }
+
+/* ---------- Meter (linear) ---------- */
+.tlm-meter { height: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; margin-top: 0.4rem; }
+.tlm-meter > span { display: block; height: 100%; border-radius: 999px; background: var(--accent, var(--tlm-accent)); transition: width 400ms ease; }
+
+/* ---------- Layout helpers ---------- */
+.tlm-two { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+.tlm-row { display: flex; gap: 1rem; flex-wrap: wrap; }
+@media (max-width: 920px) { .tlm-two { grid-template-columns: 1fr; } }
+
+/* ---------- Map ---------- */
+.tlm-map { height: clamp(340px, 52vh, 620px); width: 100%; border-radius: var(--tlm-radius); overflow: hidden; }
+.tlm-map .leaflet-container { height: 100%; width: 100%; background: #0a0d12; font-family: inherit; }
+.tlm-map-hint {
+  position: absolute; left: 12px; bottom: 12px; z-index: 500;
+  background: rgba(8, 9, 12, 0.82); border: 1px solid var(--tlm-line-strong);
+  padding: 0.45rem 0.7rem; border-radius: 8px; font-size: 0.75rem; color: var(--tlm-sub);
+  pointer-events: none;
+}
+.tlm-car-marker {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--tlm-accent); border: 3px solid #fff;
+  box-shadow: 0 0 0 4px rgba(227, 27, 35, 0.35), 0 2px 8px rgba(0,0,0,0.6);
+}
+
+/* ---------- Lap board ---------- */
+.tlm-laps { display: flex; flex-direction: column; gap: 0.4rem; max-height: 420px; overflow-y: auto; }
+.tlm-lap {
+  display: grid;
+  grid-template-columns: 2.4rem 1fr auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--tlm-radius-sm);
+  background: var(--tlm-surface-2);
+  border: 1px solid var(--tlm-line);
+}
+.tlm-lap .n { font-family: "Bebas Neue", sans-serif; font-size: 1.3rem; color: var(--tlm-muted); }
+.tlm-lap .t { font-family: var(--tlm-mono); font-variant-numeric: tabular-nums; font-size: 1.15rem; font-weight: 600; }
+.tlm-lap .m { font-size: 0.75rem; color: var(--tlm-sub); text-align: right; font-variant-numeric: tabular-nums; }
+.tlm-lap.best { border-color: rgba(0, 230, 118, 0.5); background: rgba(0, 230, 118, 0.08); }
+.tlm-lap.best .n { color: var(--tlm-good); }
+.tlm-lap.current { border-color: rgba(41, 121, 255, 0.5); background: rgba(41, 121, 255, 0.08); }
+.tlm-badge { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; padding: 0.1rem 0.4rem; border-radius: 5px; font-weight: 700; }
+.tlm-badge.best { background: var(--tlm-good); color: #04231a; }
+.tlm-badge.current { background: var(--tlm-info); color: #04122e; }
+
+/* ---------- Pit controls ---------- */
+.tlm-controls { display: flex; flex-direction: column; gap: 0.85rem; }
+.tlm-controls .field { display: flex; flex-direction: column; gap: 0.35rem; }
+.tlm-controls label { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tlm-muted); }
+.tlm-input, .tlm-select {
+  width: 100%;
+  background: var(--tlm-bg);
+  border: 1px solid var(--tlm-line-strong);
+  border-radius: var(--tlm-radius-sm);
+  color: var(--tlm-text);
+  padding: 0.6rem 0.7rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+.tlm-input:focus, .tlm-select:focus { outline: none; border-color: var(--tlm-accent); }
+.tlm-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.tlm-btn {
+  border: 1px solid var(--tlm-line-strong);
+  background: var(--tlm-elev);
+  color: var(--tlm-text);
+  border-radius: var(--tlm-radius-sm);
+  padding: 0.6rem 1rem;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 160ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.tlm-btn:hover { border-color: var(--tlm-line-strong); transform: translateY(-1px); }
+.tlm-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+.tlm-btn.primary { background: var(--tlm-accent); border-color: transparent; color: #fff; }
+.tlm-btn.good { background: var(--tlm-good); border-color: transparent; color: #04231a; }
+.tlm-btn.warn { background: var(--tlm-warn); border-color: transparent; color: #2a2400; }
+.tlm-btn.ghost { background: transparent; }
+.tlm-btn.sm { font-size: 0.9rem; padding: 0.4rem 0.7rem; }
+
+/* ---------- Locked / notice ---------- */
+.tlm-lock {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.7rem 0.9rem; border-radius: var(--tlm-radius-sm);
+  background: var(--tlm-accent-soft); border: 1px solid rgba(227, 27, 35, 0.3);
+  color: #ffb3b8; font-size: 0.85rem;
+}
+.tlm-empty { text-align: center; color: var(--tlm-muted); padding: 2.5rem 1rem; font-size: 0.9rem; }
+
+/* ---------- Cell voltage grid ---------- */
+.tlm-cellgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(30px, 1fr)); gap: 3px; }
+.tlm-cell {
+  aspect-ratio: 1 / 1;
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.5rem; color: rgba(255,255,255,0.65);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Fault log ---------- */
+.tlm-faults { display: flex; flex-direction: column; gap: 0.4rem; max-height: 260px; overflow-y: auto; }
+.tlm-fault {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.55rem 0.7rem; border-radius: var(--tlm-radius-sm);
+  background: rgba(255, 23, 68, 0.08); border: 1px solid rgba(255, 23, 68, 0.25);
+  font-size: 0.82rem;
+}
+.tlm-fault time { color: var(--tlm-sub); font-family: var(--tlm-mono); font-size: 0.75rem; margin-left: auto; }
+
+/* ---------- Boards strip ---------- */
+.tlm-boards { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.tlm-board {
+  flex: 1 1 90px; text-align: center; padding: 0.6rem 0.4rem;
+  border-radius: var(--tlm-radius-sm); border: 1px solid var(--tlm-line);
+  background: var(--tlm-surface-2);
+}
+.tlm-board .s { display: block; width: 8px; height: 8px; border-radius: 50%; margin: 0 auto 0.4rem; }
+.tlm-board .name { font-size: 0.72rem; color: var(--tlm-sub); }
+
+/* ---------- Chart wrap ---------- */
+.tlm-chart { width: 100%; height: 260px; }
+.tlm-chart.tall { height: 320px; }
+.tlm-legend { display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.78rem; color: var(--tlm-sub); margin-top: 0.5rem; }
+.tlm-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 0.35rem; vertical-align: middle; }
+.recharts-cartesian-axis-tick text { fill: var(--tlm-muted); font-size: 11px; }
+.recharts-default-tooltip {
+  background: var(--tlm-elev) !important; border: 1px solid var(--tlm-line-strong) !important;
+  border-radius: 10px !important; font-family: var(--tlm-mono) !important;
+}
+
+/* ---------- Section heading ---------- */
+.tlm-h2 {
+  font-family: "Bebas Neue", sans-serif; font-size: 1.6rem; letter-spacing: 0.04em;
+  margin: 1.75rem 0 0.9rem; display: flex; align-items: center; gap: 0.55rem;
+}
+.tlm-h2 .lucide { color: var(--tlm-accent); }
+
+.tlm-scroller { max-height: 420px; overflow-y: auto; }
+.tlm-mono { font-family: var(--tlm-mono); font-variant-numeric: tabular-nums; }
