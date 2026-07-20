@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Gauge as GaugeIcon, Zap, Sun, Battery, Thermometer, Navigation, MapPin, Activity } from 'lucide-react';
+import { Gauge as GaugeIcon, Zap, Sun, Battery, Thermometer, Navigation, MapPin, Activity, ToggleLeft } from 'lucide-react';
 import LiveMap from './LiveMap';
 import LapBoard from './LapBoard';
 import PitControls from './PitControls';
@@ -7,8 +7,10 @@ import { Card, StatTile, MeterTile, Gauge } from './widgets';
 import { supabaseService } from '../../utils/supabase';
 import { useSessionLaps, useSessionClock } from './useTelemetry';
 import { usePitAuth } from './usePitAuth';
-import { num, power, DRIVE_MODE_LABELS, CAR_MODE_LABELS, isFault } from './format';
+import { num, power, DRIVE_MODE_LABELS, CAR_MODE_LABELS, BLINKER_LABELS, isFault } from './format';
 import { tempColor } from './widgets';
+
+const DRIVE_MODE_LETTERS = DRIVE_MODE_LABELS.map((label) => label[0]);
 
 export default function LiveView({ live, session, track, topSpeed, refreshSession }) {
   const { canControl } = usePitAuth();
@@ -44,11 +46,11 @@ export default function LiveView({ live, session, track, topSpeed, refreshSessio
   const soc = pkt.packSOC;
   const battW = pkt.batteryWattage;
   const fault = isFault(pkt);
-  const driveMode = DRIVE_MODE_LABELS[pkt.driveMode] || '—';
+  const driveMode = DRIVE_MODE_LETTERS[pkt.driveMode] || '—';
 
   return (
     <div>
-      <div className="tlm-two">
+      <div className="tlm-two tlm-live-row">
         {/* Map */}
         <Card className="pad0">
           <LiveMap
@@ -72,6 +74,8 @@ export default function LiveView({ live, session, track, topSpeed, refreshSessio
             <div className="tlm-vitals-gauge">
               <Gauge label="Speed" value={pkt.speed ?? 0} max={80} display={num(pkt.speed, 0)} unit="mph"
                 accent={fault ? 'var(--tlm-bad)' : 'var(--tlm-accent)'} size={172} />
+              <Gauge label="RPM" value={pkt.rpm ?? 0} max={6000} display={num(pkt.rpm, 0)} unit="rpm"
+                accent={fault ? 'var(--tlm-bad)' : 'var(--tlm-info)'} size={172} />
             </div>
             <div className="tlm-tiles">
               <MeterTile label="State of charge" value={num(soc, 0)} unit="%" pct={soc}
@@ -108,6 +112,25 @@ export default function LiveView({ live, session, track, topSpeed, refreshSessio
           workingTrackId={workingTrackId}
           setWorkingTrackId={setWorkingTrackId}
         />
+      </div>
+
+      <div style={{ marginTop: '1rem' }}>
+        <Card title="Dash Controls" icon={ToggleLeft}>
+          <div className="tlm-tiles cols-4">
+            <StatTile label="Horn" value={pkt.horn ? 'On' : 'Off'} accent={pkt.horn ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
+            <StatTile label="Hazards" value={pkt.hazards ? 'On' : 'Off'} accent={pkt.hazards ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
+            <StatTile label="Blinkers" value={BLINKER_LABELS[pkt.blinkers] || '—'} accent={pkt.blinkers ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
+            <StatTile label="Headlights" value={pkt.lightsControl ? 'On' : 'Off'} accent={pkt.lightsControl ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
+            <StatTile label="High beams" value={pkt.highbeamControl ? 'On' : 'Off'} accent={pkt.highbeamControl ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
+            <StatTile label="Running lights" value={pkt.runningLightsControl ? 'On' : 'Off'} accent={pkt.runningLightsControl ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
+            <StatTile label="Stereo" value={pkt.stereoControl ? 'On' : 'Off'} accent={pkt.stereoControl ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
+            <StatTile label="Wiper" value={pkt.wiperControl ? 'On' : 'Off'} accent={pkt.wiperControl ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
+            <StatTile label="iPad charger" value={pkt.chargerControl ? 'On' : 'Off'} accent={pkt.chargerControl ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
+            <StatTile label="Telemetry radio" value={pkt.telemetryControl ? 'On' : 'Off'} accent={pkt.telemetryControl ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
+            <StatTile label="Comms radio" value={pkt.radioControl ? 'On' : 'Off'} accent={pkt.radioControl ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
+            <StatTile label="Eyes mode" value={pkt.eyesMode ? 'On' : 'Off'} accent={pkt.eyesMode ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
+          </div>
+        </Card>
       </div>
     </div>
   );

@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Zap, Sun, Battery, Gauge as GaugeIcon, Cpu, Route } from 'lucide-react';
 import { Card, StatTile, MeterTile } from './widgets';
 import { useLiveSeries } from './useTelemetry';
-import { num, power } from './format';
+import { num, power, LV_MODE_LABELS, STATE_LABELS, stateAccent } from './format';
 
 const timeTick = (t) => new Date(t).toLocaleTimeString('en-US', { minute: '2-digit', second: '2-digit' });
 
@@ -32,7 +32,7 @@ export default function PowerView({ live }) {
           sub={netW < 0 ? 'Net charging' : 'Net consuming'} />
       </div>
 
-      <div className="tlm-two" style={{ marginTop: '1rem' }}>
+      <div className="tlm-two tlm-charts-row" style={{ marginTop: '1rem' }}>
         <Card title="Power — last 4 min" icon={Zap}>
           <div className="tlm-chart">
             <ResponsiveContainer width="100%" height="100%">
@@ -85,8 +85,13 @@ export default function PowerView({ live }) {
         <StatTile label="Motor RPM" value={num(pkt.rpm, 0)} accent="var(--tlm-muted)" icon={GaugeIcon} />
         <StatTile label="12V system" value={num(pkt.rms12vBatteryVoltage || pkt.bms12vBatteryVoltage, 1)} unit="V" accent="var(--tlm-muted)" icon={Battery} />
         <StatTile label="Charger" value={pkt.chargerPluggedIn ? 'Plugged in' : 'Unplugged'} accent={pkt.chargerPluggedIn ? 'var(--tlm-good)' : 'var(--tlm-muted)'}
-          sub={pkt.chargeRateWatts ? power(pkt.chargeRateWatts) : '—'} />
+          sub={[pkt.chargeRateWatts ? power(pkt.chargeRateWatts) : null, pkt.chargeTimeRemaining ? `${num(pkt.chargeTimeRemaining, 0)} min left` : null].filter(Boolean).join(' · ') || '—'} />
         <StatTile label="Solar mode" value={pkt.solarCharging ? 'Charging' : 'Idle'} accent={pkt.solarCharging ? 'var(--tlm-good)' : 'var(--tlm-muted)'} icon={Sun} />
+        <StatTile label="Odometer" value={num(pkt.odometer, 1)} unit="mi" accent="var(--tlm-muted)" icon={Route} />
+        <StatTile label="Charge current req." value={num(pkt.chargeCurrentRequested ?? pkt.chargerCurrentRequested, 1)} unit="A" accent="var(--tlm-muted)" />
+        <StatTile label="Solar charger" value={STATE_LABELS[pkt.solarChargerStatus] || '—'} accent={stateAccent(pkt.solarChargerStatus)} icon={Sun} />
+        <StatTile label="Motor controller" value={STATE_LABELS[pkt.motorControllerState] || '—'} accent={stateAccent(pkt.motorControllerState)} icon={Cpu} />
+        <StatTile label="LV system" value={LV_MODE_LABELS[pkt.lvMode] || '—'} accent="var(--tlm-muted)" />
       </div>
     </div>
   );

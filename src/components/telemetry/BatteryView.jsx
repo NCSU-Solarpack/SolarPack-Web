@@ -39,7 +39,7 @@ export default function BatteryView({ live }) {
         <StatTile label="Pack current" value={num(pkt.currentDraw, 1)} unit="A" accent="var(--tlm-muted)" />
       </div>
 
-      <div className="tlm-two" style={{ marginTop: '1rem' }}>
+      <div className="tlm-masonry" style={{ marginTop: '1rem' }}>
         <Card title={`Cell Voltages (${cs.count})`} icon={Battery}>
           {cs.count === 0 ? (
             <div className="tlm-empty">No cell data.</div>
@@ -60,30 +60,29 @@ export default function BatteryView({ live }) {
           )}
         </Card>
 
-        <div className="tlm-grid">
-          <Card title="Thermals" icon={Thermometer}>
-            <div className="tlm-tiles cols-2">
-              <StatTile label="Pack high" value={pkt.packHighTemp != null ? num(pkt.packHighTemp, 0) : (tMax != null ? num(tMax, 0) : '—')} unit="°C"
-                accent={tempColor((pkt.packHighTemp ?? tMax) * 9 / 5 + 32)} icon={Thermometer} />
-              <StatTile label="Pack low" value={pkt.packLowTemp != null ? num(pkt.packLowTemp, 0) : (tMin != null ? num(tMin, 0) : '—')} unit="°C" accent="var(--tlm-muted)" />
-              <StatTile label="Motor" value={num(pkt.motorTemp, 0)} unit="°F" accent={tempColor(pkt.motorTemp)} icon={Thermometer} />
-              <StatTile label="Inverter" value={num(pkt.inverterTemp, 0)} unit="°F" accent={tempColor(pkt.inverterTemp)} icon={Thermometer} />
-            </div>
-          </Card>
+        <Card title="Thermals" icon={Thermometer}>
+          <div className="tlm-tiles cols-2">
+            <StatTile label="Pack high" value={pkt.packHighTemp != null ? num(pkt.packHighTemp, 0) : (tMax != null ? num(tMax, 0) : '—')} unit="°C"
+              accent={tempColor((pkt.packHighTemp ?? tMax) * 9 / 5 + 32)} icon={Thermometer} />
+            <StatTile label="Pack low" value={pkt.packLowTemp != null ? num(pkt.packLowTemp, 0) : (tMin != null ? num(tMin, 0) : '—')} unit="°C" accent="var(--tlm-muted)" />
+            <StatTile label="Motor" value={num(pkt.motorTemp, 0)} unit="°F" accent={tempColor(pkt.motorTemp)} icon={Thermometer} />
+            <StatTile label="Inverter" value={num(pkt.inverterTemp, 0)} unit="°F" accent={tempColor(pkt.inverterTemp)} icon={Thermometer} />
+          </div>
+        </Card>
 
-          <Card title="BMS / 12V" icon={Cpu}>
-            <div className="tlm-tiles cols-2">
-              <StatTile label="BMS 12V" value={num(pkt.bms12vBatteryVoltage, 1)} unit="V" accent="var(--tlm-muted)" />
-              <StatTile label="Charge state" value={pkt.bmsChargeState ? 'Charging' : pkt.bmsDischargeState ? 'Discharging' : 'Idle'}
-                accent={pkt.bmsChargeState ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
-              <StatTile label="Radiator" value={pkt.radiatorOn ? 'On' : 'Off'} accent={pkt.radiatorOn ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
-              <StatTile label="Cooling pump" value={pkt.coolingPumpOn ? 'On' : 'Off'} accent={pkt.coolingPumpOn ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
-            </div>
-          </Card>
-        </div>
-      </div>
+        <Card title="BMS / 12V" icon={Cpu}>
+          <div className="tlm-tiles cols-2">
+            <StatTile label="BMS 12V" value={num(pkt.bms12vBatteryVoltage, 1)} unit="V" accent="var(--tlm-muted)" />
+            <StatTile label="Charge state" value={pkt.bmsChargeState ? 'Charging' : pkt.bmsDischargeState ? 'Discharging' : 'Idle'}
+              accent={pkt.bmsChargeState ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
+            <StatTile label="Radiator" value={pkt.radiatorOn ? 'On' : 'Off'} accent={pkt.radiatorOn ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
+            <StatTile label="Cooling pump" value={pkt.coolingPumpOn ? 'On' : 'Off'} accent={pkt.coolingPumpOn ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
+            <StatTile label="Cooling fan" value={pkt.fanControl ? 'On' : 'Off'} accent={pkt.fanControl ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
+            <StatTile label="Cabin fan speed" value={num((pkt.occupantFanSpeed / 255) * 100, 0)} unit="%" accent="var(--tlm-muted)" />
+            <StatTile label="Battery fan speed" value={num((pkt.batteryFanSpeed / 255) * 100, 0)} unit="%" accent="var(--tlm-muted)" />
+          </div>
+        </Card>
 
-      <div className="tlm-two" style={{ marginTop: '1rem' }}>
         <Card title="Boards Online" icon={Activity}>
           <div className="tlm-boards">
             {(boards.length ? boards : [0, 0, 0, 0, 0, 0]).map((s, i) => (

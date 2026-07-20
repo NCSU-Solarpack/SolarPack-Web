@@ -119,3 +119,8 @@ export const isFault = (pkt) => {
 export const CAR_MODE_LABELS = ['Off', 'Ignition', 'Accessory', 'Full Start'];
 export const DRIVE_MODE_LABELS = ['Neutral', 'Drive', 'Reverse'];
 export const BOARD_NAMES = ['Dash', 'Power', 'HV/BMS', 'Motor', 'Solar', 'LPDRV'];
+export const LV_MODE_LABELS = ['Off', 'Acc', 'Acc 2', 'On', 'Start'];
+export const BLINKER_LABELS = ['Off', 'Left', 'Right', 'Hazard'];
+// Shared 0/1/2 state pattern used by motorControllerState, systemStatus, solarChargerStatus, etc.
+export const STATE_LABELS = ['Off', 'On', 'Fault'];
+export const stateAccent = (v) => (v === 2 ? 'var(--tlm-bad)' : v === 1 ? 'var(--tlm-good)' : 'var(--tlm-muted)');
