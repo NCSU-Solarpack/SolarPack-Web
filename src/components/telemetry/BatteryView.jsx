@@ -32,11 +32,11 @@ export default function BatteryView({ live }) {
       <div className="tlm-tiles">
         <MeterTile label="Pack SOC" value={num(pkt.packSOC, 0)} unit="%" pct={pkt.packSOC}
           accent={pkt.packSOC < 20 ? 'var(--tlm-bad)' : 'var(--tlm-good)'} icon={Battery} sub={`${num(pkt.batteryVoltage, 1)} V pack`} />
-        <StatTile label="Cell min" value={cs.min != null ? num(cs.min, 3) : '—'} unit="V" accent="var(--tlm-warn)" />
-        <StatTile label="Cell max" value={cs.max != null ? num(cs.max, 3) : '—'} unit="V" accent="var(--tlm-info)" />
+        <StatTile label="Cell min" value={cs.min != null ? num(cs.min, 3) : '—'} unit="V" accent={cs.min != null && cs.min < 3.0 ? 'var(--tlm-bad)' : 'var(--tlm-muted)'} />
+        <StatTile label="Cell max" value={cs.max != null ? num(cs.max, 3) : '—'} unit="V" accent={cs.max != null && cs.max > 4.2 ? 'var(--tlm-bad)' : 'var(--tlm-muted)'} />
         <StatTile label="Cell delta" value={cs.delta != null ? num(cs.delta * 1000, 0) : '—'} unit="mV" accent={cs.delta > 0.1 ? 'var(--tlm-bad)' : 'var(--tlm-good)'} />
-        <StatTile label="Cell avg" value={cs.avg != null ? num(cs.avg, 3) : '—'} unit="V" accent="var(--tlm-good)" />
-        <StatTile label="Pack current" value={num(pkt.currentDraw, 1)} unit="A" accent="var(--tlm-accent)" />
+        <StatTile label="Cell avg" value={cs.avg != null ? num(cs.avg, 3) : '—'} unit="V" accent="var(--tlm-muted)" />
+        <StatTile label="Pack current" value={num(pkt.currentDraw, 1)} unit="A" accent="var(--tlm-muted)" />
       </div>
 
       <div className="tlm-two" style={{ marginTop: '1rem' }}>
@@ -62,22 +62,22 @@ export default function BatteryView({ live }) {
 
         <div className="tlm-grid">
           <Card title="Thermals" icon={Thermometer}>
-            <div className="tlm-tiles" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(120px,1fr))' }}>
+            <div className="tlm-tiles cols-2">
               <StatTile label="Pack high" value={pkt.packHighTemp != null ? num(pkt.packHighTemp, 0) : (tMax != null ? num(tMax, 0) : '—')} unit="°C"
                 accent={tempColor((pkt.packHighTemp ?? tMax) * 9 / 5 + 32)} icon={Thermometer} />
-              <StatTile label="Pack low" value={pkt.packLowTemp != null ? num(pkt.packLowTemp, 0) : (tMin != null ? num(tMin, 0) : '—')} unit="°C" accent="var(--tlm-good)" />
+              <StatTile label="Pack low" value={pkt.packLowTemp != null ? num(pkt.packLowTemp, 0) : (tMin != null ? num(tMin, 0) : '—')} unit="°C" accent="var(--tlm-muted)" />
               <StatTile label="Motor" value={num(pkt.motorTemp, 0)} unit="°F" accent={tempColor(pkt.motorTemp)} icon={Thermometer} />
               <StatTile label="Inverter" value={num(pkt.inverterTemp, 0)} unit="°F" accent={tempColor(pkt.inverterTemp)} icon={Thermometer} />
             </div>
           </Card>
 
           <Card title="BMS / 12V" icon={Cpu}>
-            <div className="tlm-tiles" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(120px,1fr))' }}>
-              <StatTile label="BMS 12V" value={num(pkt.bms12vBatteryVoltage, 1)} unit="V" accent="var(--tlm-info)" />
+            <div className="tlm-tiles cols-2">
+              <StatTile label="BMS 12V" value={num(pkt.bms12vBatteryVoltage, 1)} unit="V" accent="var(--tlm-muted)" />
               <StatTile label="Charge state" value={pkt.bmsChargeState ? 'Charging' : pkt.bmsDischargeState ? 'Discharging' : 'Idle'}
                 accent={pkt.bmsChargeState ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
-              <StatTile label="Radiator" value={pkt.radiatorOn ? 'On' : 'Off'} accent={pkt.radiatorOn ? 'var(--tlm-info)' : 'var(--tlm-muted)'} />
-              <StatTile label="Cooling pump" value={pkt.coolingPumpOn ? 'On' : 'Off'} accent={pkt.coolingPumpOn ? 'var(--tlm-info)' : 'var(--tlm-muted)'} />
+              <StatTile label="Radiator" value={pkt.radiatorOn ? 'On' : 'Off'} accent={pkt.radiatorOn ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
+              <StatTile label="Cooling pump" value={pkt.coolingPumpOn ? 'On' : 'Off'} accent={pkt.coolingPumpOn ? 'var(--tlm-good)' : 'var(--tlm-muted)'} />
             </div>
           </Card>
         </div>

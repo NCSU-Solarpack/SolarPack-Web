@@ -74,7 +74,7 @@ export default function LiveMap({ carPos, trail = [], start, radius = 15, follow
 
         {startLatLng && (
           <>
-            <Circle center={startLatLng} radius={radius} pathOptions={{ color: '#00e676', fillColor: '#00e676', fillOpacity: 0.12, weight: 2 }} />
+            <Circle center={startLatLng} radius={radius} pathOptions={{ color: '#2ecc71', fillColor: '#2ecc71', fillOpacity: 0.12, weight: 2 }} />
             <Marker position={startLatLng} icon={flagIcon()} />
           </>
         )}

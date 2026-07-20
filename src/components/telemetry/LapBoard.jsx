@@ -17,11 +17,11 @@ export default function LapBoard({ laps, session, clock }) {
   return (
     <Card title="Lap Timing" icon={Timer} className="pad0">
       <div style={{ padding: '1.1rem 1.2rem 0' }}>
-        <div className="tlm-tiles" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))' }}>
-          <StatTile label="Lap" value={laps.length} accent="var(--tlm-accent)" />
-          <StatTile label="Current" value={currentLapS != null ? lapTime(currentLapS) : '—'} accent="var(--tlm-info)" />
+        <div className="tlm-tiles cols-4">
+          <StatTile label="Lap" value={laps.length} accent="var(--tlm-muted)" />
+          <StatTile label="Current" value={currentLapS != null ? lapTime(currentLapS) : '—'} accent="var(--tlm-muted)" />
           <StatTile label="Best" value={best ? lapTime(best.lap_time_s) : '—'} accent="var(--tlm-good)" />
-          <StatTile label="Avg" value={avg ? lapTime(avg) : '—'} accent="var(--tlm-solar)" />
+          <StatTile label="Avg" value={avg ? lapTime(avg) : '—'} accent="var(--tlm-muted)" />
         </div>
       </div>
 

@@ -69,26 +69,26 @@ export default function LiveView({ live, session, track, topSpeed, refreshSessio
               <Navigation size={13} /> {follow ? 'Following' : 'Free pan'}
             </button>
           }>
-            <div style={{ display: 'flex', justifyContent: 'center', margin: '0.3rem 0 0.8rem' }}>
+            <div className="tlm-vitals-gauge">
               <Gauge label="Speed" value={pkt.speed ?? 0} max={80} display={num(pkt.speed, 0)} unit="mph"
-                accent={fault ? 'var(--tlm-bad)' : 'var(--tlm-accent)'} size={180} />
+                accent={fault ? 'var(--tlm-bad)' : 'var(--tlm-accent)'} size={172} />
             </div>
-            <div className="tlm-tiles" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' }}>
+            <div className="tlm-tiles">
               <MeterTile label="State of charge" value={num(soc, 0)} unit="%" pct={soc}
                 accent={soc < 20 ? 'var(--tlm-bad)' : soc < 40 ? 'var(--tlm-warn)' : 'var(--tlm-good)'} icon={Battery}
                 sub={`${num(pkt.batteryVoltage, 1)} V`} />
-              <StatTile label="Battery power" value={power(battW)} accent={battW < 0 ? 'var(--tlm-good)' : 'var(--tlm-accent)'} icon={Zap}
+              <StatTile label="Battery power" value={power(battW)} accent={battW < 0 ? 'var(--tlm-good)' : 'var(--tlm-muted)'} icon={Zap}
                 sub={`${num(pkt.currentDraw, 1)} A`} />
-              <StatTile label="Solar" value={power(pkt.solarWatts)} accent="var(--tlm-solar)" icon={Sun}
+              <StatTile label="Solar" value={power(pkt.solarWatts)} accent={pkt.solarCharging ? 'var(--tlm-good)' : 'var(--tlm-muted)'} icon={Sun}
                 sub={pkt.solarCharging ? 'Charging' : 'Idle'} />
               <StatTile label="Motor temp" value={num(pkt.motorTemp, 0)} unit="°F" accent={tempColor(pkt.motorTemp)} icon={Thermometer}
                 sub={`Inv ${num(pkt.inverterTemp, 0)}°F`} />
-              <StatTile label="Top speed" value={num(topSpeed, 1)} unit="mph" accent="var(--tlm-info)" icon={GaugeIcon} />
-              <StatTile label="Drive" value={driveMode} accent="var(--tlm-info)"
+              <StatTile label="Top speed" value={num(topSpeed, 1)} unit="mph" accent="var(--tlm-muted)" icon={GaugeIcon} />
+              <StatTile label="Drive" value={driveMode} accent="var(--tlm-muted)"
                 sub={CAR_MODE_LABELS[pkt.carMode] || '—'} />
             </div>
             {fault && (
-              <div className="tlm-lock" style={{ marginTop: '0.8rem', background: 'rgba(255,23,68,0.1)', borderColor: 'rgba(255,23,68,0.35)', color: '#ff9aa8' }}>
+              <div className="tlm-lock fault" style={{ marginTop: '0.8rem' }}>
                 <Activity size={16} /> Active fault reported by the car — see Battery &amp; Faults.
               </div>
             )}

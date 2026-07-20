@@ -61,19 +61,21 @@ export function Gauge({ label, value, max, display, unit, accent = 'var(--tlm-ac
   const offset = dash * (1 - frac);
   const cx = size / 2;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.3rem' }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(135deg)' }}>
-        <circle cx={cx} cy={cx} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="10"
-          strokeDasharray={`${dash} ${c}`} strokeLinecap="round" />
-        <circle cx={cx} cy={cx} r={r} fill="none" stroke={accent} strokeWidth="10"
-          strokeDasharray={`${dash} ${c}`} strokeDashoffset={offset} strokeLinecap="round"
-          style={{ transition: 'stroke-dashoffset 400ms ease' }} />
-      </svg>
-      <div style={{ marginTop: -size * 0.62, textAlign: 'center', pointerEvents: 'none' }}>
-        <div className="tlm-mono" style={{ fontSize: '1.5rem', fontWeight: 600 }}>{display}</div>
-        {unit && <div style={{ fontSize: '0.7rem', color: 'var(--tlm-sub)' }}>{unit}</div>}
+    <div className="tlm-gauge">
+      <div className="tlm-gauge-ring" style={{ width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(135deg)' }}>
+          <circle cx={cx} cy={cx} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="10"
+            strokeDasharray={`${dash} ${c}`} strokeLinecap="round" />
+          <circle cx={cx} cy={cx} r={r} fill="none" stroke={accent} strokeWidth="10"
+            strokeDasharray={`${dash} ${c}`} strokeDashoffset={offset} strokeLinecap="round"
+            style={{ transition: 'stroke-dashoffset 400ms ease' }} />
+        </svg>
+        <div className="tlm-gauge-readout">
+          <div className="tlm-mono value">{display}</div>
+          {unit && <div className="unit">{unit}</div>}
+        </div>
       </div>
-      <div style={{ fontSize: '0.72rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--tlm-muted)' }}>{label}</div>
+      <div className="tlm-gauge-label">{label}</div>
     </div>
   );
 }

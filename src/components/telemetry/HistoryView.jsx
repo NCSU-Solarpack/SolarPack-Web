@@ -99,14 +99,14 @@ export default function HistoryView({ track }) {
         <div className="tlm-empty">No sessions recorded yet.</div>
       ) : (
         <>
-          <div className="tlm-tiles">
-            <StatTile label="Duration" value={duration(stats.startMs, stats.endMs)} accent="var(--tlm-info)" icon={GaugeIcon} />
-            <StatTile label="Distance" value={dist(stats.distM)} accent="var(--tlm-accent)" />
-            <StatTile label="Laps" value={laps.length} accent="var(--tlm-good)" />
-            <StatTile label="Top speed" value={num(stats.top, 1)} unit="mph" accent="var(--tlm-info)" icon={GaugeIcon} />
-            <StatTile label="Energy used" value={wh(stats.energyWh)} accent="var(--tlm-accent)" icon={Zap} />
-            <StatTile label="Solar harvested" value={wh(stats.solarWh)} accent="var(--tlm-solar)" icon={Sun} />
-            <StatTile label="Efficiency" value={stats.effWhMi != null ? num(stats.effWhMi, 0) : '—'} unit="Wh/mi" accent="var(--tlm-good)" icon={Battery} />
+          <div className="tlm-tiles cols-4">
+            <StatTile label="Duration" value={duration(stats.startMs, stats.endMs)} accent="var(--tlm-muted)" icon={GaugeIcon} />
+            <StatTile label="Distance" value={dist(stats.distM)} accent="var(--tlm-muted)" />
+            <StatTile label="Laps" value={laps.length} accent="var(--tlm-muted)" />
+            <StatTile label="Top speed" value={num(stats.top, 1)} unit="mph" accent="var(--tlm-muted)" icon={GaugeIcon} />
+            <StatTile label="Energy used" value={wh(stats.energyWh)} accent="var(--tlm-muted)" icon={Zap} />
+            <StatTile label="Solar harvested" value={wh(stats.solarWh)} accent="var(--tlm-muted)" icon={Sun} />
+            <StatTile label="Efficiency" value={stats.effWhMi != null ? num(stats.effWhMi, 0) : '—'} unit="Wh/mi" accent="var(--tlm-muted)" icon={Battery} />
             <StatTile label="Best lap" value={laps.filter((l) => l.lap_time_s > 0).length ? lapTime(Math.min(...laps.filter((l) => l.lap_time_s > 0).map((l) => l.lap_time_s))) : '—'} accent="var(--tlm-good)" />
           </div>
 
@@ -138,7 +138,7 @@ export default function HistoryView({ track }) {
                   <XAxis dataKey="ts" tickFormatter={tick} minTickGap={60} />
                   <YAxis />
                   <Tooltip labelFormatter={tick} formatter={(v) => [`${num(v, 1)} mph`, 'Speed']} />
-                  <Line type="monotone" dataKey="speed_mph" stroke="#2979ff" dot={false} strokeWidth={2} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="speed_mph" stroke="#5b8def" dot={false} strokeWidth={2} isAnimationActive={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -155,7 +155,7 @@ export default function HistoryView({ track }) {
                     <YAxis tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
                     <Tooltip labelFormatter={tick} formatter={(v, n) => [`${num(v, 0)} W`, n]} />
                     <Line type="monotone" dataKey="battery_watts" name="Battery" stroke="#e31b23" dot={false} strokeWidth={2} isAnimationActive={false} />
-                    <Line type="monotone" dataKey="solar_watts" name="Solar" stroke="#ffb300" dot={false} strokeWidth={2} isAnimationActive={false} />
+                    <Line type="monotone" dataKey="solar_watts" name="Solar" stroke="#d99a3d" dot={false} strokeWidth={2} isAnimationActive={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -168,7 +168,7 @@ export default function HistoryView({ track }) {
                     <XAxis dataKey="ts" tickFormatter={tick} minTickGap={60} />
                     <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                     <Tooltip labelFormatter={tick} formatter={(v) => [`${num(v, 1)}%`, 'SOC']} />
-                    <Line type="monotone" dataKey="pack_soc" stroke="#00e676" dot={false} strokeWidth={2} isAnimationActive={false} />
+                    <Line type="monotone" dataKey="pack_soc" stroke="#2ecc71" dot={false} strokeWidth={2} isAnimationActive={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>

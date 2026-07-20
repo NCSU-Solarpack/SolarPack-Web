@@ -7,14 +7,14 @@ export const RELAY_URL =
 // Consider live data "stale" if the last snapshot is older than this.
 export const STALE_MS = 6000;
 
-// Status palette (matches the app's Colors.ts accents).
+// Status palette (matches the telemetry page's CSS tokens in RacePitTelemetry.css).
 export const STATUS = {
-  good: '#00E676',
-  warn: '#FFD600',
-  bad: '#FF1744',
-  info: '#2979FF',
-  solar: '#FFB300',
-  idle: '#9E9E9E',
+  good: '#2ECC71',
+  warn: '#E0A72E',
+  bad: '#FF4D5E',
+  info: '#5B8DEF',
+  solar: '#D99A3D',
+  idle: '#6B7280',
 };
 
 const nf = (digits) => new Intl.NumberFormat('en-US', { maximumFractionDigits: digits, minimumFractionDigits: digits });

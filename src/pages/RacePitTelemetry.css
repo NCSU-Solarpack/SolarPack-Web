@@ -5,31 +5,28 @@
    status palette shared with the vehicle app.
    ========================================================================== */
 .tlm {
-  --tlm-bg: #08090c;
-  --tlm-surface: #101216;
-  --tlm-surface-2: #161a20;
-  --tlm-elev: #1c2129;
-  --tlm-line: rgba(255, 255, 255, 0.07);
-  --tlm-line-strong: rgba(255, 255, 255, 0.14);
-  --tlm-text: #f4f6fa;
-  --tlm-sub: #aab2c0;
-  --tlm-muted: #6b7482;
+  --tlm-bg: #0c0c0c;
+  --tlm-surface: #161616;
+  --tlm-surface-2: #1a1a1a;
+  --tlm-elev: #202020;
+  --tlm-line: rgba(255, 255, 255, 0.08);
+  --tlm-line-strong: rgba(255, 255, 255, 0.16);
+  --tlm-text: #f5f5f5;
+  --tlm-sub: #9aa1ac;
+  --tlm-muted: #6b7280;
   --tlm-accent: #e31b23;
   --tlm-accent-soft: rgba(227, 27, 35, 0.14);
-  --tlm-good: #00e676;
-  --tlm-warn: #ffd600;
-  --tlm-bad: #ff1744;
-  --tlm-info: #2979ff;
-  --tlm-solar: #ffb300;
-  --tlm-radius: 16px;
-  --tlm-radius-sm: 10px;
+  --tlm-good: #2ecc71;
+  --tlm-warn: #e0a72e;
+  --tlm-bad: #ff4d5e;
+  --tlm-info: #5b8def;
+  --tlm-solar: #d99a3d;
+  --tlm-radius: 12px;
+  --tlm-radius-sm: 8px;
   --tlm-mono: "SF Mono", "JetBrains Mono", "Roboto Mono", ui-monospace, Menlo, Consolas, monospace;
 
   min-height: calc(100vh - 64px);
-  background:
-    radial-gradient(1200px 600px at 80% -10%, rgba(227, 27, 35, 0.10), transparent 60%),
-    radial-gradient(900px 500px at 0% 0%, rgba(41, 121, 255, 0.06), transparent 55%),
-    var(--tlm-bg);
+  background: var(--tlm-bg);
   color: var(--tlm-text);
   padding: 1.5rem clamp(1rem, 3vw, 2.5rem) 4rem;
   font-family: "DM Sans", system-ui, sans-serif;
@@ -70,15 +67,20 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.tlm-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--tlm-muted); }
-.tlm-status.is-live .tlm-dot { background: var(--tlm-good); box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.6); animation: tlm-pulse 1.6s infinite; }
+.tlm-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--tlm-muted); }
+.tlm-status.is-live .tlm-dot { background: var(--tlm-good); animation: tlm-pulse-good 1.8s infinite; }
 .tlm-status.is-stale .tlm-dot { background: var(--tlm-warn); }
-.tlm-status.is-fault { border-color: rgba(255, 23, 68, 0.5); color: #ff7a8f; }
-.tlm-status.is-fault .tlm-dot { background: var(--tlm-bad); box-shadow: 0 0 0 0 rgba(255, 23, 68, 0.6); animation: tlm-pulse 1s infinite; }
-@keyframes tlm-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.5); }
-  70% { box-shadow: 0 0 0 10px rgba(0, 230, 118, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(0, 230, 118, 0); }
+.tlm-status.is-fault { border-color: rgba(255, 77, 94, 0.4); color: #ff8f9a; }
+.tlm-status.is-fault .tlm-dot { background: var(--tlm-bad); animation: tlm-pulse-bad 1.1s infinite; }
+@keyframes tlm-pulse-good {
+  0% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.45); }
+  70% { box-shadow: 0 0 0 6px rgba(46, 204, 113, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+}
+@keyframes tlm-pulse-bad {
+  0% { box-shadow: 0 0 0 0 rgba(255, 77, 94, 0.5); }
+  70% { box-shadow: 0 0 0 6px rgba(255, 77, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 77, 94, 0); }
 }
 
 /* ---------- Tabs ---------- */
@@ -114,12 +116,12 @@
   gap: 0.45rem;
 }
 .tlm-tab:hover { color: var(--tlm-text); }
-.tlm-tab.active { background: var(--tlm-accent); color: #fff; box-shadow: 0 4px 16px rgba(227, 27, 35, 0.35); }
+.tlm-tab.active { background: var(--tlm-accent); color: #fff; }
 
 /* ---------- Cards / grid ---------- */
 .tlm-grid { display: grid; gap: 1rem; }
 .tlm-card {
-  background: linear-gradient(180deg, var(--tlm-surface-2), var(--tlm-surface));
+  background: var(--tlm-surface);
   border: 1px solid var(--tlm-line);
   border-radius: var(--tlm-radius);
   padding: 1.1rem 1.2rem;
@@ -139,47 +141,65 @@
 .tlm-card-title .lucide { width: 15px; height: 15px; }
 
 /* ---------- Stat tile ---------- */
-.tlm-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.85rem; }
+.tlm-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 0.75rem;
+}
+.tlm-tiles.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.tlm-tiles.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 480px) {
+  .tlm-tiles, .tlm-tiles.cols-4, .tlm-tiles.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .tlm-tile {
-  background: linear-gradient(180deg, var(--tlm-surface-2), var(--tlm-surface));
+  background: var(--tlm-surface-2);
   border: 1px solid var(--tlm-line);
-  border-radius: var(--tlm-radius);
-  padding: 0.95rem 1.05rem;
+  border-left: 2px solid var(--accent, var(--tlm-muted));
+  border-radius: var(--tlm-radius-sm);
+  padding: 0.85rem 1rem;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 0.3rem;
   min-height: 92px;
   position: relative;
   overflow: hidden;
 }
-.tlm-tile::after {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 3px;
-  background: var(--accent, var(--tlm-accent));
-  opacity: 0.9;
-}
 .tlm-tile .label {
-  font-size: 0.7rem;
-  letter-spacing: 0.1em;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--tlm-muted);
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
+  line-height: 1.3;
 }
 .tlm-tile .value {
   font-family: var(--tlm-mono);
   font-variant-numeric: tabular-nums;
-  font-size: clamp(1.6rem, 3vw, 2.1rem);
+  font-size: clamp(1.05rem, 2vw, 1.85rem);
   font-weight: 600;
-  line-height: 1.05;
+  line-height: 1.15;
   letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
-.tlm-tile .value .unit { font-size: 0.9rem; color: var(--tlm-sub); font-weight: 500; margin-left: 0.25rem; }
-.tlm-tile .sub { font-size: 0.78rem; color: var(--tlm-sub); font-variant-numeric: tabular-nums; }
-.tlm-tile.big .value { font-size: clamp(2.4rem, 6vw, 3.6rem); }
+.tlm-tile .value .unit { font-size: 0.85rem; color: var(--tlm-sub); font-weight: 500; margin-left: 0.25rem; }
+.tlm-tile .sub { font-size: 0.76rem; color: var(--tlm-sub); font-variant-numeric: tabular-nums; }
+.tlm-tile.big .value { font-size: clamp(2.1rem, 5vw, 3rem); }
+
+/* ---------- Radial gauge ---------- */
+.tlm-vitals-gauge { display: flex; justify-content: center; margin: 0.2rem 0 0.9rem; }
+.tlm-gauge { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+.tlm-gauge-ring { position: relative; display: flex; align-items: center; justify-content: center; }
+.tlm-gauge-readout { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+.tlm-gauge-readout .value { font-size: 1.5rem; font-weight: 600; line-height: 1.1; }
+.tlm-gauge-readout .unit { font-size: 0.7rem; color: var(--tlm-sub); margin-top: 0.15rem; }
+.tlm-gauge-label { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--tlm-muted); }
 
 /* ---------- Meter (linear) ---------- */
 .tlm-meter { height: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; margin-top: 0.4rem; }
@@ -200,9 +220,9 @@
   pointer-events: none;
 }
 .tlm-car-marker {
-  width: 20px; height: 20px; border-radius: 50%;
-  background: var(--tlm-accent); border: 3px solid #fff;
-  box-shadow: 0 0 0 4px rgba(227, 27, 35, 0.35), 0 2px 8px rgba(0,0,0,0.6);
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--tlm-accent); border: 2px solid #fff;
+  box-shadow: 0 0 0 3px rgba(227, 27, 35, 0.3), 0 1px 4px rgba(0,0,0,0.5);
 }
 
 /* ---------- Lap board ---------- */
@@ -220,9 +240,9 @@
 .tlm-lap .n { font-family: "Bebas Neue", sans-serif; font-size: 1.3rem; color: var(--tlm-muted); }
 .tlm-lap .t { font-family: var(--tlm-mono); font-variant-numeric: tabular-nums; font-size: 1.15rem; font-weight: 600; }
 .tlm-lap .m { font-size: 0.75rem; color: var(--tlm-sub); text-align: right; font-variant-numeric: tabular-nums; }
-.tlm-lap.best { border-color: rgba(0, 230, 118, 0.5); background: rgba(0, 230, 118, 0.08); }
+.tlm-lap.best { border-color: rgba(46, 204, 113, 0.45); background: rgba(46, 204, 113, 0.07); }
 .tlm-lap.best .n { color: var(--tlm-good); }
-.tlm-lap.current { border-color: rgba(41, 121, 255, 0.5); background: rgba(41, 121, 255, 0.08); }
+.tlm-lap.current { border-color: rgba(91, 141, 239, 0.45); background: rgba(91, 141, 239, 0.07); }
 .tlm-badge { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; padding: 0.1rem 0.4rem; border-radius: 5px; font-weight: 700; }
 .tlm-badge.best { background: var(--tlm-good); color: #04231a; }
 .tlm-badge.current { background: var(--tlm-info); color: #04122e; }
@@ -273,6 +293,7 @@
   background: var(--tlm-accent-soft); border: 1px solid rgba(227, 27, 35, 0.3);
   color: #ffb3b8; font-size: 0.85rem;
 }
+.tlm-lock.fault { background: rgba(255, 77, 94, 0.1); border-color: rgba(255, 77, 94, 0.3); color: #ff9aa8; }
 .tlm-empty { text-align: center; color: var(--tlm-muted); padding: 2.5rem 1rem; font-size: 0.9rem; }
 
 /* ---------- Cell voltage grid ---------- */
