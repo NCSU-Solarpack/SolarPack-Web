@@ -113,7 +113,17 @@ export const isFault = (pkt) => {
   if (pkt.systemStatus === 2) return true;
   if (Array.isArray(pkt.bmsFaultCodes) && pkt.bmsFaultCodes.length > 0) return true;
   if (Array.isArray(pkt.boardStatus) && pkt.boardStatus.includes(2)) return true;
+  if (Array.isArray(pkt.activeAlerts) && pkt.activeAlerts.some((a) => a && a.severity === 'critical')) return true;
   return false;
+};
+
+// Active alerts computed on the iPad, ranked most-severe first for the pit dashboard.
+const ALERT_SEV_RANK = { critical: 0, warning: 1, caution: 2 };
+export const activeAlertsOf = (pkt) => {
+  const list = pkt && Array.isArray(pkt.activeAlerts) ? pkt.activeAlerts : [];
+  return [...list].sort(
+    (a, b) => (ALERT_SEV_RANK[a?.severity] ?? 3) - (ALERT_SEV_RANK[b?.severity] ?? 3)
+  );
 };
 
 export const CAR_MODE_LABELS = ['Off', 'Ignition', 'Accessory', 'Full Start'];

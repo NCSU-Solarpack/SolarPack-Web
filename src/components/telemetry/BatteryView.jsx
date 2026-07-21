@@ -1,7 +1,9 @@
 import React from 'react';
 import { Battery, Thermometer, AlertTriangle, Cpu, Activity } from 'lucide-react';
 import { Card, StatTile, MeterTile, cellColor, tempColor } from './widgets';
-import { num, timeOfDay, BOARD_NAMES, STATUS } from './format';
+import { num, timeOfDay, BOARD_NAMES, STATUS, activeAlertsOf } from './format';
+
+const ALERT_SEV_COLOR = { critical: STATUS.bad, warning: STATUS.warn ?? '#c9791a', caution: STATUS.idle };
 
 function cellStats(cells) {
   const valid = (cells || []).filter((v) => typeof v === 'number' && v > 0.5);
@@ -25,6 +27,7 @@ export default function BatteryView({ live }) {
   const faults = Array.isArray(pkt.faultEvents) ? [...pkt.faultEvents].reverse() : [];
   const bmsFaults = Array.isArray(pkt.bmsFaultCodes) ? pkt.bmsFaultCodes : [];
   const boards = Array.isArray(pkt.boardStatus) ? pkt.boardStatus : [];
+  const alerts = activeAlertsOf(pkt);
 
   return (
     <div>
@@ -95,12 +98,29 @@ export default function BatteryView({ live }) {
         </Card>
 
         <Card title="Fault &amp; Alert Log" icon={AlertTriangle}>
+          {/* Live, severity-ranked alerts computed on the iPad and streamed to the pit. */}
+          {alerts.length > 0 && (
+            <div className="tlm-faults" style={{ marginBottom: '0.7rem' }}>
+              {alerts.map((a, i) => (
+                <div key={`a-${i}`} className="tlm-fault">
+                  <AlertTriangle size={15} color={ALERT_SEV_COLOR[a.severity] || STATUS.bad} />
+                  <span>
+                    <strong style={{ color: ALERT_SEV_COLOR[a.severity] || STATUS.bad }}>
+                      {(a.severity || 'alert').toUpperCase()}
+                    </strong>{' '}
+                    {a.type}{a.count > 1 ? ` ×${a.count}` : ''} — {a.cause}
+                  </span>
+                  <time>{timeOfDay(a.since)}</time>
+                </div>
+              ))}
+            </div>
+          )}
           {bmsFaults.length > 0 && (
             <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.7rem' }}>
               {bmsFaults.map((f, i) => <span key={i} className="tlm-badge best" style={{ background: STATUS.bad, color: '#fff' }}>{f}</span>)}
             </div>
           )}
-          {faults.length === 0 && bmsFaults.length === 0 ? (
+          {alerts.length === 0 && faults.length === 0 && bmsFaults.length === 0 ? (
             <div className="tlm-empty">No faults recorded. All systems nominal.</div>
           ) : (
             <div className="tlm-faults">
