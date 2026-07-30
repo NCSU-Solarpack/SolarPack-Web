@@ -128,6 +128,7 @@ const Header = () => {
     { path: '/team', label: 'Team' },
     { path: '/alumni', label: 'Alumni' },
     { path: '/sponsors', label: 'Sponsors' },
+    { path: '/telemetry', label: 'Telemetry' },
     { path: '/donate', label: 'Donate' },
     { path: '/blogs', label: 'Blogs' },
     { path: '/contact', label: 'Contact' }

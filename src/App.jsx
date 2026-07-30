@@ -12,6 +12,7 @@ import Clipboard from './pages/Clipboard'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import Sponsors from './pages/Sponsors'
 import Team from './pages/Team'
+import RacePitTelemetry from './pages/RacePitTelemetry'
 import NotFound from './pages/NotFound'
 import Admin from './components/Admin'
 import ForgotPassword from './components/ForgotPassword'
@@ -47,6 +48,7 @@ function AppRouter() {
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/sponsors" element={<Sponsors />} />
             <Route path="/team" element={<Team />} />
+            <Route path="/telemetry" element={<RacePitTelemetry />} />
             {/* Catch-all route for 404 pages */}
             <Route path="*" element={<NotFound />} />
           </Routes>
