@@ -196,6 +196,7 @@ const Clipboard = () => {
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [copied, setCopied] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const isOpen = Boolean(accessHash)
   const selectedId = draft.id || draft.local_key || 'new'
@@ -232,7 +233,7 @@ const Clipboard = () => {
       }))
       setItems(nextItems)
       setDraft(nextItems[0] || createEmptyDraft())
-      setMessage(nextItems.length ? 'Synced' : 'Ready')
+      setMessage(nextItems.length ? 'Synced' : 'Blank code. Save a clip to start it.')
     } catch (error) {
       console.error('Clipboard load failed:', error)
       setMessage(error.message || 'Could not open')
@@ -258,8 +259,8 @@ const Clipboard = () => {
   const createCode = async () => {
     const nextCode = generateCode()
     setCodeInput(nextCode)
-    await openCode(nextCode)
     setShowCode(true)
+    setMessage('Random code generated. Open it to start.')
   }
 
   const closeCode = () => {
@@ -283,6 +284,12 @@ const Clipboard = () => {
     }
     setCopied(false)
     setTimeout(() => editorRef.current?.focus(), 0)
+  }
+
+  const requestDeleteDraft = () => {
+    const hasContent = Boolean(draft.id || draft.title.trim() || getTextFromHtml(editorRef.current?.innerHTML || ''))
+    if (!hasContent) return
+    setShowDeleteConfirm(true)
   }
 
   const syncDraftFromEditor = () => {
@@ -338,8 +345,11 @@ const Clipboard = () => {
   }
 
   const deleteDraft = async () => {
+    setShowDeleteConfirm(false)
+
     if (!accessHash || !draft.id) {
       newItem()
+      setMessage('Cleared')
       return
     }
 
@@ -469,6 +479,13 @@ const Clipboard = () => {
           color: #fff;
         }
 
+        .clipboard-lock-note {
+          margin-top: 0.7rem;
+          color: #aaa;
+          font-size: 0.86rem;
+          line-height: 1.35;
+        }
+
         .clipboard-lock-form {
           display: grid;
           grid-template-columns: 1fr auto;
@@ -478,12 +495,14 @@ const Clipboard = () => {
 
         .clipboard-input {
           min-width: 0;
+          height: 2.6rem;
           border: 1px solid #fff;
           background: #000;
           color: #fff;
           border-radius: 0;
-          padding: 0.85rem;
+          padding: 0 0.85rem;
           font: inherit;
+          line-height: 1;
         }
 
         .clipboard-input::placeholder {
@@ -528,6 +547,10 @@ const Clipboard = () => {
           justify-content: space-between;
           gap: 0.5rem;
           margin-top: 0.75rem;
+        }
+
+        .clipboard-lock-actions .clipboard-btn:first-child {
+          flex: 1;
         }
 
         .clipboard-status {
@@ -625,6 +648,35 @@ const Clipboard = () => {
           padding: 1rem;
         }
 
+        .clipboard-loading {
+          display: flex;
+          align-items: center;
+          gap: 0.65rem;
+          color: #ccc;
+          padding: 1rem;
+        }
+
+        .clipboard-loading.centered {
+          min-height: 240px;
+          justify-content: center;
+          border: 1px solid #fff;
+          background: #000;
+        }
+
+        .clipboard-spinner {
+          width: 1rem;
+          height: 1rem;
+          border: 1px solid #555;
+          border-top-color: #fff;
+          border-radius: 50%;
+          animation: clipboard-spin 700ms linear infinite;
+          flex: 0 0 auto;
+        }
+
+        @keyframes clipboard-spin {
+          to { transform: rotate(360deg); }
+        }
+
         .clipboard-editor-panel {
           display: flex;
           flex-direction: column;
@@ -702,6 +754,52 @@ const Clipboard = () => {
           padding: 0.35rem;
         }
 
+        .clipboard-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 1000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(0, 0, 0, 0.82);
+          padding: 1rem;
+        }
+
+        .clipboard-modal {
+          width: min(100%, 380px);
+          border: 1px solid #fff;
+          background: #000;
+          color: #fff;
+          padding: 1rem;
+          box-shadow: 0 0 0 1px #000;
+        }
+
+        .clipboard-modal h2 {
+          margin: 0;
+          color: #fff;
+          font: 700 1rem/1.2 "DM Sans", Arial, sans-serif;
+          letter-spacing: 0;
+          text-align: left;
+        }
+
+        .clipboard-modal p {
+          margin: 0.8rem 0 0;
+          color: #ccc;
+          line-height: 1.45;
+        }
+
+        .clipboard-modal-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 0.65rem;
+          margin-top: 1rem;
+        }
+
+        .clipboard-btn.danger {
+          background: #fff;
+          color: #000;
+        }
+
         @media (max-width: 780px) {
           .clipboard-shell {
             padding-top: 1rem;
@@ -750,18 +848,28 @@ const Clipboard = () => {
               autoComplete="off"
             />
             <button className="clipboard-btn" type="submit" disabled={isLoading}>
-              Open
+              Open / start
             </button>
           </form>
+          <div className="clipboard-lock-note">
+            Same code opens the same clipboard. A new code starts blank.
+          </div>
           <div className="clipboard-lock-actions">
             <button className="clipboard-btn secondary" type="button" onClick={createCode}>
-              <Plus size={16} /> New code
+              <Plus size={16} /> Generate random code
             </button>
             <button className="clipboard-btn secondary icon" type="button" onClick={() => setShowCode(value => !value)} title={showCode ? 'Hide code' : 'Show code'}>
               {showCode ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
-          <div className="clipboard-status">{message}</div>
+          <div className="clipboard-status">
+            {isLoading ? (
+              <span className="clipboard-loading">
+                <span className="clipboard-spinner" aria-hidden="true"></span>
+                Opening
+              </span>
+            ) : message}
+          </div>
         </section>
       ) : (
         <section className="clipboard-shell">
@@ -790,9 +898,20 @@ const Clipboard = () => {
             </div>
           </div>
 
-          <div className="clipboard-grid">
-            <aside className="clipboard-list" aria-label="Saved clips">
-              {sortedItems.length === 0 ? (
+          {isLoading && sortedItems.length === 0 ? (
+            <div className="clipboard-loading centered" role="status" aria-live="polite">
+              <span className="clipboard-spinner" aria-hidden="true"></span>
+              Loading clips
+            </div>
+          ) : (
+            <div className="clipboard-grid">
+              <aside className="clipboard-list" aria-label="Saved clips">
+                {isLoading ? (
+                  <div className="clipboard-loading" role="status" aria-live="polite">
+                    <span className="clipboard-spinner" aria-hidden="true"></span>
+                    Refreshing
+                  </div>
+                ) : sortedItems.length === 0 ? (
                 <div className="clipboard-empty">Empty</div>
               ) : sortedItems.map(item => (
                 <button
@@ -807,9 +926,9 @@ const Clipboard = () => {
                   </span>
                 </button>
               ))}
-            </aside>
+              </aside>
 
-            <div className="clipboard-editor-panel">
+              <div className="clipboard-editor-panel">
               <div className="clipboard-title-row">
                 <input
                   className="clipboard-input"
@@ -821,7 +940,7 @@ const Clipboard = () => {
                   <button className="clipboard-btn secondary icon" type="button" onClick={copyDraft} title="Copy">
                     {copied ? <Check size={16} /> : <Copy size={16} />}
                   </button>
-                  <button className="clipboard-btn secondary icon" type="button" onClick={deleteDraft} title="Delete" disabled={isSaving}>
+                  <button className="clipboard-btn secondary icon" type="button" onClick={requestDeleteDraft} title="Delete" disabled={isSaving}>
                     <Trash2 size={16} />
                   </button>
                   <button className="clipboard-btn" type="button" onClick={saveDraft} disabled={isSaving}>
@@ -852,11 +971,39 @@ const Clipboard = () => {
                 onBlur={syncDraftFromEditor}
                 onPaste={handlePaste}
               />
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="clipboard-status">{isLoading ? 'Syncing' : message}</div>
         </section>
+      )}
+
+      {showDeleteConfirm && (
+        <div className="clipboard-modal-backdrop" role="presentation" onMouseDown={() => setShowDeleteConfirm(false)}>
+          <div
+            className="clipboard-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="clipboard-delete-title"
+            onMouseDown={event => event.stopPropagation()}
+          >
+            <h2 id="clipboard-delete-title">{draft.id ? 'Delete clip' : 'Clear draft'}</h2>
+            <p>
+              {draft.id
+                ? `Remove "${draft.title || 'Untitled'}" from this clipboard?`
+                : 'Clear the current unsaved text?'}
+            </p>
+            <div className="clipboard-modal-actions">
+              <button className="clipboard-btn secondary" type="button" onClick={() => setShowDeleteConfirm(false)}>
+                Cancel
+              </button>
+              <button className="clipboard-btn danger" type="button" onClick={deleteDraft} disabled={isSaving}>
+                <Trash2 size={16} /> {draft.id ? 'Delete' : 'Clear'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
