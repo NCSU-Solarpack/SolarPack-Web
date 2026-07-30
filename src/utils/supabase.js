@@ -2421,6 +2421,63 @@ class SupabaseService {
     return await refreshConnection();
   }
 
+  // ===== CLIPBOARD DATA =====
+
+  async getClipboardItems(accessHash) {
+    if (!this.client) throw new Error('Supabase not configured');
+    if (!accessHash) throw new Error('Clipboard code is required');
+
+    const { data, error } = await withTimeout(
+      this.client.rpc('get_clipboard_items', {
+        p_access_hash: accessHash
+      }),
+      REQUEST_TIMEOUT_MS,
+      'getClipboardItems'
+    );
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async saveClipboardItem(accessHash, item = {}) {
+    if (!this.client) throw new Error('Supabase not configured');
+    if (!accessHash) throw new Error('Clipboard code is required');
+
+    const { data, error } = await withTimeout(
+      this.client
+        .rpc('save_clipboard_item', {
+          p_access_hash: accessHash,
+          p_id: item.id || null,
+          p_title: item.title || '',
+          p_content_html: item.content_html || '',
+          p_content_text: item.content_text || ''
+        })
+        .single(),
+      REQUEST_TIMEOUT_MS,
+      'saveClipboardItem'
+    );
+
+    if (error) throw error;
+    return data;
+  }
+
+  async deleteClipboardItem(accessHash, itemId) {
+    if (!this.client) throw new Error('Supabase not configured');
+    if (!accessHash || !itemId) throw new Error('Clipboard item is required');
+
+    const { data, error } = await withTimeout(
+      this.client.rpc('delete_clipboard_item', {
+        p_access_hash: accessHash,
+        p_id: itemId
+      }),
+      REQUEST_TIMEOUT_MS,
+      'deleteClipboardItem'
+    );
+
+    if (error) throw error;
+    return data;
+  }
+
   /**
    * Subscribe to connection state changes
    * @param {Function} callback - Called with (event, isConnected)

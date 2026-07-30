@@ -8,6 +8,7 @@ import Alumni from './pages/Alumni'
 import Blogs from './pages/Blogs'
 import Contact from './pages/Contact'
 import Donate from './pages/Donate'
+import Clipboard from './pages/Clipboard'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 import Sponsors from './pages/Sponsors'
 import Team from './pages/Team'
@@ -31,6 +32,7 @@ function AppRouter() {
       {/* Removed confirm-email route - email confirmation not required anymore */}
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/clipboard" element={<Clipboard />} />
       
       {/* Regular routes with layout */}
       <Route path="/*" element={
