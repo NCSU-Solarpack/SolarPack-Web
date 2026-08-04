@@ -127,8 +127,9 @@ const PrivacyPolicy = () => {
       title: "Summary",
       content: (
         <p>
-          We collect a minimal set of data points <strong>only</strong> to make the
-          app function and to help us understand and improve performance. We do
+          We collect data needed to operate the SolarPack app, website, team tools,
+          and race telemetry services. During races, the app may transmit the solar
+          car&apos;s location and vehicle telemetry for live viewing and session history. We do
           <em> not</em> use your data for advertising, marketing, personalization,
           or tracking across other apps.
         </p>
@@ -138,12 +139,11 @@ const PrivacyPolicy = () => {
       title: "Data We Collect",
       content: (
         <ul>
-          <li><strong>Precise Location</strong> – Enables GPS-based features such as lap timing and detailed telemetry.</li>
-          <li><strong>Coarse Location</strong> – Provides general region information (e.g., for Bluetooth proximity) when precise GPS is unnecessary.</li>
-          <li><strong>Device ID</strong> – Helps differentiate hardware models and debug device-specific issues.</li>
-          <li><strong>Product Interaction</strong> – Anonymous aggregate data on how you navigate the app (e.g., tab switches) to improve user experience.</li>
-          <li><strong>Crash Data</strong> – Automatic crash reports allow us to diagnose bugs and improve stability.</li>
-          <li><strong>Performance Data</strong> – Metrics like launch time and connection latency help us monitor and optimize performance.</li>
+          <li><strong>Precise Location and Motion Data</strong> – During an active race or telemetry connection, the app uses GPS coordinates, speed, heading, accuracy, and timestamps to show the solar car on a map, calculate distance and laps, and provide live and historical race telemetry. If background location is enabled, this may continue while the app is in the background or the screen is locked.</li>
+          <li><strong>Vehicle Telemetry</strong> – The app processes and may transmit operational data such as battery status, electrical measurements, temperatures, motor speed, faults, and lap statistics.</li>
+          <li><strong>Account Information</strong> – If you create or use a team account, Supabase Authentication processes your email address, name, authentication credentials, account role, and approval status.</li>
+          <li><strong>Content You Provide</strong> – Team tools may store information you submit, such as clipboard content, schedules, notes, orders, blog content, and team or sponsor information.</li>
+          <li><strong>Technical Data</strong> – Our hosting and database providers may process routine technical information such as IP address, browser or device type, access times, and service logs for security and reliable operation.</li>
         </ul>
       )
     },
@@ -151,8 +151,6 @@ const PrivacyPolicy = () => {
       title: "Data We Don't Collect",
       content: (
         <ul>
-          <li>Contact information (name, email, phone, address)</li>
-          <li>User-generated content (photos, messages, files)</li>
           <li>Payment or financial details</li>
           <li>Advertising identifiers or usage for ad targeting</li>
           <li>Health, biometric, or other sensitive personal data</li>
@@ -169,21 +167,24 @@ const PrivacyPolicy = () => {
       )
     },
     {
-      title: "Third-Party Services",
+      title: "How We Use and Share Data",
       content: (
-        <p>
-          We use trusted third-party services (e.g., Firebase) solely for analytics, crash reporting,
-          and cloud data storage. Each provider is contractually bound to process data only on our
-          behalf and not for their own marketing or advertising.
-        </p>
+        <>
+          <p>We use collected data to operate app features, authenticate team members, administer team activities, diagnose problems, and provide live and historical race telemetry.</p>
+          <p><strong>Race telemetry is public:</strong> When telemetry streaming is active, the solar car&apos;s current and historical location and vehicle data may be displayed on the public SolarPack telemetry website to fans, sponsors, and other visitors. Do not start telemetry streaming where public disclosure of the car&apos;s location would create a safety or security risk.</p>
+          <p>We use service providers, including Supabase for authentication, database storage, and realtime data, and our website and relay hosting providers. They process data to provide their services to us. We do not sell personal data or share it with advertising networks or data brokers.</p>
+        </>
       )
     },
     {
       title: "Data Retention",
       content: (
         <p>
-          Telemetry and analytics data are stored for the shortest duration necessary to fulfill
-          the purposes outlined above, after which they are either deleted or fully anonymized.
+          Live telemetry is updated as new readings arrive. Historical race telemetry, lap records,
+          account records, and content submitted through team tools are retained until they are no
+          longer needed for the purposes described in this policy or are deleted by an authorized
+          administrator, subject to operational backups and legal obligations. You may contact us
+          to ask about access, correction, or deletion of personal information associated with you.
         </p>
       )
     },
@@ -205,7 +206,7 @@ const PrivacyPolicy = () => {
       <style>{privacyPolicyStyles}</style>
       <div className="privacy-container">
         <h1>SOLARPACK Privacy & Data</h1>
-        <div className="effective-date"><strong>Effective Date:</strong> July&nbsp;8, 2025</div>
+        <div className="effective-date"><strong>Effective Date:</strong> August&nbsp;4, 2026</div>
 
         <div id="policy">
           {sections.map((section, index) => (
