@@ -578,6 +578,21 @@ const Clipboard = () => {
           flex-wrap: wrap;
         }
 
+        .clipboard-heading-left {
+          min-height: 2.6rem;
+        }
+
+        .clipboard-heading-left h1 {
+          height: 2.6rem;
+          display: inline-flex;
+          align-items: center;
+        }
+
+        .clipboard-heading-left .clipboard-btn,
+        .clipboard-heading-left .clipboard-code {
+          flex: 0 0 auto;
+        }
+
         .clipboard-code {
           display: inline-flex;
           align-items: center;
