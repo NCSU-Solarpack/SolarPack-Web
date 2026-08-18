@@ -1,3 +1,23 @@
+/**
+ * FilesManager — the Files tab. A file browser over Supabase Storage.
+ *
+ * Documentation: docs/files.md
+ *
+ *  • Available to EVERY approved user (member included) — this is the team's
+ *    shared drive. Main bucket: `file-storage`, 50 MB/file with a MIME allow-list.
+ *  • FOLDERS AREN'T REAL. Supabase Storage is flat key-value; "folders" are just
+ *    `/` in object keys, and an empty folder is held open by a hidden `.keep`
+ *    file. So: deleting a folder means enumerating and deleting everything under
+ *    it (collectAllFilePaths), and renaming a file is download → re-upload →
+ *    delete, which breaks any previously shared URL.
+ *  • "Website Data" is a VIRTUAL folder — a read-only window onto the four buckets
+ *    the rest of the site writes to (order-receipts, blog-images, sponsor-logos,
+ *    team-images). Upload/rename/delete are hidden there so nobody orphans a
+ *    headshot or a receipt. ⚠ This is UI-only: the buckets are public and any
+ *    authenticated user can write to them via the API.
+ *  • PDF preview is switched off (ALLOW_PDF_PREVIEW = false). The pdfjs machinery
+ *    below still works; flip the flag to re-enable, and test it.
+ */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabaseService } from '../../utils/supabase';
 import { authService, AUTH_LEVELS } from '../../utils/auth';

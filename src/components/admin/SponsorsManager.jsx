@@ -1,3 +1,17 @@
+/**
+ * SponsorsManager — the Sponsors tab.
+ *
+ * Documentation: docs/content-managers.md#sponsors
+ *
+ *  • `tier` is PLAIN TEXT, not an enum. The four tiers are the hard-coded
+ *    `allTiers` array below, and getTierIcon() matches by substring. A typo like
+ *    "Gold Sponsor" (singular) creates a fifth tier that renders on /sponsors but
+ *    is INVISIBLE in this manager. Fix such rows with SQL.
+ *  • Logos: 5 MB limit, `sponsor-logos` bucket. The site background is near-black,
+ *    so use transparent PNG or SVG — a white-background logo shows as a white box.
+ *  • Smallest complete example of the standard manager pattern (load → sync status
+ *    → optimistic save → visibility refresh). Copy this file when adding a new tab.
+ */
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { authService } from '../../utils/auth';
 import { supabaseService } from '../../utils/supabase';

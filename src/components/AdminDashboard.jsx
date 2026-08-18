@@ -1,3 +1,22 @@
+/**
+ * AdminDashboard — the tab shell for /admin.
+ *
+ * Documentation: docs/admin-dashboard.md
+ *
+ *  • `tabs` (below) declares the nine tabs and the permission each requires;
+ *    `availableTabs` filters it by the current user's role. A tab with no
+ *    `permission` shows to any authenticated user (Files, Settings).
+ *  • The active tab is mirrored into the URL (`/admin?tab=orders`), so views are
+ *    bookmarkable and deep-linkable.
+ *  • One `useRef` per manager: the Overview cards read stats out of the mounted
+ *    managers via useImperativeHandle rather than re-querying, and Quick Actions
+ *    call into them (e.g. orderManagerRef.current.handleSubmitOrder()).
+ *  • `authService.extendSession()` fires on click/keypress to keep long editing
+ *    sessions alive.
+ *
+ * Adding a tab = 4 edits, all in this file plus the PERMISSIONS map in
+ * src/utils/auth.js. See docs/making-changes.md#recipe-add-a-new-admin-tab
+ */
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { authService } from '../utils/auth';

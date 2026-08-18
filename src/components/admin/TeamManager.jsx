@@ -1,3 +1,18 @@
+/**
+ * TeamManager — the public roster half of the Team tab.
+ *
+ * Documentation: docs/content-managers.md#team-members
+ *
+ *  • A `team_members` row is the PUBLIC CARD on /team. It is NOT a login account —
+ *    accounts live in user_roles and are managed by UserManager in the same tab.
+ *    The optional `user_id` link between them grants no permissions; it just
+ *    pushes the card's role text into user_roles.specific_role for display.
+ *  • Drag-and-drop reordering rewrites the "order" column of every affected card;
+ *    /team sorts by it.
+ *  • Headshots: 5 MB client-side limit, `team-images` bucket, named by member id
+ *    with upsert:true — so replacing one can serve a cached copy for a few minutes.
+ *  • Deleting a member also deletes their image from storage.
+ */
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { authService } from '../../utils/auth';
 import { supabaseService } from '../../utils/supabase';

@@ -1,3 +1,42 @@
+/**
+ * supabaseService — the single gateway to Supabase for the whole app.
+ *
+ * Every database query, storage upload and auth call goes through this file. Nothing
+ * else in `src/` should import `@supabase/supabase-js` directly.
+ *
+ * Full documentation: docs/supabase.md and docs/database-reference.md
+ *
+ * ── Section map (line numbers approximate; search the ===== banners) ─────────────
+ *    ~1-520    client setup, connection tracking, withTimeout, auth refresh,
+ *              order-receipt uploads
+ *    ~534      TEAM DATA        team_members + image upload + account linking
+ *    ~777      ALUMNI DATA      semesters (leadership stored as JSONB)
+ *    ~889      SPONSOR DATA     sponsors + logo upload
+ *    ~1054     SCHEDULE DATA    teams / projects / tasks + DB<->UI transforms
+ *    ~1395     ORDERS DATA      fetch, CRUD, transformOrderFrom/ToDB
+ *    ~1767     REAL-TIME        subscribeToTable / unsubscribe
+ *    ~1796     BLOGS DATA       posts + hero and inline image upload
+ *    ~2048     AUTHENTICATION   sign up/in/out, roles, approvals, password reset
+ *    ~2424     CLIPBOARD        RPC wrappers for the /clipboard page
+ *    ~2498     RACE TELEMETRY   tracks, sessions, laps, history, live subscriptions
+ *
+ * ── Three things to know before editing ─────────────────────────────────────────
+ *  1. `withTimeout(promise, 15s)` wraps essentially every query. Chrome throttles
+ *     background tabs and a throttled fetch can hang forever; the timeout makes it
+ *     fail fast so the UI can retry. Keep new queries wrapped.
+ *  2. The client is created ONCE (`let supabase = null` at module scope) and never
+ *     recreated. A second client breaks auth session sharing and duplicates
+ *     realtime subscriptions.
+ *  3. `ensureAuth()` is deliberately NOT awaited. It fires a background token
+ *     refresh but must never block a query.
+ *
+ * ── Adding a column? Edit BOTH halves of the transform pair ──────────────────────
+ *     transformProjectFromDB / transformProjectToDB
+ *     transformTaskFromDB    / transformTaskToDB
+ *     transformOrderFromDB   / transformOrderToDB
+ *  Missing the *ToDB half means the field silently never saves — no error, the
+ *  write just omits the column. This is the most common bug in this file.
+ */
 // Supabase service for real-time database operations
 // Replaces GitHub-based JSON file storage with instant database updates
 

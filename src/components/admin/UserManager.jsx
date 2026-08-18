@@ -1,3 +1,20 @@
+/**
+ * UserManager — account management, inside the Team tab.
+ *
+ * Documentation: docs/members-and-users.md
+ *
+ *  • Two sub-tabs: Approved (role dropdown, promote/demote) and Pending (approve
+ *    with an assigned level, or reject).
+ *  • Every new sign-up lands as approval_status='pending', level='member', and can
+ *    see nothing until approved. NOTHING VERIFIES THE EMAIL ADDRESS — email
+ *    confirmation is disabled, so approval is the only check. Approve only people
+ *    you recognise.
+ *  • Rejecting sets approval_status='rejected' and keeps the row, so history is
+ *    preserved and the same email can't re-register into a clean state.
+ *  • The UI shows this section to leaders and directors, and the RLS policy
+ *    (is_approved_admin) agrees. Note authService.updateUserRole additionally
+ *    guards on `manage_users`, which is director-only.
+ */
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { authService } from '../../utils/auth';
 import { supabaseService } from '../../utils/supabase';

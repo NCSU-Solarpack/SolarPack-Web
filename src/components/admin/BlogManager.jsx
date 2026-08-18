@@ -1,3 +1,27 @@
+/**
+ * BlogManager — the Blogs tab. The only content type with a draft/published state.
+ *
+ * Documentation: docs/blogs.md
+ *
+ *  • The body is edited as an ordered list of SECTIONS (text | image) but STORED
+ *    AS ONE HTML STRING in blogs.body:
+ *      save : assembleBodyHtml()   sections → HTML
+ *      edit : parseBodyToSections() HTML → sections  (DOMParser; a lone <img>
+ *             becomes an image section, everything else accumulates into text)
+ *    That round-trip is lossy at the edges — unusual nesting can come back as one
+ *    big text block on the next edit. Content is preserved; boundaries can shift.
+ *  • NEW POSTS SAVE IN TWO STEPS: insert with an empty body to get an id, upload
+ *    images against that id, then update with the assembled HTML. A failure in
+ *    between leaves an empty post behind — delete it and retry.
+ *  • Removing an inline image during an edit deletes it from storage IMMEDIATELY.
+ *    Undoing the removal will not bring it back.
+ *  • `published` is enforced by RLS, not just the UI: anonymous visitors genuinely
+ *    cannot read drafts.
+ *
+ * ⚠ blogs.body is rendered with dangerouslySetInnerHTML on the public page, and
+ *   the RLS insert policy allows ANY authenticated user. See
+ *   docs/security-and-handover.md — sanitising on render is a pending fix.
+ */
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { supabaseService } from '../../utils/supabase';
 import { useSupabaseSyncStatus } from '../../hooks/useSupabaseSyncStatus';

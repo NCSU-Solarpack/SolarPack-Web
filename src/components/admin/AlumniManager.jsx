@@ -1,3 +1,16 @@
+/**
+ * AlumniManager — the Alumni tab.
+ *
+ * Documentation: docs/content-managers.md#alumni
+ *
+ *  • Alumni are stored PER SEMESTER, not per person: one `alumni` row per
+ *    semester, with the people in a `leadership` JSONB array of {role, name}.
+ *    The whole array is rewritten on every save.
+ *  • Drag-to-reorder semesters writes through saveAlumniOrder(), which rewrites
+ *    every semester's "order" in one call. /alumni renders newest-first.
+ *  • deleteAlumniSemesterSafe() deletes by id and falls back to matching on the
+ *    semester name, because older rows may lack a usable id.
+ */
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { authService } from '../../utils/auth';
 import { supabaseService } from '../../utils/supabase';

@@ -1,3 +1,36 @@
+/**
+ * OrderManager — the Orders tab. Largest file in the repo (~3700 lines).
+ *
+ * Full workflow, statuses and data shape: docs/orders.md
+ *
+ * ── The workflow in one line ────────────────────────────────────────────────────
+ *  Technical director ("do we need it?") → project director ("can we afford it?")
+ *  → purchase → delivery.  A SUCCESSFUL SPONSORSHIP SKIPS THE SECOND APPROVAL —
+ *  the part was donated, so there is nothing to buy.
+ *
+ * ── Where things are (approximate; search rather than scroll) ────────────────────
+ *   ~130-380   handleDownloadSubmit — ZIP export of order PDFs + receipts
+ *   ~408-560   generateOrderDetailsPDF (jsPDF) / mergeOrderWithReceipt (a STUB —
+ *              it returns both blobs separately; real merging needs pdf-lib)
+ *   ~560-600   semester date ranges. Fall = Aug 1–Dec 31, Spring = Jan 1–May 31.
+ *              June and July fall in NEITHER, so those orders vanish from the
+ *              default "current semester" filter.
+ *   ~640-735   migrateOrderStructure — remaps legacy statuses IN MEMORY ONLY.
+ *              Old rows keep their legacy status in Postgres forever.
+ *   ~758-940   updateOrderStatus — THE STATE MACHINE. Branches on
+ *              statusUpdate.type: technical_director_approval | purchase_approval |
+ *              sponsorship_status | purchase | delivery | sponsorship_response
+ *   ~990-1130  submitNewOrder / saveOrderEdits / deleteOrder
+ *   ~1339-1375 getStatusColor / getStatusText (incl. legacy status fallbacks)
+ *   ~1400+     JSX: list, filters, detail modal, purchase modal, approval modal
+ *
+ * ── Adding a field? FOUR places, and missing one fails silently ──────────────────
+ *   1. alter table orders ...        (and mirror it into schemas/)
+ *   2. transformOrderFromDB()        in src/utils/supabase.js   — DB → UI
+ *   3. transformOrderToDB()          in src/utils/supabase.js   — UI → DB
+ *   4. the form + detail JSX here
+ *  Miss #3 and the field never saves, with no error at all.
+ */
 import { useState, useEffect, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { authService } from '../../utils/auth';
 import { supabaseService } from '../../utils/supabase';

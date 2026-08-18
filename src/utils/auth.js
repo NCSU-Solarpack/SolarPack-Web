@@ -1,3 +1,33 @@
+/**
+ * authService — sign-in state, roles and permissions.
+ *
+ * Wraps the auth half of supabaseService and adds the role/approval layer on top.
+ * Full documentation: docs/authentication.md
+ *
+ * ── Two independent gates ───────────────────────────────────────────────────────
+ *  A user must be SIGNED IN (valid Supabase session) *and* APPROVED
+ *  (`user_roles.approval_status === 'approved'`). `isAuthenticated()` requires
+ *  both, so a signed-in but unapproved user is treated as having no access.
+ *
+ * ── Three levels, flat permission lists (no inheritance) ─────────────────────────
+ *  member   view-only
+ *  leader   + edit schedules/team/sponsors/alumni/blogs, submit orders, pit telemetry
+ *  director + approve orders, manage users, edit orders
+ *
+ * ⚠  hasPermission() runs IN THE BROWSER. It decides which buttons render — it is
+ *    NOT security. Real enforcement is Row Level Security in Postgres, and today
+ *    most tables only check "is authenticated", not the role. See
+ *    docs/security-and-handover.md before relying on it for anything.
+ *
+ * ── Gotchas ─────────────────────────────────────────────────────────────────────
+ *  • ALWAYS `await authService.waitForInit()` before reading auth state on mount.
+ *    Restoring the session from localStorage is async; checking too early returns
+ *    null and wrongly renders a login screen. This is the #1 auth bug here.
+ *  • `TOKEN_REFRESHED` is deliberately ignored when a user is already loaded — it
+ *    fires roughly hourly and re-notifying would blow away in-progress form edits.
+ *  • Email confirmation is disabled; the director approval step replaces it.
+ *    Turning "Confirm email" back on in Supabase breaks signup.
+ */
 // Supabase-based authentication system
 // Integrates with Supabase Auth and user_roles table
 // Maintains the same permission levels: member, leader, director

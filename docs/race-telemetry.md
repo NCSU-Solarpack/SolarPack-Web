@@ -82,3 +82,57 @@ and start a running session to see auto laps.
 ## Notes
 - The old standalone dashboard served at the relay root (`server/public/index.html`)
   is superseded by this section. It can be retired or left as a lightweight fallback.
+
+## Permissions
+
+| Who | Can |
+|---|---|
+| Anyone (no sign-in) | View `/telemetry` — live map, gauges, laps, history |
+| Leader / Director | All of the above, plus **Pit Controls**: create tracks, set the start/finish line, create and run sessions |
+
+Gated by the `control_telemetry` permission ([auth.js](../src/utils/auth.js#L14-L18)), checked in
+the UI by [usePitAuth.js](../src/components/telemetry/usePitAuth.js) and enforced in the database
+by the `is_pit_crew()` RLS policies on `race_tracks` and `race_sessions`. This is one of the few
+places where the UI check and the database rule genuinely agree.
+
+The telemetry data tables (`live_telemetry`, `race_telemetry`, `race_laps`) have **no client write
+policy at all** — only the relay's `service_role` key can write them, so nobody can forge lap times
+from a browser.
+
+## Code map
+
+| File | Role |
+|---|---|
+| [RacePitTelemetry.jsx](../src/pages/RacePitTelemetry.jsx) | Page shell, the four tabs, live/stale/fault banner |
+| [useTelemetry.js](../src/components/telemetry/useTelemetry.js) | `useLivePacket` (1 Hz relay poll + GPS trail), `useActiveSession`, `useSessionLaps`, `useLiveSeries`, `lapStats` |
+| [usePitAuth.js](../src/components/telemetry/usePitAuth.js) | Whether the current user may operate pit controls |
+| [LiveView.jsx](../src/components/telemetry/LiveView.jsx) | Live tab: map, gauges, lap board, pit controls |
+| [LiveMap.jsx](../src/components/telemetry/LiveMap.jsx) | Leaflet map, car marker, breadcrumb trail |
+| [PitControls.jsx](../src/components/telemetry/PitControls.jsx) | Track/session management (pit crew only) |
+| [LapBoard.jsx](../src/components/telemetry/LapBoard.jsx) | Live lap list and derived stats |
+| [PowerView.jsx](../src/components/telemetry/PowerView.jsx) / [BatteryView.jsx](../src/components/telemetry/BatteryView.jsx) | Recharts gauges and charts |
+| [HistoryView.jsx](../src/components/telemetry/HistoryView.jsx) | Past sessions, charts, route replay, CSV export |
+| [format.js](../src/components/telemetry/format.js) | `RELAY_URL`, `STALE_MS`, unit conversion, fault detection |
+| [widgets.jsx](../src/components/telemetry/widgets.jsx) | Shared gauge/stat components |
+
+Data-layer methods are in [supabase.js](../src/utils/supabase.js) lines 2498–2738.
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| "Waiting for car" forever | Relay unreachable, or nothing is publishing packets | Open `<RELAY_URL>/packet` directly in a browser. If that's empty, the app isn't connected or the relay is asleep — Render free tier cold-starts take ~30 s |
+| Live gauges work but no laps appear | No start/finish line set, or no **running** session | Pit Controls → set the line, create a session, press Start |
+| Pit Controls not visible | Needs `control_telemetry` (leader/director, approved) | Sign in with the right role |
+| Laps trigger in the wrong place, or double-count | Geofence tuning | Adjust **lap radius** (default 15 m) and **min lap time** (default 20 s) |
+| Laps never trigger | Radius too small for GPS accuracy | Increase the lap radius; phone GPS is typically ±5–10 m |
+| History empty for a finished session | The relay writes history — without `SUPABASE_SERVICE_ROLE_KEY` it runs relay-only | Set the env var on Render and restart |
+| "At most one active session" error | The partial unique index allows only one `is_active = true` row | Stop the existing session first |
+| Map tiles don't load | Leaflet tiles come from an external CDN | Check the network tab; a blocked CDN breaks the map but not the gauges |
+
+## Related docs
+
+- [Database Reference → Race telemetry tables](database-reference.md#race-telemetry-tables)
+- [Authentication](authentication.md) — the `control_telemetry` permission
+- [Supabase Setup](supabase.md) — the service role key and realtime publication
+- [Public Site](public-site.md) — the rest of the public routes

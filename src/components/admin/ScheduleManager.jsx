@@ -1,3 +1,26 @@
+/**
+ * ScheduleManager — the Schedules tab. Projects and tasks across the nine subteams.
+ *
+ * Documentation: docs/schedule.md
+ *
+ *  • Three views: overview (per-team summary), calendar (month/week), projects
+ *    (the working list with expandable tasks).
+ *  • THE ONLY MANAGER ON SUPABASE REALTIME — it subscribes to schedule_projects
+ *    and schedule_tasks so simultaneous editors see each other's changes. If
+ *    updates stop arriving, check the tables are in the `supabase_realtime`
+ *    publication; a subscription to an unpublished table fails SILENTLY.
+ *  • `normalizeTeamId` merges 'technical-director' and 'project-director' into a
+ *    single "Director" bucket for display. That's why a project filed under
+ *    Technical Director shows under Director.
+ *  • The default "Priority" sort is NOT a simple field sort — see sortProjects():
+ *    overdue first, then active before completed/cancelled, then soonest due,
+ *    then priority, then title. It looks arbitrary until you know the rules.
+ *  • Status changes write a single field via updateProjectFields/updateTaskFields;
+ *    weekly notes save on blur.
+ *
+ * Adding a column? Edit BOTH transformProjectFromDB/ToDB (or Task equivalents)
+ * in src/utils/supabase.js, or the field will silently never save.
+ */
 import { useState, useEffect, useMemo, forwardRef, useImperativeHandle, useRef } from 'react';
 import { authService, AUTH_LEVELS } from '../../utils/auth';
 import { supabaseService } from '../../utils/supabase';

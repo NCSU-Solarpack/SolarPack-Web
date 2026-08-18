@@ -1,3 +1,25 @@
+/**
+ * Clipboard — the code-gated shared scratchpad at /clipboard.
+ *
+ * Documentation: docs/clipboard.md
+ *
+ *  • NO SIGN-IN. This route sits outside <Layout> and outside the auth gate, and
+ *    it is deliberately absent from the site navigation (URL-only).
+ *  • The server NEVER sees the user's code. The browser sends only
+ *    SHA-256("solarpack-clipboard:" + NORMALIZED-CODE); that hash is the entire
+ *    access key. Requires a secure context (HTTPS or localhost) — crypto.subtle
+ *    is unavailable over plain HTTP on a LAN IP, which shows up as
+ *    "Invalid clipboard code".
+ *  • The tables have REVOKE ALL from anon/authenticated. The only way in is three
+ *    SECURITY DEFINER functions, each requiring a >=32-char hash. See
+ *    schemas/supabase-clipboard-schema.sql.
+ *  • TEXT ONLY. sanitizeHtml() strips IMG (and SCRIPT, IFRAME, SVG, VIDEO, ...),
+ *    removes every on* attribute, filters `style` to an allow-list, and checks
+ *    hrefs. Pasting a screenshot pastes nothing — that's by design.
+ *
+ * ⚠ A hand-typed code is the whole security boundary, and there is no expiry or
+ *   rate limiting. Convenient, not confidential.
+ */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlignCenter,
