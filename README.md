@@ -111,7 +111,7 @@ Step-by-step, including VS Code setup and getting an admin account:
 | `/telemetry` | **Live race dashboard** — map, gauges, lap timing, history | relay + telemetry tables |
 | `/donate` | PayPal donations | code |
 | `/contact`, `/privacy-policy` | Static | code |
-| `/clipboard` | Code-gated shared scratchpad (not in the nav) | `clipboard_items` |
+| `/clipboard` | Code-gated text and 24-hour file clipboard (not in the nav) | `clipboard_items` + Storage |
 
 ### Admin dashboard (`/admin`)
 

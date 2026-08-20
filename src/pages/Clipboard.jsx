@@ -13,12 +13,12 @@
  *  • The tables have REVOKE ALL from anon/authenticated. The only way in is three
  *    SECURITY DEFINER functions, each requiring a >=32-char hash. See
  *    schemas/supabase-clipboard-schema.sql.
- *  • TEXT ONLY. sanitizeHtml() strips IMG (and SCRIPT, IFRAME, SVG, VIDEO, ...),
- *    removes every on* attribute, filters `style` to an allow-list, and checks
- *    hrefs. Pasting a screenshot pastes nothing — that's by design.
+ *  • Clips are EITHER sanitized rich text OR one temporary file, never both.
+ *    Files are drag/drop only, live in the clipboard-files Storage bucket, and
+ *    expire after 24 hours. The scheduled cleanup Edge Function removes bytes.
  *
- * ⚠ A hand-typed code is the whole security boundary, and there is no expiry or
- *   rate limiting. Convenient, not confidential.
+ * ⚠ A hand-typed code is the whole security boundary, and there is no rate
+ *   limiting. Convenient, not confidential.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -29,9 +29,11 @@ import {
   Check,
   Clipboard as ClipboardIcon,
   Copy,
+  Download,
   Eraser,
   Eye,
   EyeOff,
+  File as FileIcon,
   Italic,
   Link as LinkIcon,
   List,
@@ -41,7 +43,8 @@ import {
   RefreshCcw,
   Save,
   Trash2,
-  Underline
+  Underline,
+  UploadCloud
 } from 'lucide-react'
 import { supabaseService } from '../utils/supabase'
 
@@ -50,8 +53,38 @@ const createEmptyDraft = () => ({
   id: null,
   title: '',
   content_html: '',
-  content_text: ''
+  content_text: '',
+  item_type: 'text',
+  file_name: null,
+  file_path: null,
+  file_size: null,
+  file_type: null,
+  expires_at: null
 })
+
+const formatBytes = (bytes = 0) => {
+  if (!Number.isFinite(Number(bytes)) || Number(bytes) <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  const unitIndex = Math.min(Math.floor(Math.log(Number(bytes)) / Math.log(1024)), units.length - 1)
+  const value = Number(bytes) / (1024 ** unitIndex)
+  return `${value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`
+}
+
+const formatDuration = (seconds = 0) => {
+  const rounded = Math.max(0, Math.round(seconds))
+  if (rounded < 60) return `${rounded}s`
+  return `${Math.floor(rounded / 60)}m ${rounded % 60}s`
+}
+
+const formatTimeRemaining = (expiresAt, now = Date.now()) => {
+  const remaining = new Date(expiresAt).getTime() - now
+  if (!Number.isFinite(remaining) || remaining <= 0) return 'expired'
+  const minutes = Math.max(1, Math.ceil(remaining / 60000))
+  if (minutes < 60) return `${minutes}m left`
+  const hours = Math.floor(minutes / 60)
+  const leftoverMinutes = minutes % 60
+  return leftoverMinutes ? `${hours}h ${leftoverMinutes}m left` : `${hours}h left`
+}
 
 const allowedTags = new Set([
   'A', 'B', 'BLOCKQUOTE', 'BR', 'CODE', 'DIV', 'EM', 'FONT', 'H1', 'H2', 'H3',
@@ -208,6 +241,7 @@ const generateCode = () => {
 
 const Clipboard = () => {
   const editorRef = useRef(null)
+  const dragDepthRef = useRef(0)
   const [codeInput, setCodeInput] = useState('')
   const [activeCode, setActiveCode] = useState('')
   const [accessHash, setAccessHash] = useState('')
@@ -219,13 +253,21 @@ const Clipboard = () => {
   const [message, setMessage] = useState('')
   const [copied, setCopied] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDraggingFile, setIsDraggingFile] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(null)
+  const [now, setNow] = useState(() => Date.now())
 
   const isOpen = Boolean(accessHash)
   const selectedId = draft.id || draft.local_key || 'new'
+  const isFileDraft = draft.item_type === 'file'
+  const isUploading = Boolean(uploadProgress)
+  const isFileExpired = isFileDraft && new Date(draft.expires_at).getTime() <= now
 
   const sortedItems = useMemo(() => {
-    return [...items].sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))
-  }, [items])
+    return items
+      .filter(item => item.item_type !== 'file' || new Date(item.expires_at).getTime() > now)
+      .sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))
+  }, [items, now])
 
   useEffect(() => {
     document.title = 'Clipboard'
@@ -237,10 +279,15 @@ const Clipboard = () => {
   }, [])
 
   useEffect(() => {
-    if (editorRef.current && document.activeElement !== editorRef.current) {
+    const timer = window.setInterval(() => setNow(Date.now()), 30000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    if (editorRef.current && draft.item_type !== 'file' && document.activeElement !== editorRef.current) {
       editorRef.current.innerHTML = draft.content_html || ''
     }
-  }, [draft.id])
+  }, [draft.id, draft.item_type])
 
   const loadItems = async (hash = accessHash) => {
     if (!hash) return
@@ -250,6 +297,7 @@ const Clipboard = () => {
     try {
       const nextItems = (await supabaseService.getClipboardItems(hash)).map(item => ({
         ...item,
+        item_type: item.item_type || 'text',
         content_html: sanitizeHtml(item.content_html || ''),
         content_text: item.content_text || getTextFromHtml(item.content_html || '')
       }))
@@ -290,15 +338,20 @@ const Clipboard = () => {
     setActiveCode('')
     setItems([])
     setDraft(createEmptyDraft())
+    setUploadProgress(null)
+    setIsDraggingFile(false)
+    dragDepthRef.current = 0
     setMessage('')
   }
 
   const selectItem = (item) => {
+    if (isUploading) return
     setDraft(item)
     setCopied(false)
   }
 
   const newItem = () => {
+    if (isUploading) return
     const nextDraft = createEmptyDraft()
     setDraft(nextDraft)
     if (editorRef.current) {
@@ -315,6 +368,7 @@ const Clipboard = () => {
   }
 
   const syncDraftFromEditor = () => {
+    if (draft.item_type === 'file') return draft
     const html = sanitizeHtml(editorRef.current?.innerHTML || '')
     const text = getTextFromHtml(html)
     const nextDraft = {
@@ -328,7 +382,7 @@ const Clipboard = () => {
   }
 
   const saveDraft = async () => {
-    if (!accessHash) return
+    if (!accessHash || draft.item_type === 'file' || isUploading) return
 
     const nextDraft = syncDraftFromEditor()
     const wasNewItem = !nextDraft.id
@@ -378,6 +432,9 @@ const Clipboard = () => {
     setIsSaving(true)
 
     try {
+      if (draft.item_type === 'file' && draft.file_path) {
+        await supabaseService.removeClipboardFile(draft.file_path)
+      }
       await supabaseService.deleteClipboardItem(accessHash, draft.id)
       const nextItems = items.filter(item => item.id !== draft.id)
       setItems(nextItems)
@@ -431,6 +488,116 @@ const Clipboard = () => {
     }
 
     syncDraftFromEditor()
+  }
+
+  const uploadDroppedFile = async (file) => {
+    if (!file || !accessHash || isUploading) return
+    if (draft.item_type === 'file') {
+      setMessage('Start a new clip before dropping another file')
+      return
+    }
+
+    const editorText = getTextFromHtml(editorRef.current?.innerHTML || '')
+    if (editorText) {
+      setMessage('Clear the text before dropping a file')
+      return
+    }
+
+    const startedAt = performance.now()
+    let uploadedPath = ''
+    const blankDraft = createEmptyDraft()
+    setDraft(blankDraft)
+    if (editorRef.current) editorRef.current.innerHTML = ''
+    setIsSaving(true)
+    setMessage('')
+    setUploadProgress({
+      name: file.name,
+      size: file.size,
+      loaded: 0,
+      percent: 0,
+      elapsed: 0,
+      eta: null,
+      phase: 'uploading'
+    })
+
+    try {
+      uploadedPath = await supabaseService.uploadClipboardFile(accessHash, file, (loaded, total) => {
+        const elapsed = Math.max((performance.now() - startedAt) / 1000, 0.01)
+        const speed = loaded / elapsed
+        setUploadProgress(prev => ({
+          ...prev,
+          loaded,
+          percent: total ? Math.min(100, Math.round((loaded / total) * 100)) : 0,
+          elapsed,
+          eta: speed > 0 && total > loaded ? (total - loaded) / speed : 0
+        }))
+      })
+
+      setUploadProgress(prev => ({ ...prev, percent: 100, phase: 'saving' }))
+      const saved = await supabaseService.saveClipboardFile(accessHash, file, uploadedPath)
+      setItems(prev => [saved, ...prev])
+      setDraft(saved)
+      setMessage('Uploaded. This file will be deleted 24 hours after upload.')
+    } catch (error) {
+      if (uploadedPath) {
+        try {
+          await supabaseService.removeClipboardFile(uploadedPath)
+        } catch (cleanupError) {
+          console.error('Clipboard upload cleanup failed:', cleanupError)
+        }
+      }
+      console.error('Clipboard file upload failed:', error)
+      setDraft(createEmptyDraft())
+      setMessage(error.message || 'Upload failed')
+    } finally {
+      setUploadProgress(null)
+      setIsSaving(false)
+    }
+  }
+
+  const hasDraggedFiles = (event) => Array.from(event.dataTransfer?.types || []).includes('Files')
+
+  const handleDragEnter = (event) => {
+    if (!hasDraggedFiles(event)) return
+    event.preventDefault()
+    dragDepthRef.current += 1
+    setIsDraggingFile(true)
+  }
+
+  const handleDragOver = (event) => {
+    if (!hasDraggedFiles(event)) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = draft.content_text || isFileDraft || isUploading ? 'none' : 'copy'
+  }
+
+  const handleDragLeave = (event) => {
+    event.preventDefault()
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1)
+    if (dragDepthRef.current === 0) setIsDraggingFile(false)
+  }
+
+  const handleDrop = (event) => {
+    if (!hasDraggedFiles(event)) return
+    event.preventDefault()
+    dragDepthRef.current = 0
+    setIsDraggingFile(false)
+    const files = Array.from(event.dataTransfer.files || [])
+    if (files.length !== 1) {
+      setMessage('Drop one file at a time')
+      return
+    }
+    uploadDroppedFile(files[0])
+  }
+
+  const downloadDraft = () => {
+    if (!draft.file_path) return
+    const link = document.createElement('a')
+    link.href = supabaseService.getClipboardFileDownloadUrl(draft.file_path, draft.file_name || true)
+    link.download = draft.file_name || 'download'
+    link.rel = 'noopener'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
   }
 
   const copyDraft = async () => {
@@ -666,6 +833,8 @@ const Clipboard = () => {
 
         .clipboard-list-title {
           display: block;
+          flex: 1;
+          min-width: 0;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -734,6 +903,11 @@ const Clipboard = () => {
           padding: 0 0.75rem;
         }
 
+        .clipboard-title-row .clipboard-input:read-only {
+          color: #ccc;
+          cursor: default;
+        }
+
         .clipboard-title-row .clipboard-actions {
           gap: 0.65rem;
           justify-content: flex-end;
@@ -770,8 +944,51 @@ const Clipboard = () => {
           white-space: pre-wrap;
         }
 
+        .clipboard-drop-surface {
+          position: relative;
+          display: flex;
+          flex: 1;
+          min-height: 420px;
+          min-width: 0;
+        }
+
+        .clipboard-drop-surface.blocked {
+          cursor: not-allowed;
+        }
+
+        .clipboard-drop-overlay {
+          position: absolute;
+          inset: 0;
+          z-index: 3;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.6rem;
+          border: 2px dashed #fff;
+          background: rgba(0, 0, 0, 0.94);
+          color: #fff;
+          text-align: center;
+          pointer-events: none;
+        }
+
+        .clipboard-drop-overlay.blocked {
+          border-color: #777;
+          color: #aaa;
+        }
+
+        .clipboard-drop-overlay strong {
+          font-size: 1rem;
+        }
+
+        .clipboard-drop-overlay span {
+          max-width: 30rem;
+          color: inherit;
+          font-size: 0.84rem;
+        }
+
         .clipboard-editor:empty::before {
-          content: 'Paste here';
+          content: 'Paste text here, or drop a file';
           color: #777;
         }
 
@@ -789,6 +1006,85 @@ const Clipboard = () => {
         .clipboard-editor th {
           border: 1px solid #777;
           padding: 0.35rem;
+        }
+
+        .clipboard-file-view,
+        .clipboard-upload-view {
+          width: 100%;
+          min-height: 420px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1.25rem;
+        }
+
+        .clipboard-file-card,
+        .clipboard-upload-card {
+          width: min(100%, 520px);
+          border: 1px solid #fff;
+          padding: 1rem;
+        }
+
+        .clipboard-file-card-head,
+        .clipboard-upload-card-head {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          min-width: 0;
+        }
+
+        .clipboard-file-card-head svg,
+        .clipboard-upload-card-head svg {
+          flex: 0 0 auto;
+        }
+
+        .clipboard-file-name {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-weight: 700;
+        }
+
+        .clipboard-file-detail,
+        .clipboard-upload-detail {
+          margin-top: 0.65rem;
+          color: #aaa;
+          font-size: 0.84rem;
+          line-height: 1.45;
+        }
+
+        .clipboard-progress-track {
+          height: 0.75rem;
+          margin-top: 1rem;
+          border: 1px solid #fff;
+          background: #000;
+          overflow: hidden;
+        }
+
+        .clipboard-progress-fill {
+          height: 100%;
+          background: #fff;
+          transition: width 160ms linear;
+        }
+
+        .clipboard-progress-row {
+          display: flex;
+          justify-content: space-between;
+          gap: 0.75rem;
+          margin-top: 0.55rem;
+          color: #ccc;
+          font-size: 0.8rem;
+        }
+
+        .clipboard-list-title-row {
+          display: flex;
+          align-items: center;
+          gap: 0.45rem;
+          min-width: 0;
+        }
+
+        .clipboard-list-title-row svg {
+          flex: 0 0 auto;
         }
 
         .clipboard-modal-backdrop {
@@ -923,13 +1219,13 @@ const Clipboard = () => {
               </button>
             </div>
             <div className="clipboard-actions">
-              <button className="clipboard-btn secondary icon" type="button" onClick={() => loadItems()} title="Refresh" disabled={isLoading}>
+              <button className="clipboard-btn secondary icon" type="button" onClick={() => loadItems()} title="Refresh" disabled={isLoading || isUploading}>
                 <RefreshCcw size={16} />
               </button>
-              <button className="clipboard-btn secondary" type="button" onClick={newItem}>
+              <button className="clipboard-btn secondary" type="button" onClick={newItem} disabled={isUploading}>
                 <Plus size={16} /> New
               </button>
-              <button className="clipboard-btn secondary icon" type="button" onClick={closeCode} title="Close">
+              <button className="clipboard-btn secondary icon" type="button" onClick={closeCode} title="Close" disabled={isUploading}>
                 <LogOut size={16} />
               </button>
             </div>
@@ -957,9 +1253,14 @@ const Clipboard = () => {
                   className={`clipboard-list-item ${selectedId === item.id ? 'active' : ''}`}
                   onClick={() => selectItem(item)}
                 >
-                  <span className="clipboard-list-title">{item.title || 'Untitled'}</span>
+                  <span className="clipboard-list-title-row">
+                    {item.item_type === 'file' && <FileIcon size={14} aria-hidden="true" />}
+                    <span className="clipboard-list-title">{item.title || 'Untitled'}</span>
+                  </span>
                   <span className="clipboard-list-meta">
-                    {item.updated_at ? new Date(item.updated_at).toLocaleString() : ''}
+                    {item.item_type === 'file'
+                      ? `${formatBytes(item.file_size)} · ${formatTimeRemaining(item.expires_at, now)}`
+                      : (item.updated_at ? new Date(item.updated_at).toLocaleString() : '')}
                   </span>
                 </button>
               ))}
@@ -971,43 +1272,115 @@ const Clipboard = () => {
                   className="clipboard-input"
                   value={draft.title}
                   onChange={event => setDraft(prev => ({ ...prev, title: event.target.value }))}
-                  placeholder="Title"
+                  placeholder={isUploading ? 'Uploading file' : 'Title'}
+                  readOnly={isFileDraft || isUploading}
                 />
                 <div className="clipboard-actions">
-                  <button className="clipboard-btn secondary icon" type="button" onClick={copyDraft} title="Copy">
-                    {copied ? <Check size={16} /> : <Copy size={16} />}
-                  </button>
-                  <button className="clipboard-btn secondary icon" type="button" onClick={requestDeleteDraft} title="Delete" disabled={isSaving}>
-                    <Trash2 size={16} />
-                  </button>
-                  <button className="clipboard-btn" type="button" onClick={saveDraft} disabled={isSaving}>
-                    <Save size={16} /> {isSaving ? 'Saving' : 'Save'}
-                  </button>
+                  {isFileDraft ? (
+                    <button className="clipboard-btn" type="button" onClick={downloadDraft} disabled={isSaving || isFileExpired}>
+                      <Download size={16} /> {isFileExpired ? 'Expired' : 'Download'}
+                    </button>
+                  ) : !isUploading && (
+                    <button className="clipboard-btn secondary icon" type="button" onClick={copyDraft} title="Copy">
+                      {copied ? <Check size={16} /> : <Copy size={16} />}
+                    </button>
+                  )}
+                  {!isUploading && (
+                    <button className="clipboard-btn secondary icon" type="button" onClick={requestDeleteDraft} title="Delete" disabled={isSaving}>
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                  {!isFileDraft && !isUploading && (
+                    <button className="clipboard-btn" type="button" onClick={saveDraft} disabled={isSaving}>
+                      <Save size={16} /> {isSaving ? 'Saving' : 'Save'}
+                    </button>
+                  )}
                 </div>
               </div>
 
-              <div className="clipboard-toolbar" aria-label="Formatting">
-                <button className="clipboard-tool" type="button" onClick={() => runCommand('bold')} title="Bold"><Bold size={15} /></button>
-                <button className="clipboard-tool" type="button" onClick={() => runCommand('italic')} title="Italic"><Italic size={15} /></button>
-                <button className="clipboard-tool" type="button" onClick={() => runCommand('underline')} title="Underline"><Underline size={15} /></button>
-                <button className="clipboard-tool" type="button" onClick={() => runCommand('justifyLeft')} title="Left"><AlignLeft size={15} /></button>
-                <button className="clipboard-tool" type="button" onClick={() => runCommand('justifyCenter')} title="Center"><AlignCenter size={15} /></button>
-                <button className="clipboard-tool" type="button" onClick={() => runCommand('justifyRight')} title="Right"><AlignRight size={15} /></button>
-                <button className="clipboard-tool" type="button" onClick={() => runCommand('insertUnorderedList')} title="Bullets"><List size={15} /></button>
-                <button className="clipboard-tool" type="button" onClick={() => runCommand('insertOrderedList')} title="Numbers"><ListOrdered size={15} /></button>
-                <button className="clipboard-tool" type="button" onClick={addLink} title="Link"><LinkIcon size={15} /></button>
-                <button className="clipboard-tool" type="button" onClick={clearFormatting} title="Clear formatting"><Eraser size={15} /></button>
-              </div>
+              {!isFileDraft && !isUploading && (
+                <div className="clipboard-toolbar" aria-label="Formatting">
+                  <button className="clipboard-tool" type="button" onClick={() => runCommand('bold')} title="Bold"><Bold size={15} /></button>
+                  <button className="clipboard-tool" type="button" onClick={() => runCommand('italic')} title="Italic"><Italic size={15} /></button>
+                  <button className="clipboard-tool" type="button" onClick={() => runCommand('underline')} title="Underline"><Underline size={15} /></button>
+                  <button className="clipboard-tool" type="button" onClick={() => runCommand('justifyLeft')} title="Left"><AlignLeft size={15} /></button>
+                  <button className="clipboard-tool" type="button" onClick={() => runCommand('justifyCenter')} title="Center"><AlignCenter size={15} /></button>
+                  <button className="clipboard-tool" type="button" onClick={() => runCommand('justifyRight')} title="Right"><AlignRight size={15} /></button>
+                  <button className="clipboard-tool" type="button" onClick={() => runCommand('insertUnorderedList')} title="Bullets"><List size={15} /></button>
+                  <button className="clipboard-tool" type="button" onClick={() => runCommand('insertOrderedList')} title="Numbers"><ListOrdered size={15} /></button>
+                  <button className="clipboard-tool" type="button" onClick={addLink} title="Link"><LinkIcon size={15} /></button>
+                  <button className="clipboard-tool" type="button" onClick={clearFormatting} title="Clear formatting"><Eraser size={15} /></button>
+                </div>
+              )}
 
               <div
-                ref={editorRef}
-                className="clipboard-editor"
-                contentEditable
-                suppressContentEditableWarning
-                onInput={syncDraftFromEditor}
-                onBlur={syncDraftFromEditor}
-                onPaste={handlePaste}
-              />
+                className={`clipboard-drop-surface ${draft.content_text || isFileDraft || isUploading ? 'blocked' : ''}`}
+                onDragEnter={handleDragEnter}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                {uploadProgress ? (
+                  <div className="clipboard-upload-view" role="status" aria-live="polite">
+                    <div className="clipboard-upload-card">
+                      <div className="clipboard-upload-card-head">
+                        <UploadCloud size={22} aria-hidden="true" />
+                        <span className="clipboard-file-name">{uploadProgress.name}</span>
+                      </div>
+                      <div className="clipboard-upload-detail">
+                        {formatBytes(uploadProgress.size)} · {uploadProgress.phase === 'saving' ? 'Finishing upload' : 'Uploading'}
+                      </div>
+                      <div className="clipboard-progress-track" aria-hidden="true">
+                        <div className="clipboard-progress-fill" style={{ width: `${uploadProgress.percent}%` }} />
+                      </div>
+                      <div className="clipboard-progress-row">
+                        <span>{uploadProgress.percent}% · {formatBytes(uploadProgress.loaded)}</span>
+                        <span>
+                          {formatDuration(uploadProgress.elapsed)} elapsed
+                          {uploadProgress.eta > 0 ? ` · ${formatDuration(uploadProgress.eta)} left` : ''}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : isFileDraft ? (
+                  <div className="clipboard-file-view">
+                    <div className="clipboard-file-card">
+                      <div className="clipboard-file-card-head">
+                        <FileIcon size={24} aria-hidden="true" />
+                        <span className="clipboard-file-name">{draft.file_name}</span>
+                      </div>
+                      <div className="clipboard-file-detail">
+                        {formatBytes(draft.file_size)} · {draft.file_type || 'Unknown type'}<br />
+                        Automatically deletes in {formatTimeRemaining(draft.expires_at, now).replace(' left', '')}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    ref={editorRef}
+                    className="clipboard-editor"
+                    contentEditable={!isSaving}
+                    suppressContentEditableWarning
+                    onInput={syncDraftFromEditor}
+                    onBlur={syncDraftFromEditor}
+                    onPaste={handlePaste}
+                  />
+                )}
+
+                {isDraggingFile && !uploadProgress && (
+                  <div className={`clipboard-drop-overlay ${draft.content_text || isFileDraft ? 'blocked' : ''}`}>
+                    <UploadCloud size={30} aria-hidden="true" />
+                    <strong>{draft.content_text || isFileDraft ? 'File drop unavailable' : 'Drop to upload'}</strong>
+                    <span>
+                      {draft.content_text
+                        ? 'Clear the text first. A clip can contain text or one file, never both.'
+                        : isFileDraft
+                          ? 'Start a new clip before dropping another file.'
+                          : 'Any file type, up to 100 MB. It will be deleted after 24 hours.'}
+                    </span>
+                  </div>
+                )}
+              </div>
               </div>
             </div>
           )}
@@ -1025,10 +1398,10 @@ const Clipboard = () => {
             aria-labelledby="clipboard-delete-title"
             onMouseDown={event => event.stopPropagation()}
           >
-            <h2 id="clipboard-delete-title">{draft.id ? 'Delete clip' : 'Clear draft'}</h2>
+            <h2 id="clipboard-delete-title">{draft.id ? `Delete ${isFileDraft ? 'file' : 'clip'}` : 'Clear draft'}</h2>
             <p>
               {draft.id
-                ? `Remove "${draft.title || 'Untitled'}" from this clipboard?`
+                ? `Remove "${draft.title || 'Untitled'}" from this clipboard${isFileDraft ? ' and delete the uploaded file' : ''}?`
                 : 'Clear the current unsaved text?'}
             </p>
             <div className="clipboard-modal-actions">

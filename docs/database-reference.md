@@ -285,13 +285,20 @@ Details in [Clipboard](clipboard.md).
 | `title` | text | default `''`, coalesced to `"Untitled"` on save |
 | `content_html` | text | sanitised HTML — images stripped |
 | `content_text` | text | plain-text copy |
+| `item_type` | text | `text` or `file`; an item cannot contain both |
+| `file_name`, `file_path` | text | original display name and random Storage path; null for text |
+| `file_size` | bigint | bytes; null for text |
+| `file_type` | text | browser-reported MIME type, with octet-stream fallback |
+| `expires_at` | timestamptz | file deletion deadline; null for text |
 | `created_at`, `updated_at` | timestamptz | |
 
 Index on `(access_hash, updated_at desc)`.
 
 **Access model**: `REVOKE ALL` from `anon` and `authenticated` — the tables are unreachable
-directly. The only way in is three `SECURITY DEFINER` functions, each requiring a ≥32-char hash:
-`get_clipboard_items`, `save_clipboard_item`, `delete_clipboard_item`.
+directly. The only way in is four `SECURITY DEFINER` functions, each requiring a hash:
+`get_clipboard_items`, `save_clipboard_item`, `save_clipboard_file`, `delete_clipboard_item`.
+Temporary file bytes live in the public `clipboard-files` bucket at random paths and are removed
+by the scheduled `cleanup-clipboard-files` Edge Function.
 
 ---
 
@@ -364,6 +371,7 @@ only the relay's `service_role` key can write them, so clients can't forge telem
 | `is_pit_crew()` | approved leader or director — telemetry RLS |
 | `get_clipboard_items(hash)` | clipboard read |
 | `save_clipboard_item(hash, id, title, html, text)` | clipboard upsert |
+| `save_clipboard_file(hash, name, path, size, type)` | temporary clipboard file metadata |
 | `delete_clipboard_item(hash, id)` | clipboard delete |
 | `update_updated_at_column()` | generic `updated_at` trigger |
 | `update_blogs_updated_at()` | blogs trigger |

@@ -87,13 +87,14 @@ variable, in `src/`, or in a commit, it is compromised — rotate it immediately
 `auth.users` also exists but is managed by Supabase — you never write to it directly.
 `user_roles.user_id` is a foreign key onto it with `on delete cascade`.
 
-### 5 storage buckets
+### 6 storage buckets
 
 | Bucket | Public? | Contents | Created by |
 |---|---|---|---|
 | `team-images` | public | Member headshots | manually |
 | `sponsor-logos` | public | Sponsor logos | manually |
 | `blog-images` | public | Blog hero + inline images | [supabase-blogs-schema.sql](../schemas/supabase-blogs-schema.sql) |
+| `clipboard-files` | public | Code-gated temporary files (100 MB max, 24-hour expiry) | [supabase-clipboard-schema.sql](../schemas/supabase-clipboard-schema.sql) |
 | `order-receipts` | public *(should be private — see below)* | Receipt PDFs | manually |
 | `file-storage` | public, 50 MB cap, MIME allow-list | General team file share | [supabase-file-storage-schema.sql](../schemas/supabase-file-storage-schema.sql) |
 
@@ -116,6 +117,7 @@ variable, in `src/`, or in a commit, it is compromised — rotate it immediately
 | `is_pit_crew()` | true for approved leader/director | `race_tracks` / `race_sessions` RLS |
 | `get_clipboard_items(hash)` | Clipboard rows for a hash | `/clipboard` page |
 | `save_clipboard_item(...)` | Upserted clipboard row | `/clipboard` page |
+| `save_clipboard_file(...)` | New file row with a 24-hour expiry | `/clipboard` page |
 | `delete_clipboard_item(hash, id)` | boolean | `/clipboard` page |
 | `update_updated_at_column()` / `update_blogs_updated_at()` / `update_clipboard_updated_at()` / `update_user_role_timestamp()` | trigger | Auto-bump `updated_at` |
 
@@ -124,7 +126,7 @@ queries `user_roles` would recurse infinitely. `SECURITY DEFINER` runs the looku
 owner, bypassing RLS inside the function body only. Don't "fix" that.
 
 The clipboard functions are also `SECURITY DEFINER`, because `anon` and `authenticated` have
-`REVOKE ALL` on the clipboard tables — the *only* way in is through these three functions, each
+`REVOKE ALL` on the clipboard tables — the *only* way in is through these four functions, each
 of which requires a ≥32-character access hash. That's the whole security model for `/clipboard`.
 
 ---

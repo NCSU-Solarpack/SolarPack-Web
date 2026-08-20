@@ -1,129 +1,163 @@
 # Clipboard
 
-A code-gated shared scratchpad at **`/clipboard`** — paste formatted text on one device, open the
-same code on another, and it's there. Built for moving notes and snippets between a shop
-computer, a phone, and a laptop without email or a login.
+A code-gated shared scratchpad at **`/clipboard`** for moving formatted text or a temporary file
+between devices without an account.
 
-- Page: [src/pages/Clipboard.jsx](../src/pages/Clipboard.jsx) (1027 lines)
-- Schema: [supabase-clipboard-schema.sql](../schemas/supabase-clipboard-schema.sql)
+- Page: [src/pages/Clipboard.jsx](../src/pages/Clipboard.jsx)
+- Client service: [src/utils/supabase.js](../src/utils/supabase.js)
+- Schema and Storage bucket: [supabase-clipboard-schema.sql](../schemas/supabase-clipboard-schema.sql)
+- Expiry worker: [cleanup-clipboard-files](../supabase/functions/cleanup-clipboard-files/index.ts)
 - Tables: `clipboard_spaces`, `clipboard_items`
+- Storage bucket: `clipboard-files` (public, random non-enumerable object paths, 100 MB per file)
 
-**No sign-in required.** The route sits outside `<Layout>` and outside the auth gate — it's a
-standalone full-page tool with its own styling and its own `document.title`.
+**No sign-in required.** The route sits outside `<Layout>` and the auth gate. It is a standalone,
+URL-only utility and does not appear in site navigation.
 
 ---
 
 ## Using it
 
 1. Go to `/clipboard`.
-2. Either **enter a code** you already share with someone, or click **Generate** for a random one
-   in the form `SP-A1B2-C3D4-E5F6`.
-3. **Open** it. Everything saved under that code appears, newest first.
-4. Type or paste into the editor and **Save**.
-5. On the other device, open the same code.
+2. Enter a shared code, or click **Generate random code**.
+3. Open it. Saved items appear newest first.
+4. For text, type or paste into the editor and click **Save**.
+5. For a file, start with an empty editor and drag exactly one file onto it. Upload begins
+   immediately; there is intentionally no upload button.
+6. Select a saved file and click **Download**.
 
-Codes are normalised before use: trimmed, whitespace collapsed to `-`, and upper-cased. So
-`sp a1b2 c3d4` and `SP-A1B2-C3D4` are the same space. Minimum 6 characters.
+A clipboard item is always one of these:
 
-**Closing** clears the code from the page. There's no session — reopening means typing the code
-again.
+- A rich-text clip with no file.
+- One file with no text. Its name, size, type, and expiry are shown in the UI.
+
+Dropping a file is blocked while the editor contains text. A successful file drop clears the
+text draft and title, uploads the object, and saves a file-only item. Files of any MIME type are
+accepted up to 100 MB. The progress view shows uploaded bytes, percentage, elapsed time, and an
+estimated time remaining.
+
+Files stop appearing and downloading from the clipboard at `expires_at`, exactly 24 hours after
+their metadata is saved. The scheduled cleanup worker permanently removes the Storage object and
+database row on its next run.
+
+Codes are normalized before use: trimmed, whitespace collapsed to `-`, and upper-cased. The
+minimum length is six characters. Closing clears the code from the page.
 
 ---
 
-## How the access model works
+## Access model
 
-This is the unusual part, and worth understanding before you rely on it.
+The browser computes:
 
-**The server never sees your code.** The browser computes
-
-```
+```text
 SHA-256("solarpack-clipboard:" + NORMALIZED-CODE)
 ```
 
-with the Web Crypto API and sends only that 64-character hex hash. `clipboard_items.access_hash`
-stores the hash; the plaintext code exists only in the heads of the people using it.
+The server never receives the plaintext code. `clipboard_items.access_hash` stores only the
+64-character hash.
 
-**The tables are unreachable directly.** The schema does:
-
-```sql
-REVOKE ALL ON clipboard_spaces  FROM anon, authenticated;
-REVOKE ALL ON clipboard_items   FROM anon, authenticated;
-```
-
-so neither anonymous nor signed-in clients can `select` from them at all. The only way in is three
-`SECURITY DEFINER` functions, each of which requires an access hash of at least 32 characters and
-scopes every operation to it:
+The clipboard tables revoke direct access from `anon` and `authenticated`. Reads and writes go
+through hash-scoped `SECURITY DEFINER` functions:
 
 | Function | Does |
 |---|---|
-| `get_clipboard_items(hash)` | returns that space's items, newest first |
-| `save_clipboard_item(hash, id, title, html, text)` | insert if `id` is null, else update — and only if the row's hash matches |
-| `delete_clipboard_item(hash, id)` | delete, hash-scoped |
+| `get_clipboard_items(hash)` | Returns text items and unexpired files for one hash |
+| `save_clipboard_item(hash, id, title, html, text)` | Inserts or updates a text-only item |
+| `save_clipboard_file(hash, name, path, size, type)` | Inserts one file-only item with a server-generated 24-hour expiry |
+| `delete_clipboard_item(hash, id)` | Deletes hash-scoped metadata |
 
-The `id`-plus-`hash` matching means knowing an item's UUID gets you nothing without the code.
+The file object path is `clipboard/<64-char hash>/<random UUID>/<safe filename>`. The public bucket
+does not need a broad `SELECT` policy, so users cannot list it through the Storage API. A file URL
+is public if it leaks; the hash and random UUID make URLs impractical to guess.
 
-### What this does and doesn't protect
+This is convenient, not confidential:
 
-**It does**: keep codes off the server, prevent enumeration of other people's spaces, and require
-no accounts.
+- A hand-typed code is guessable. Generated codes have 48 bits of randomness.
+- Files are public to anyone who has their full download URL until cleanup runs.
+- There is no rate limiting or upload quota per code.
+- Clipboard text is not encrypted at rest.
 
-**It doesn't**:
+Do not use it for passwords, keys, or sensitive data.
 
-- **Guessable codes are the whole security boundary.** A generated code is 48 bits of randomness —
-  fine. A code someone types by hand, like `SOLARPACK`, is trivially guessable, and anyone who
-  guesses it reads everything in that space. The 6-character minimum is not meaningful protection.
-- **No expiry.** Content stays until someone deletes it. There's no TTL and no cleanup job.
-- **No rate limiting.** Nothing stops a script from trying codes.
-- **Not encrypted at rest.** Anyone with Supabase dashboard access reads every clipboard in
-  plaintext, hash or no hash.
+---
 
-**Treat it as convenient, not confidential.** Don't paste passwords, keys, or anything you'd mind a
-stranger reading. For a periodic cleanup:
+## Supabase setup
+
+### 1. Apply the schema
+
+Run [supabase-clipboard-schema.sql](../schemas/supabase-clipboard-schema.sql) in the Supabase SQL
+Editor. It upgrades an existing text-only installation in place, creates the `clipboard-files`
+bucket, installs its policies, and replaces the clipboard RPC return shapes.
+
+The site and schema must be released together. A new frontend against the old functions will fail
+to save file metadata.
+
+### 2. Deploy the cleanup worker
+
+Create a long random secret, then deploy the included Edge Function:
+
+```sh
+npx supabase secrets set CLIPBOARD_CLEANUP_SECRET=<long-random-secret>
+npx supabase functions deploy cleanup-clipboard-files --no-verify-jwt
+```
+
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided automatically inside hosted Supabase
+Edge Functions. Never put the service-role key in the browser or Vite environment.
+
+### 3. Schedule it every minute
+
+Enable **Cron** and **pg_net** in the Supabase Dashboard. Store the function URL and the same
+cleanup secret in Vault, then schedule the call:
 
 ```sql
-delete from clipboard_items where updated_at < now() - interval '90 days';
-delete from clipboard_spaces
-where access_hash not in (select access_hash from clipboard_items);
+select vault.create_secret(
+  'https://YOUR_PROJECT_REF.supabase.co/functions/v1/cleanup-clipboard-files',
+  'clipboard_cleanup_url'
+);
+
+select vault.create_secret(
+  'THE_SAME_LONG_RANDOM_SECRET',
+  'clipboard_cleanup_secret'
+);
+
+select cron.schedule(
+  'cleanup-clipboard-files',
+  '* * * * *',
+  $$
+  select net.http_post(
+    url := (
+      select decrypted_secret
+      from vault.decrypted_secrets
+      where name = 'clipboard_cleanup_url'
+    ),
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (
+        select decrypted_secret
+        from vault.decrypted_secrets
+        where name = 'clipboard_cleanup_secret'
+      )
+    ),
+    body := '{}'::jsonb,
+    timeout_milliseconds := 10000
+  );
+  $$
+);
 ```
+
+The worker deletes at most 1,000 expired objects per invocation. It calls the Storage API before
+deleting rows; do not delete from `storage.objects` with SQL because that would orphan the bytes.
+Check **Integrations → Cron → History** and Edge Function logs after setup.
 
 ---
 
-## The editor
+## Text editor and sanitization
 
-A `contentEditable` rich-text area with a formatting toolbar — bold, italic, underline,
-strikethrough, headings, ordered and unordered lists, alignment, links, and clear-formatting.
+The rich-text editor supports bold, italic, underline, lists, alignment, links, tables, headings,
+and clear-formatting. `sanitizeHtml()` runs on paste, save, and load.
 
-**It is text only. Images are stripped.** `sanitizeHtml()` runs over everything on paste, on save,
-and on load, and it removes these tags outright:
-
-```
-AUDIO CANVAS EMBED FORM IFRAME IMG INPUT OBJECT PICTURE SCRIPT SOURCE STYLE SVG TEXTAREA VIDEO
-```
-
-So pasting a screenshot pastes nothing. Use the [Files](files.md) tab for images.
-
-The sanitizer is genuinely thorough, which is what makes a no-login shared space safe to open:
-
-- Only an allow-list of formatting tags survives (`P`, `SPAN`, `H1`–`H6`, `UL`/`OL`/`LI`, `TABLE`
-  and friends, `STRONG`, `EM`, `CODE`, `PRE`, …). Unknown tags are **unwrapped** — their children
-  are kept, the tag itself is dropped — so content isn't lost to an unrecognised wrapper.
-- Every `on*` attribute is removed, so no inline event handlers.
-- `style` is filtered to an allow-list of ~15 harmless properties (colour, font, alignment,
-  spacing). Everything else goes.
-- `href` on links is checked by `isSafeHref()`, and safe links get `target="_blank"`.
-
-Each item stores both `content_html` (rendered) and `content_text` (plain text via
-`getTextFromHtml`). Untitled items save as `"Untitled"` — the SQL coalesces a blank title. Items
-sort by `updated_at`, newest first.
-
----
-
-## Discoverability
-
-`/clipboard` is **not in the site navigation** — check the nav list in
-[Header.jsx](../src/components/Header.jsx#L126-L134) and you won't find it. It's known by URL
-only. That's not a security measure (the route is public and the JS bundle contains it), just a
-sign that it's an internal utility rather than a public feature.
+It removes active/embedded elements (`SCRIPT`, `IFRAME`, `IMG`, `SVG`, `VIDEO`, and others), all
+`on*` attributes, unsafe link protocols, and CSS outside a small allow-list. Pasted screenshots do
+not become inline images; drag the image file into an empty editor instead.
 
 ---
 
@@ -131,19 +165,20 @@ sign that it's an internal utility rather than a public feature.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| "Use a longer code" | Under 6 characters after normalisation | Use a longer one, or Generate |
-| Opened a code, it's empty | Nothing has ever been saved under it — a typo silently creates a new empty space | Re-check the code character by character |
-| Content differs between devices | Different codes (normalisation makes case/spacing irrelevant, but not typos) | Compare the codes exactly |
-| `Invalid clipboard code` error | The hash reaching the function was under 32 chars — usually Web Crypto unavailable | `crypto.subtle` requires a **secure context**: HTTPS or `localhost`. It fails over plain HTTP on a LAN IP |
-| Save fails | Functions missing or `GRANT EXECUTE` not applied | Re-run [supabase-clipboard-schema.sql](../schemas/supabase-clipboard-schema.sql) |
-| Pasted a screenshot, nothing appeared | `IMG` is stripped by the sanitizer — text only by design | Share images through the [Files](files.md) tab |
-| Pasted content lost its styling | Only an allow-list of tags and CSS properties survives | Expected; re-apply formatting with the toolbar |
-| Lost a code | Unrecoverable by design — the server only has the hash | The content is effectively gone |
+| “Use a longer code” | Code is under six normalized characters | Use a longer code or Generate |
+| `Invalid clipboard code` | Web Crypto is unavailable | Use HTTPS or `localhost`, not plain HTTP on a LAN IP |
+| Text save fails | RPC schema is missing or stale | Re-run the schema and confirm PostgREST reloaded |
+| File upload returns `Bucket not found` | New schema has not created `clipboard-files` | Run the schema |
+| File upload gets an RLS error | Storage policies are missing, or the deployed path format differs | Re-run the schema and use the current frontend |
+| Drop says to clear text | File and text cannot share an item | Start a new blank clip or clear the editor |
+| File remains in Storage after 24 hours | Cleanup function or Cron job is not running | Check Cron history, function logs, and both Vault secrets |
+| File is hidden but its URL briefly works | Cleanup has not reached its next one-minute run | Expected; verify the next Cron run deletes it |
+| Lost code | The server stores only its hash | The content is unrecoverable by design |
 
 ---
 
 ## Related docs
 
-- [Supabase Setup](supabase.md#database-functions) — the `SECURITY DEFINER` functions
-- [Database Reference](database-reference.md#clipboard-tables) — columns
-- [Public Site](public-site.md) — the other unauthenticated routes
+- [Supabase Setup](supabase.md)
+- [Database Reference](database-reference.md#clipboard-tables)
+- [Public Site](public-site.md)

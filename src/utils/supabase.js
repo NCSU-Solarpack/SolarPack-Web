@@ -2500,6 +2500,105 @@ class SupabaseService {
     return data;
   }
 
+  async uploadClipboardFile(accessHash, file, onProgress = () => {}) {
+    if (!this.client) throw new Error('Supabase not configured');
+    if (!/^[0-9a-f]{64}$/i.test(accessHash || '')) throw new Error('Invalid clipboard code');
+    if (!(file instanceof File)) throw new Error('Choose a file to upload');
+
+    const maxFileSize = 100 * 1024 * 1024;
+    if (file.size > maxFileSize) throw new Error('Files must be 100 MB or smaller');
+
+    const safeName = (file.name || 'download')
+      .replace(/[\\/\u0000-\u001f\u007f]/g, '_')
+      .replace(/[^a-zA-Z0-9._-]+/g, '_')
+      .replace(/^\.+/, '')
+      .slice(-180) || 'download';
+    const filePath = `clipboard/${accessHash}/${window.crypto.randomUUID()}/${safeName}`;
+    const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
+    const { data: { session } } = await this.client.auth.getSession();
+    const bearerToken = session?.access_token || SUPABASE_ANON_KEY;
+
+    await new Promise((resolve, reject) => {
+      const request = new XMLHttpRequest();
+      request.open('POST', `${SUPABASE_URL}/storage/v1/object/clipboard-files/${encodedPath}`);
+      request.setRequestHeader('apikey', SUPABASE_ANON_KEY);
+      request.setRequestHeader('Authorization', `Bearer ${bearerToken}`);
+      request.setRequestHeader('x-upsert', 'false');
+
+      request.upload.addEventListener('progress', event => {
+        if (event.lengthComputable) onProgress(event.loaded, event.total);
+      });
+      request.addEventListener('load', () => {
+        if (request.status >= 200 && request.status < 300) {
+          onProgress(file.size, file.size);
+          resolve();
+          return;
+        }
+
+        let detail = '';
+        try {
+          const response = JSON.parse(request.responseText || '{}');
+          detail = response.message || response.error || '';
+        } catch {
+          detail = request.responseText || '';
+        }
+        reject(new Error(detail || `Upload failed (${request.status})`));
+      });
+      request.addEventListener('error', () => reject(new Error('Upload connection failed')));
+      request.addEventListener('abort', () => reject(new Error('Upload cancelled')));
+
+      const body = new FormData();
+      body.append('cacheControl', '3600');
+      body.append('', file);
+      request.send(body);
+    });
+
+    return filePath;
+  }
+
+  async saveClipboardFile(accessHash, file, filePath) {
+    if (!this.client) throw new Error('Supabase not configured');
+    if (!accessHash || !filePath) throw new Error('Clipboard file is required');
+
+    const { data, error } = await withTimeout(
+      this.client
+        .rpc('save_clipboard_file', {
+          p_access_hash: accessHash,
+          p_file_name: file.name || 'download',
+          p_file_path: filePath,
+          p_file_size: file.size,
+          p_file_type: file.type || 'application/octet-stream'
+        })
+        .single(),
+      REQUEST_TIMEOUT_MS,
+      'saveClipboardFile'
+    );
+
+    if (error) throw error;
+    return data;
+  }
+
+  getClipboardFileDownloadUrl(filePath, fileName = true) {
+    if (!this.client || !filePath) return '';
+    return this.client.storage
+      .from('clipboard-files')
+      .getPublicUrl(filePath, { download: fileName }).data.publicUrl;
+  }
+
+  async removeClipboardFile(filePath) {
+    if (!this.client) throw new Error('Supabase not configured');
+    if (!filePath) return true;
+
+    const { error } = await withTimeout(
+      this.client.storage.from('clipboard-files').remove([filePath]),
+      REQUEST_TIMEOUT_MS,
+      'removeClipboardFile'
+    );
+
+    if (error) throw error;
+    return true;
+  }
+
   async deleteClipboardItem(accessHash, itemId) {
     if (!this.client) throw new Error('Supabase not configured');
     if (!accessHash || !itemId) throw new Error('Clipboard item is required');
