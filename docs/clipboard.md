@@ -25,6 +25,10 @@ URL-only utility and does not appear in site navigation.
    immediately; there is intentionally no upload button.
 6. Select a saved file and click **Download**.
 
+The locked screen shows the three most recently opened codes for that browser, newest first.
+Selecting one opens it immediately. Hover a row (or focus it with the keyboard) to reveal the
+**×** control that forgets it. Recent codes are never opened automatically.
+
 A clipboard item is always one of these:
 
 - A rich-text clip with no file.
@@ -41,6 +45,13 @@ database row on its next run.
 
 Codes are normalized before use: trimmed, whitespace collapsed to `-`, and upper-cased. The
 minimum length is six characters. Closing clears the code from the page.
+
+### Recent-code privacy
+
+Recent codes are stored as plaintext in that browser's `localStorage` under
+`solarpack-clipboard-recent-codes`. They never sync to Supabase or another device, and removing a
+recent entry only forgets the local shortcut—it does not delete that clipboard's contents. Use the
+**×** control on shared devices.
 
 ---
 

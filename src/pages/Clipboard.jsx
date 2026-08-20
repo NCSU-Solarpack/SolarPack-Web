@@ -44,9 +44,32 @@ import {
   Save,
   Trash2,
   Underline,
-  UploadCloud
+  UploadCloud,
+  X
 } from 'lucide-react'
 import { supabaseService } from '../utils/supabase'
+
+const RECENT_CODES_STORAGE_KEY = 'solarpack-clipboard-recent-codes'
+
+const readRecentCodes = () => {
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(RECENT_CODES_STORAGE_KEY) || '[]')
+    if (!Array.isArray(stored)) return []
+    return [...new Set(stored.filter(code => typeof code === 'string').map(normalizeCode))]
+      .filter(code => code.length >= 6)
+      .slice(0, 3)
+  } catch {
+    return []
+  }
+}
+
+const writeRecentCodes = (codes) => {
+  try {
+    window.localStorage.setItem(RECENT_CODES_STORAGE_KEY, JSON.stringify(codes))
+  } catch {
+    // Recent codes are optional when local storage is unavailable.
+  }
+}
 
 const createEmptyDraft = () => ({
   local_key: `draft-${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -256,6 +279,7 @@ const Clipboard = () => {
   const [isDraggingFile, setIsDraggingFile] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(null)
   const [now, setNow] = useState(() => Date.now())
+  const [recentCodes, setRecentCodes] = useState(() => readRecentCodes())
 
   const isOpen = Boolean(accessHash)
   const selectedId = draft.id || draft.local_key || 'new'
@@ -320,10 +344,19 @@ const Clipboard = () => {
     }
 
     const nextHash = await hashCode(normalized)
+    const nextRecentCodes = [normalized, ...recentCodes.filter(recentCode => recentCode !== normalized)].slice(0, 3)
+    setRecentCodes(nextRecentCodes)
+    writeRecentCodes(nextRecentCodes)
     setActiveCode(normalized)
     setAccessHash(nextHash)
     setCodeInput('')
     await loadItems(nextHash)
+  }
+
+  const removeRecentCode = (code) => {
+    const nextRecentCodes = recentCodes.filter(recentCode => recentCode !== code)
+    setRecentCodes(nextRecentCodes)
+    writeRecentCodes(nextRecentCodes)
   }
 
   const createCode = async () => {
@@ -747,6 +780,88 @@ const Clipboard = () => {
           margin-top: 0.85rem;
           color: #ccc;
           font-size: 0.9rem;
+        }
+
+        .clipboard-recent {
+          margin-top: 1rem;
+          border-top: 1px solid #333;
+          padding-top: 0.85rem;
+        }
+
+        .clipboard-recent-label {
+          margin-bottom: 0.5rem;
+          color: #999;
+          font-size: 0.76rem;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+        }
+
+        .clipboard-recent-list {
+          display: grid;
+          gap: 0.4rem;
+        }
+
+        .clipboard-recent-item {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 2.4rem;
+          min-height: 2.6rem;
+          border: 1px solid #555;
+          background: #000;
+        }
+
+        .clipboard-recent-open,
+        .clipboard-recent-remove {
+          border: 0;
+          border-radius: 0;
+          background: #000;
+          color: #fff;
+          cursor: pointer;
+        }
+
+        .clipboard-recent-open {
+          min-width: 0;
+          padding: 0 0.75rem;
+          overflow: hidden;
+          font: 0.86rem/1 "Courier New", monospace;
+          text-align: left;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .clipboard-recent-remove {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-left: 1px solid transparent;
+          opacity: 0;
+          transition: opacity 140ms ease, border-color 140ms ease, background 140ms ease;
+        }
+
+        .clipboard-recent-item:hover .clipboard-recent-remove,
+        .clipboard-recent-remove:focus-visible {
+          border-left-color: #555;
+          opacity: 1;
+        }
+
+        .clipboard-recent-open:hover,
+        .clipboard-recent-open:focus-visible,
+        .clipboard-recent-remove:hover,
+        .clipboard-recent-remove:focus-visible {
+          background: #171717;
+          outline: none;
+        }
+
+        .clipboard-recent-open:disabled,
+        .clipboard-recent-remove:disabled {
+          cursor: wait;
+          opacity: 0.5;
+        }
+
+        @media (hover: none) {
+          .clipboard-recent-remove {
+            border-left-color: #555;
+            opacity: 0.75;
+          }
         }
 
         .clipboard-heading {
@@ -1203,6 +1318,36 @@ const Clipboard = () => {
               </span>
             ) : message}
           </div>
+          {recentCodes.length > 0 && (
+            <div className="clipboard-recent" aria-label="Recent clipboard codes">
+              <div className="clipboard-recent-label">Recent on this device</div>
+              <div className="clipboard-recent-list">
+                {recentCodes.map(code => (
+                  <div className="clipboard-recent-item" key={code}>
+                    <button
+                      className="clipboard-recent-open"
+                      type="button"
+                      onClick={() => openCode(code)}
+                      disabled={isLoading}
+                      title={`Open ${code}`}
+                    >
+                      {code}
+                    </button>
+                    <button
+                      className="clipboard-recent-remove"
+                      type="button"
+                      onClick={() => removeRecentCode(code)}
+                      disabled={isLoading}
+                      title={`Forget ${code}`}
+                      aria-label={`Forget clipboard code ${code}`}
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       ) : (
         <section className="clipboard-shell">
