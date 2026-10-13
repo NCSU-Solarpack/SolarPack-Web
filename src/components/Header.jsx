@@ -1,7 +1,23 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { authService } from '../utils/auth'
-import './Header.css'
+import { LINKS } from '../content/site'
+
+const NAV = [
+  { path: '/team', label: 'Team' },
+  { path: '/sponsors', label: 'Sponsors' },
+  { path: '/telemetry', label: 'Telemetry' },
+  { path: '/blogs', label: 'Blog' },
+]
+
+const MENU = [
+  { path: '/', label: 'Home' },
+  ...NAV,
+  { path: '/alumni', label: 'Alumni' },
+  { path: '/app', label: 'App' },
+  { path: '/donate', label: 'Donate' },
+  { path: '/contact', label: 'Contact' },
+]
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -12,223 +28,133 @@ const Header = () => {
 
   // Initialize auth state and subscribe to changes
   useEffect(() => {
-    let mounted = true;
-
+    let mounted = true
     const init = async () => {
-      await authService.waitForInit();
-      if (!mounted) return;
-      setIsAuthenticated(authService.isAuthenticated());
-    };
-
-    init();
-
+      await authService.waitForInit()
+      if (!mounted) return
+      setIsAuthenticated(authService.isAuthenticated())
+    }
+    init()
     const unsubscribe = authService.onAuthStateChange((authenticated) => {
-      if (mounted) setIsAuthenticated(authenticated);
-    });
-
+      if (mounted) setIsAuthenticated(authenticated)
+    })
     return () => {
-      mounted = false;
-      unsubscribe();
-    };
+      mounted = false
+      unsubscribe()
+    }
   }, [])
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (isDropdownOpen && !event.target.closest('.auth-dropdown')) {
-        setIsDropdownOpen(false)
-      }
+      if (isDropdownOpen && !event.target.closest('.account')) setIsDropdownOpen(false)
     }
-
     document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isDropdownOpen])
-
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen)
-  }
-
-  const closeMenu = () => {
-    setIsMenuOpen(false)
-  }
-
-  const handleAuthClick = () => {
-    if (isAuthenticated) {
-      // If already authenticated, toggle dropdown
-      setIsDropdownOpen(!isDropdownOpen)
-    } else {
-      // Navigate to the new login page for proper Supabase auth
-      navigate('/login')
-    }
-  }
-
-  const goToDashboard = () => {
-    setIsDropdownOpen(false)
-    navigate('/admin')
-  }
-
-  const handleLogout = () => {
-    const doLogout = async () => {
-      try {
-        await authService.logout();
-      } catch (err) {
-        console.error('Logout failed:', err);
-      } finally {
-        setIsAuthenticated(false);
-        setIsDropdownOpen(false);
-        navigate('/');
-      }
-    };
-
-    doLogout();
-  }
-
-  const openLoginOrNavigate = () => {
-    // On small screens navigate to the standalone login page
-    closeMenu()
-    navigate('/login')
-  }
 
   // Close menu when route changes
   useEffect(() => {
     setIsMenuOpen(false)
   }, [location])
 
-  // Close menu on window resize to desktop
+  // Close the menu with Escape, and on resize to desktop
   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth > 767 && isMenuOpen) {
-        setIsMenuOpen(false)
-      }
+    const onKey = (e) => { if (e.key === 'Escape') setIsMenuOpen(false) }
+    const onResize = () => { if (window.innerWidth > 900) setIsMenuOpen(false) }
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('resize', onResize)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('resize', onResize)
     }
-
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [isMenuOpen])
+  }, [])
 
   // Prevent body scroll when menu is open
   useEffect(() => {
     document.body.style.overflow = isMenuOpen ? 'hidden' : ''
-    return () => {
-      document.body.style.overflow = ''
-    }
+    return () => { document.body.style.overflow = '' }
   }, [isMenuOpen])
 
-  const isActive = (path) => {
-    if (path === '/' && location.pathname === '/') return true
-    if (path !== '/' && location.pathname.startsWith(path)) return true
-    return false
+  const isActive = (path) =>
+    path === '/' ? location.pathname === '/' : location.pathname.startsWith(path)
+
+  const goToDashboard = () => {
+    setIsDropdownOpen(false)
+    setIsMenuOpen(false)
+    navigate('/admin')
   }
 
-  const navItems = [
-    { path: '/', label: 'Home' },
-    { path: '/app', label: 'App' },
-    { path: '/team', label: 'Team' },
-    { path: '/alumni', label: 'Alumni' },
-    { path: '/sponsors', label: 'Sponsors' },
-    { path: '/telemetry', label: 'Telemetry' },
-    { path: '/donate', label: 'Donate' },
-    { path: '/blogs', label: 'Blogs' },
-    { path: '/contact', label: 'Contact' }
-  ]
+  const handleLogout = async () => {
+    try {
+      await authService.logout()
+    } catch (err) {
+      console.error('Logout failed:', err)
+    } finally {
+      setIsAuthenticated(false)
+      setIsDropdownOpen(false)
+      setIsMenuOpen(false)
+      navigate('/')
+    }
+  }
 
   return (
     <>
-      <header className="header">
-        <button className="logo" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }} onClick={() => { navigate('/'); }}>
-          <img src="/solarpack_logo.png" alt="SolarPack logo" />
-          SolarPack
-        </button>
+      <header className="site-header">
+        <Link to="/" className="wordmark" aria-label="SolarPack home">SolarPack</Link>
 
-        <nav className="nav">
-          {navItems.map(({ path, label }) => (
-            <Link
-              key={path}
-              to={path}
-              className={isActive(path) ? 'active' : ''}
-            >
-              {label}
-            </Link>
+        <nav aria-label="Main">
+          {NAV.map(({ path, label }) => (
+            <Link key={path} to={path} aria-current={isActive(path) ? 'page' : undefined}>{label}</Link>
           ))}
-        </nav>
-
-        <div className="auth-section">
           {isAuthenticated ? (
-            <div className="auth-dropdown">
-              <button className="account-btn authenticated" onClick={handleAuthClick}>
-                <i className="fas fa-user-check" aria-hidden="true"></i>
-                <span className="auth-text">Account</span>
-                <i className="fas fa-chevron-down dropdown-arrow" aria-hidden="true"></i>
+            <div className="account">
+              <button className="plain" onClick={() => setIsDropdownOpen(!isDropdownOpen)} aria-expanded={isDropdownOpen}>
+                Account
               </button>
               {isDropdownOpen && (
-                <div className="dropdown-menu">
-                  <button onClick={goToDashboard} className="dropdown-item">
-                    <i className="fas fa-tachometer-alt" aria-hidden="true"></i>
-                    Dashboard
-                  </button>
-                  <button onClick={handleLogout} className="dropdown-item logout">
-                    <i className="fas fa-sign-out-alt" aria-hidden="true"></i>
-                    Logout
-                  </button>
+                <div className="account-menu">
+                  <button onClick={goToDashboard}>Dashboard</button>
+                  <button onClick={handleLogout}>Log out</button>
                 </div>
               )}
             </div>
           ) : (
-            <button className="account-btn" onClick={handleAuthClick}>
-              <i className="fas fa-user" aria-hidden="true"></i>
-              <span className="auth-text">Sign In</span>
-            </button>
+            <button className="plain account" onClick={() => navigate('/login')}>Sign in</button>
           )}
-        </div>
+          <a className="btn inverse donate" href={LINKS.donate} target="_blank" rel="noopener">Donate</a>
+        </nav>
 
-        <button 
-          className="burger" 
-          onClick={toggleMenu}
-          aria-label="Toggle navigation"
-        >
-          <i className={`fas ${isMenuOpen ? 'fa-times' : 'fa-bars'}`} aria-hidden="true"></i>
+        <button className="plain menu-btn" onClick={() => setIsMenuOpen(true)} aria-expanded={isMenuOpen} aria-controls="site-menu">
+          Menu
         </button>
       </header>
 
-      <div className={`mobile-panel ${isMenuOpen ? 'open' : ''}`} onClick={closeMenu}>
-        <nav className="m-nav" onClick={(e) => e.stopPropagation()}>
-          {navItems.map(({ path, label }) => (
-            <Link
-              key={path}
-              to={path}
-              className={isActive(path) ? 'active' : ''}
-              onClick={closeMenu}
-            >
-              {label}
-            </Link>
+      <div id="site-menu" className={`site-menu ${isMenuOpen ? 'open' : ''}`} aria-hidden={!isMenuOpen}>
+        <div className="top">
+          <Link to="/" className="wordmark" style={{ font: '700 17px/1 var(--font-display)', textTransform: 'uppercase', textDecoration: 'none' }}>SolarPack</Link>
+          <button className="plain" style={{ color: 'inherit', background: 'none', border: 0, font: '500 16px/1 var(--font-text)', padding: 6, cursor: 'pointer' }} onClick={() => setIsMenuOpen(false)}>
+            Close
+          </button>
+        </div>
+        <ul>
+          {MENU.map(({ path, label }) => (
+            <li key={path}>
+              <Link to={path} aria-current={isActive(path) ? 'page' : undefined} tabIndex={isMenuOpen ? 0 : -1}>{label}</Link>
+            </li>
           ))}
-          
-          {/* Mobile auth section */}
-          <div className="mobile-auth">
-            {isAuthenticated ? (
-              <>
-                <button className="mobile-auth-btn authenticated" onClick={goToDashboard}>
-                  <i className="fas fa-tachometer-alt" aria-hidden="true"></i>
-                  Dashboard
-                </button>
-                <button className="mobile-auth-btn logout" onClick={handleLogout}>
-                  <i className="fas fa-sign-out-alt" aria-hidden="true"></i>
-                  Logout
-                </button>
-              </>
-            ) : (
-              <button className="mobile-auth-btn" onClick={openLoginOrNavigate}>
-                <i className="fas fa-user" aria-hidden="true"></i>
-                Sign In
-              </button>
-            )}
-          </div>
-        </nav>
+        </ul>
+        <div className="bottom">
+          {isAuthenticated ? (
+            <>
+              <button className="btn inverse" onClick={goToDashboard} tabIndex={isMenuOpen ? 0 : -1}>Dashboard</button>
+              <button className="btn" style={{ background: 'var(--ink-2)' }} onClick={handleLogout} tabIndex={isMenuOpen ? 0 : -1}>Log out</button>
+            </>
+          ) : (
+            <button className="btn inverse" onClick={() => navigate('/login')} tabIndex={isMenuOpen ? 0 : -1}>Sign in</button>
+          )}
+        </div>
       </div>
-
-      
     </>
   )
 }

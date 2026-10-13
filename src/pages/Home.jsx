@@ -1,281 +1,308 @@
-import { useState, useEffect, useRef } from 'react'
-import ProgressTracker from '../components/ProgressTracker'
+import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { supabaseService } from '../utils/supabase'
+import {
+  PHOTOS, HERO, MISSION, STATS, SUPERLATIVES, BUILT, SUBTEAMS, ROAD_AHEAD, NEEDS, CTA,
+} from '../content/site'
+import useFitText from '../hooks/useFitText'
 import './Home.css'
 
-const Home = () => {
-  const [progress, setProgress] = useState(0)
-  const [upcomingProjects, setUpcomingProjects] = useState([])
-  const [totalProjects, setTotalProjects] = useState(0)
-  const [completedCount, setCompletedCount] = useState(0)
+const Photo = ({ p, sizes = '100vw', eager = false, className = '', style }) => (
+  <img
+    src={p.src}
+    srcSet={p.srcSet}
+    sizes={p.srcSet ? sizes : undefined}
+    width={p.w}
+    height={p.h}
+    alt={p.alt}
+    loading={eager ? 'eager' : 'lazy'}
+    decoding="async"
+    className={className}
+    style={style}
+  />
+)
 
+const Arrow = ({ size = 48 }) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+    <path d="M12 36 36 12M16 12h20v20" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="square" />
+  </svg>
+)
+
+// Live build meter: reads the same schedule tables the admin Schedule tab writes.
+const useBuild = () => {
+  const [build, setBuild] = useState(null)
   useEffect(() => {
-    document.title = 'SolarPack'
-    // Fetch schedule data and calculate average progress and upcoming projects
-    const fetchProgressAndUpcoming = async () => {
-      try {
-        const data = await supabaseService.getScheduleData()
-        const projects = data.projects || []
-        const totalProjects = projects.length
-        if (totalProjects > 0) {
-          // Calculate percent completed projects
-          const completed = projects.filter(p => p.status === 'completed').length
-          const percentCompleted = Math.round((completed / totalProjects) * 100)
-          setProgress(percentCompleted)
-          setTotalProjects(totalProjects)
-          setCompletedCount(completed)
-        } else {
-          setProgress(0)
-          setTotalProjects(0)
-          setCompletedCount(0)
-        }
-        // Filter upcoming projects: not completed, not overdue
-        const now = new Date()
-        const upcoming = projects
-          .filter(p => p.status !== 'completed' && new Date(p.dueDate) >= now)
-          .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-          .slice(0, 3)
-        setUpcomingProjects(upcoming)
-      } catch (err) {
-        setProgress(0)
-        setUpcomingProjects([])
-      }
-    }
-    fetchProgressAndUpcoming()
+    let alive = true
+    supabaseService.getScheduleData()
+      .then((data) => {
+        if (!alive) return
+        const projects = (data.projects || []).filter((p) => p.status !== 'cancelled')
+        const done = projects.filter((p) => p.status === 'completed').length
+        const byTeam = {}
+        projects.forEach((p) => {
+          const t = (byTeam[p.team] ||= { total: 0, done: 0, open: [] })
+          t.total += 1
+          if (p.status === 'completed') t.done += 1
+          else t.open.push(p.title)
+        })
+        setBuild({ total: projects.length, done, pct: projects.length ? Math.round((done / projects.length) * 100) : 0, byTeam })
+      })
+      .catch(() => alive && setBuild(null))
+    return () => { alive = false }
+  }, [])
+  return build
+}
+
+const useLiveSession = () => {
+  const [session, setSession] = useState(null)
+  useEffect(() => {
+    let alive = true
+    supabaseService.getActiveSession().then((s) => alive && setSession(s)).catch(() => {})
+    return () => { alive = false }
+  }, [])
+  return session
+}
+
+const Hero = () => {
+  const session = useLiveSession()
+  return (
+    <section className="hh f-red" aria-labelledby="hh-title">
+      <h1 id="hh-title" className="display lines hh-title">
+        <span className="line l1"><span data-line style={{ '--i': 0 }}>{HERO.lines[0]}</span></span>
+        <span className="line l2"><span data-line style={{ '--i': 1 }}>{HERO.lines[1]}</span></span>
+      </h1>
+      <figure className="hh-photo">
+        <Photo p={PHOTOS.sunsetSide} sizes="(max-width: 760px) 100vw, 52vw" eager />
+      </figure>
+      <div className="hh-bottom" data-after-lines>
+        {session && (
+          <Link to="/telemetry" className="hh-live textlink">
+            Car 99 is on track right now{session.track?.name ? ` at ${session.track.name}` : ''}. Watch the telemetry
+          </Link>
+        )}
+        <p className="lead">{HERO.sentence}</p>
+        <Link to={HERO.action.to} className="btn">{HERO.action.label} <span className="arrow" aria-hidden="true">↗</span></Link>
+      </div>
+    </section>
+  )
+}
+
+const Mission = () => (
+  <section className="stair f-ink" aria-label="Who we are">
+    <p className="stair-text display">
+      {MISSION.lines.map((l, i) => (
+        <span key={i} className={`stair-line ${i % 2 ? 'red' : ''}`} style={{ '--n': i }} data-reveal>{l} </span>
+      ))}
+    </p>
+    <div className="stair-photos">
+      <Photo p={PHOTOS.campus} sizes="(max-width: 760px) 50vw, 20vw" />
+      <Photo p={PHOTOS.push} sizes="(max-width: 760px) 50vw, 20vw" />
+    </div>
+    <p className="stair-note small">{MISSION.note}</p>
+  </section>
+)
+
+const Stats = () => (
+  <section className="stats f-paper" aria-labelledby="stats-title">
+    <h2 id="stats-title" className="stats-title">{STATS.heading}</h2>
+    {STATS.items.map((s, i) => (
+      <div key={s.figure} className={`stat stat-${i + 1}`} data-reveal style={{ '--d': i }}>
+        <span className="display stat-fig tnum">{s.figure}</span>
+        <span className="stat-cap">{s.caption}</span>
+      </div>
+    ))}
+  </section>
+)
+
+const Superlatives = () => {
+  const pairs = ['t-paper', 't-asphalt', 't-red', 't-paper', 't-grey']
+  const cells = [
+    { type: 'head' },
+    { type: 'word', ...SUPERLATIVES[0], c: pairs[0] },
+    { type: 'photo', p: PHOTOS.cockpit },
+    { type: 'word', ...SUPERLATIVES[1], c: pairs[1] },
+    { type: 'photo', p: PHOTOS.nightLineup },
+    { type: 'word', ...SUPERLATIVES[2], c: pairs[2] },
+    { type: 'word', ...SUPERLATIVES[3], c: pairs[3] },
+    { type: 'photo', p: PHOTOS.pitTent },
+    { type: 'word', ...SUPERLATIVES[4], c: 't-ink2' },
+    { type: 'photo', p: PHOTOS.sunsetSponsors },
+    { type: 'word', word: '99', caption: 'Fenrir’s race number', c: 't-red' },
+    { type: 'link' },
+  ]
+  return (
+    <section className="wall f-ink" aria-labelledby="wall-title">
+      {cells.map((c, i) => {
+        const d = { 'data-reveal': true, style: { '--d': i % 4 } }
+        if (c.type === 'head') return (
+          <div key={i} className="cell t-red" {...d}>
+            <h2 id="wall-title" className="cell-word" style={{ '--chars': 5 }}>Voted</h2>
+            <span className="cell-cap">Our yearbook superlatives</span>
+          </div>
+        )
+        if (c.type === 'photo') return (
+          <figure key={i} className="cell photo" {...d}><Photo p={c.p} sizes="(max-width: 760px) 50vw, 25vw" /></figure>
+        )
+        if (c.type === 'link') return (
+          <Link key={i} to="/team" className="cell t-paper cell-link" {...d}>
+            <span className="cell-word" style={{ '--chars': 4 }}>Crew</span>
+            <span className="cell-cap">Meet the people who built it ↗</span>
+          </Link>
+        )
+        return (
+          <div key={i} className={`cell ${c.c}`} {...d}>
+            <span className="cell-word" style={{ '--chars': Math.max(c.word.length, 4) }}>{c.word}</span>
+            <span className="cell-cap">{c.caption}</span>
+          </div>
+        )
+      })}
+    </section>
+  )
+}
+
+const Built = () => (
+  <section className="slips" aria-labelledby="built-title">
+    <Photo p={PHOTOS.sunsetOpen} className="slips-bg" sizes="100vw" />
+    <div className="slips-copy">
+      <h2 id="built-title" className="visually-hidden">{BUILT.heading}</h2>
+      {BUILT.paragraphs.map((t, i) => <p key={i} data-reveal style={{ '--d': i }}>{t}</p>)}
+    </div>
+    <ul className="slips-row" aria-label="Systems already built">
+      {BUILT.slips.map((s, i) => (
+        <li key={s.title} className={`slip s${i + 1}`} data-reveal style={{ '--d': i }}>
+          <b>{s.title}</b>
+          <span className="slip-team">{s.team}</span>
+          <span aria-hidden="true" className="slip-div">- - - - - - - - - - - -</span>
+          {s.lines.map((l) => <span key={l}>{l}</span>)}
+          <span className="slip-ok">Built and racing</span>
+        </li>
+      ))}
+    </ul>
+  </section>
+)
+
+const Shop = () => {
+  const build = useBuild()
+  const [open, setOpen] = useState(0)
+  return (
+    <section className="shop f-paper" aria-labelledby="shop-title">
+      <div className="shop-intro">
+        <h2 id="shop-title" data-reveal>In the shop</h2>
+        <div className="shop-meter" data-reveal style={{ '--d': 1 }}>
+          {build && build.total > 0 ? (
+            <>
+              <p className="display shop-pct tnum" aria-label={`${build.pct} percent`}>{build.pct}%</p>
+              <p>
+                of this season’s build is done: {build.done} of {build.total} projects on the team schedule, live from our
+                shop board. Below is what every subteam is working on now.
+              </p>
+            </>
+          ) : (
+            <p>Every subteam has a project on the bench. Pick one to see what it is building now.</p>
+          )}
+        </div>
+      </div>
+      <div className="acc" data-reveal style={{ '--d': 2 }}>
+        {SUBTEAMS.map((t, i) => {
+          const live = build?.byTeam?.[t.id]
+          const isOpen = open === i
+          return (
+            <div key={t.id} className={`acc-panel tint-${i + 1} ${isOpen ? 'open' : ''}`}>
+              <button
+                className="acc-tab"
+                aria-expanded={isOpen}
+                aria-controls={`acc-${t.id}`}
+                onClick={() => setOpen(i)}
+              >
+                <span>{t.name}</span>
+              </button>
+              <div id={`acc-${t.id}`} className="acc-body" hidden={!isOpen}>
+                <div className="acc-text">
+                  <h3>{t.name}</h3>
+                  {live && live.total > 0 && (
+                    <p className="acc-live tnum">{live.done} of {live.total} scheduled projects done</p>
+                  )}
+                  <ul>{t.projects.map((p) => <li key={p}>{p}</li>)}</ul>
+                </div>
+                <Photo p={PHOTOS[t.photo]} className="acc-photo" sizes="(max-width: 760px) 100vw, 28vw" />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+const RoadAhead = () => (
+  <section className="road f-red" aria-labelledby="road-title">
+    <figure className="road-photo"><Photo p={PHOTOS.nightHeadlights} sizes="(max-width: 760px) 100vw, 50vw" /></figure>
+    <div className="road-copy">
+      <h2 id="road-title" data-reveal>{ROAD_AHEAD.heading}</h2>
+      <ul className="road-list lead">
+        {ROAD_AHEAD.items.map((t, i) => <li key={t} data-reveal style={{ '--d': i }}>{t}</li>)}
+      </ul>
+      <div className="road-quotes f-ink">
+        {ROAD_AHEAD.quotes.map((q) => (
+          <blockquote key={q.who} data-reveal>
+            <p>“{q.text}”</p>
+            <footer className="small">{q.who}</footer>
+          </blockquote>
+        ))}
+      </div>
+    </div>
+  </section>
+)
+
+const Needs = () => (
+  <section className="needs f-paper" aria-labelledby="needs-title">
+    <div className="needs-col">
+      <h2 id="needs-title" className="needs-word">{NEEDS.word}</h2>
+      <p className="needs-intro">{NEEDS.intro}</p>
+      {NEEDS.groups.map((g, i) => (
+        <details key={g.name} className="bar" open={i === 0}>
+          <summary><span>{g.name}</span><span className="plus" aria-hidden="true">+</span></summary>
+          <ul>{g.items.map((it) => <li key={it}>{it}</li>)}</ul>
+        </details>
+      ))}
+    </div>
+    <figure className="needs-photo">
+      <Photo p={PHOTOS.sunsetSponsors} className="tilt-r" sizes="(max-width: 760px) 100vw, 38vw" />
+      <figcaption className="lead">Your logo goes on the door. Sponsors ride on every panel of Fenrir, right next to NC State.</figcaption>
+    </figure>
+  </section>
+)
+
+const SponsorBand = () => {
+  const fit = useFitText()
+  return (
+  <Link to={CTA.to} className="band f-red on-red">
+    <span className="band-top">
+      <span className="band-sentence">{CTA.sentence}</span>
+      <Arrow />
+    </span>
+    <span ref={fit} className="band-word display">{CTA.word}</span>
+  </Link>
+  )
+}
+
+const Home = () => {
+  useEffect(() => {
+    document.title = 'SolarPack · NC State solar car team'
   }, [])
 
   return (
     <>
-      <section className="hero">
-        <img src="/solarpack_logo.gif" alt="SolarPack Logo" />
-        <div className="hero-content">
-          <h1>SolarPack</h1>
-          <div className="subtitle">Solar Vehicle Team at NC State</div>
-          <p>
-            Striving to break barriers in the sustainable vehicle industry with a hardworking group 
-            of over 80 passionate students. Join us in our journey to a more sustainable future for transportation.
-          </p>
-          <a 
-            className="donate-btn" 
-            href="https://www.paypal.com/fundraiser/charity/3728956" 
-            target="_blank" 
-            rel="noopener" 
-            aria-label="Donate to SolarPack via PayPal"
-          >
-            <i className="fab fa-paypal" aria-hidden="true"></i>
-            Donate
-          </a>
-        </div>
-      </section>
-
-
-      <div style={{ width: '100%', background: 'transparent', marginBottom: 0 }}>
-        <ProgressTracker
-          percentage={progress}
-          upcomingProjects={upcomingProjects}
-          totalProjects={totalProjects}
-          completedCount={completedCount}
-        />
-      </div>
-
-      <section className="section">
-        <img src="/hero_shot.jpg" alt="SolarPack Team" />
-        <h2>Sustainable, Efficient, and Powerful.</h2>
-        <p>
-          As NC State's first solar vehicle team, we are aiming to show the world that solar energy 
-          can be used to power a car. Along the way, we are making a solar vehicle no other team has done before.
-        </p>
-      </section>
-
-      <section className="section features">
-        <div className="feature">
-          <ion-icon name="earth-outline"></ion-icon>
-          <h3>Global Impact</h3>
-          <p>
-            We're showing the world that solar energy can power a multi-occupancy car. By building a vehicle 
-            no one has seen before, we hope to prove that sustainability and power can go hand in hand.
-          </p>
-        </div>
-        <div className="feature">
-          <ion-icon name="cog-outline"></ion-icon>
-          <h3>Engineering Excellence</h3>
-          <p>
-            Our team thrives on creative problem solving. Members develop real-world skills as they tackle 
-            unique engineering challenges throughout our build process.
-          </p>
-        </div>
-        <div className="feature">
-          <ion-icon name="bulb-outline"></ion-icon>
-          <h3>Innovation</h3>
-          <p>
-            Pioneering new solutions, our members are always innovating—using every resource to bring big 
-            ideas to life and push the boundaries of solar vehicle technology.
-          </p>
-        </div>
-        <div className="feature">
-          <ion-icon name="hand-left-outline"></ion-icon>
-          <h3>Collaboration</h3>
-          <p>
-            We partner with companies and alumni to guide our journey, building strong relationships as we 
-            promote the future of energy-efficient vehicles.
-          </p>
-        </div>
-        <div className="feature">
-          <ion-icon name="location-outline"></ion-icon>
-          <h3>Rooted in the Triangle</h3>
-          <p>
-            Proudly representing the Research Triangle, we embody the spirit of innovation and excellence 
-            that defines our region—driving forward as leaders in sustainable technology.
-          </p>
-        </div>
-      </section>
-
-      <RaceCarousel />
-
-      <div className="socials">
-        <a href="https://www.instagram.com/solarpacknc/" target="_blank" rel="noopener">
-          <i className="fab fa-instagram"></i>
-        </a>
-        <a href="https://www.linkedin.com/company/solarpack-nc-state/" target="_blank" rel="noopener">
-          <i className="fab fa-linkedin"></i>
-        </a>
-        <a href="https://www.facebook.com/SolarPackNC/" target="_blank" rel="noopener">
-          <i className="fab fa-facebook"></i>
-        </a>
-      </div>
+      <Hero />
+      <Mission />
+      <Stats />
+      <Superlatives />
+      <Built />
+      <Shop />
+      <RoadAhead />
+      <Needs />
+      <SponsorBand />
     </>
-  )
-}
-
-const RaceCarousel = () => {
-  const [currentIndex, setCurrentIndex] = useState(4)
-  const trackRef = useRef(null)
-  const viewportRef = useRef(null)
-  const [slideWidth, setSlideWidth] = useState(320)
-  const [viewportWidth, setViewportWidth] = useState(0)
-  const [translateBase, setTranslateBase] = useState(0)
-
-  const images = [
-    '/race2025/race2025_1.jpg',
-    '/race2025/race2025_2.jpg',
-    '/race2025/race2025_3.jpg',
-    '/race2025/race2025_4.jpg',
-    '/race2025/race2025_5.jpg',
-    '/race2025/race2025_6.jpg',
-    '/race2025/race2025_7.jpg',
-    '/race2025/race2025_8.jpg',
-    '/race2025/race2025_9.jpg'
-  ]
-
-  const recalculate = () => {
-    if (trackRef.current && viewportRef.current) {
-      const firstSlide = trackRef.current.querySelector('.carousel-slide')
-      if (firstSlide) {
-        const slideRect = firstSlide.getBoundingClientRect()
-        const viewportRect = viewportRef.current.getBoundingClientRect()
-        setSlideWidth(slideRect.width)
-        setViewportWidth(viewportRect.width)
-        setTranslateBase(Math.round((viewportRect.width - slideRect.width) / 2))
-      }
-    }
-  }
-
-  useEffect(() => {
-    recalculate()
-    
-    const resizeObserver = new ResizeObserver(recalculate)
-    if (viewportRef.current) {
-      resizeObserver.observe(viewportRef.current)
-    }
-
-    return () => resizeObserver.disconnect()
-  }, [])
-
-  const gap = 19.2 // 1.2rem in pixels (assuming 16px base)
-
-  const goToSlide = (index) => {
-    setCurrentIndex(index)
-  }
-
-  const nextSlide = () => {
-    setCurrentIndex((prev) => (prev + 1) % images.length)
-  }
-
-  const prevSlide = () => {
-    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length)
-  }
-
-  const translateX = -Math.round(currentIndex * (slideWidth + gap)) + translateBase
-
-  // Touch/mouse handling
-  const [startX, setStartX] = useState(null)
-
-  const handleStart = (clientX) => {
-    setStartX(clientX)
-  }
-
-  const handleEnd = (clientX) => {
-    if (startX !== null) {
-      const diff = clientX - startX
-      if (diff < -30) nextSlide()
-      else if (diff > 30) prevSlide()
-      setStartX(null)
-    }
-  }
-
-  return (
-    <section className="section race-carousel">
-      <h2>2025 Race Highlights</h2>
-
-      <div className="carousel-container">
-        <button 
-          className="carousel-arrow left" 
-          onClick={prevSlide}
-          aria-label="Previous"
-        >
-          <i className="fas fa-chevron-left"></i>
-        </button>
-
-        <div 
-          className="carousel-viewport" 
-          ref={viewportRef}
-          onMouseDown={(e) => handleStart(e.pageX)}
-          onMouseUp={(e) => handleEnd(e.pageX)}
-          onTouchStart={(e) => handleStart(e.touches[0].pageX)}
-          onTouchEnd={(e) => handleEnd(e.changedTouches[0].pageX)}
-        >
-          <div 
-            className="carousel-track" 
-            ref={trackRef}
-            style={{ transform: `translateX(${translateX}px)` }}
-          >
-            {images.map((src, index) => (
-              <div key={index} className="carousel-slide">
-                <img src={src} alt={`Race 2025 Image ${index + 1}`} />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <button 
-          className="carousel-arrow right" 
-          onClick={nextSlide}
-          aria-label="Next"
-        >
-          <i className="fas fa-chevron-right"></i>
-        </button>
-
-        <div className="carousel-dots">
-          {images.map((_, index) => (
-            <span
-              key={index}
-              className={`dot ${index === currentIndex ? 'active' : ''}`}
-              onClick={() => goToSlide(index)}
-            />
-          ))}
-        </div>
-      </div>
-    </section>
   )
 }
 
