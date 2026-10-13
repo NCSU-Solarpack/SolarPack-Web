@@ -89,31 +89,6 @@ const StartLights = ({ onDone }) => {
   )
 }
 
-const Cursor = () => {
-  const ref = useRef(null)
-  useEffect(() => {
-    if (window.matchMedia('(hover: none)').matches) return
-    const el = ref.current
-    let x = -100, y = -100, cx = -100, cy = -100, raf
-    const move = (e) => { x = e.clientX; y = e.clientY }
-    const over = (e) => {
-      const t = e.target.closest('a, button, summary, [data-cursor]')
-      el.classList.toggle('big', !!t)
-      el.classList.toggle('hide', !!e.target.closest('.depth-hero'))
-    }
-    const loop = () => {
-      cx += (x - cx) * 0.22; cy += (y - cy) * 0.22
-      el.style.transform = `translate3d(${cx}px, ${cy}px, 0)`
-      raf = requestAnimationFrame(loop)
-    }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerover', over)
-    loop()
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('pointermove', move); window.removeEventListener('pointerover', over) }
-  }, [])
-  return <div ref={ref} className="cursor" aria-hidden="true" />
-}
-
 const Footer = () => {
   const ref = useRef(null)
   useEffect(() => {
@@ -206,7 +181,6 @@ const Layout = ({ children }) => {
     <div ref={siteRef} className={`site ${ready ? 'is-ready' : ''}`}>
       {showLights && <StartLights onDone={onLightsOut} />}
       <div ref={wipeRef} className="wipe" aria-hidden="true" />
-      <Cursor />
       <Header />
       <main id="main">{children}</main>
       <Footer />

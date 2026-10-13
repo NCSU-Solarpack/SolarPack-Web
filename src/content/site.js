@@ -28,19 +28,23 @@ export const PHOTOS = {
   suspension: { src: '/race2025/race2025_5.jpg', w: 1600, h: 1067, alt: 'A team member working on a coilover and wheel of the chassis' },
   rear: { src: '/race2025/race2025_7.jpg', w: 1600, h: 1067, alt: 'The rear of the chassis with the battery box, cooling and coilovers exposed' },
   wrench: { src: '/race2025/race2025_8.jpg', w: 1600, h: 1067, alt: 'Two team members fitting a wheel in the garage' },
+  golfParked: { src: '/images/history/golf-parked.webp', w: 672, h: 403, alt: 'SolarPack’s first car, a red VW Golf numbered 99 with a solar array on the hood' },
+  golfTrack: { src: '/images/history/golf-track.webp', w: 483, h: 305, alt: 'The red solar VW Golf on track at the 2022 Formula Sun Grand Prix' },
+  golfOutreach: { src: '/images/history/golf-outreach.webp', w: 691, h: 439, alt: 'Team members showing the solar Golf to visitors at an outreach event' },
   paddock: { src: '/race2025/race2025_1.jpg', w: 1600, h: 1067, alt: 'Aerial view of every team and solar car lined up on the tarmac' },
 }
 
 export const HERO = {
   lines: ['Heavy.', 'Solar.'],
-  sentence: 'SolarPack is NC State’s solar car team. Eighty students turned a gas car into Fenrir, car 99, and took it racing.',
+  sentence: 'SolarPack is NC State’s solar car team, founded in 2016. We turned a gas VW Golf into a solar car, set the fastest lap in Formula Sun Grand Prix history, and built Fenrir to carry more than a driver.',
   action: { label: 'Back the build', to: '/sponsors' },
 }
 
 // TODO: the notes say the old "Our Mission" was inaccurate; confirm this wording with the team.
+// From the 2025-26 sponsorship packet
 export const MISSION = {
-  lines: ['NC State’s first solar team', 'took a gas car,', 'gave it the sun,', 'and taught it', 'to drift.'],
-  note: 'Fenrir, car 99. Designed, welded and wired by students in Raleigh, North Carolina.',
+  text: 'University solar cars are usually small, flat and seat one. We build solar cars with room for a family and the power for the highway: cars you could see yourself in.',
+  careers: 'Members who built our cars in-house have gone on to full-time roles at Apple, Tesla, GM and Denso.',
 }
 
 export const STATS = {
@@ -54,7 +58,7 @@ export const STATS = {
 
 // Yearbook superlatives. Swagger, not stats.
 export const SUPERLATIVES = [
-  { word: 'Fast', caption: 'Voted fastest' },
+  { word: 'Fast', caption: 'Fastest lap in Formula Sun Grand Prix history, 2022' },
   { word: 'Heavy', caption: 'Voted heaviest' },
   { word: 'Drift', caption: 'Only solar car to ever drift, and make it cool' },
   { word: 'Gas→Sun', caption: 'First team to do a gas-to-solar conversion' },
@@ -71,7 +75,7 @@ export const BUILT = {
   slips: [
     { team: 'High Voltage', title: '13.6 kWh battery pack', lines: ['Cells assembled in-house', 'Pack built from scratch', 'Sized for a full race day'] },
     { team: 'Low Voltage', title: 'Decentralized CAN bus', lines: ['One car-wide data line', 'Every board talks on it', 'Fewer wires, fewer faults'] },
-    { team: 'Structures', title: 'Military-grade chassis', lines: ['Welded steel tube frame', 'Survived the gas-to-solar swap', 'Built to win a crash'] },
+    { team: 'Structures', title: 'Military-grade chassis', lines: ['Welded steel tube frame', 'Built for two occupants', 'Built to win a crash'] },
     { team: 'Structures', title: 'Butterfly doors', lines: ['Smooth on their hinges', 'Pull to open', 'Yes, really'] },
     { team: 'Structures', title: 'Ballast boxes', lines: ['Military-grade', 'Hold race ballast', 'Pass inspection'] },
     { team: 'Aerodynamics', title: 'Composite research', lines: ['Panel mold design', 'Materials testing', 'Better layups, lap by lap'] },
@@ -175,7 +179,7 @@ export const NEXT_RACE = { name: 'Formula Sun Grand Prix', date: null }
 export const MANIFESTO = 'NC State’s first solar team took a gas car, gave it the sun, and taught it to drift.'
 
 export const SUPERLATIVE_TICKER = [
-  'Voted fastest',
+  'Fastest lap in Formula Sun history',
   'Heaviest in the paddock',
   'Only solar car that drifts',
   'First gas-to-solar conversion',
@@ -192,10 +196,12 @@ export const RAIL = [
 ]
 
 export const TIMELINE = [
-  { year: 'Before', title: 'A gas car', text: 'Fenrir started life burning gasoline. The team stripped it to the frame and kept the bones.', photo: null },
-  { year: '2025', title: 'Bare chassis', text: 'A welded steel frame, a hand-built 13.6 kWh pack and a decentralized CAN bus rolled into scrutineering with no body at all.', photo: 'scrutineering' },
-  { year: '2026', title: 'Fenrir gets its skin', text: 'Panels, butterfly doors, the red flame and the number 99. Then it went racing, and sideways.', photo: 'sunsetSide' },
-  { year: '2027/28', title: 'A new car', text: 'Modelled from scratch by Aero, with direct drive, regen and the first steps toward automation.', photo: 'nightHeadlights' },
+  { year: '2016', title: 'SolarPack is founded', text: 'NC State students start a solar car team with a different goal: not a flat one-seater, but a solar car you could see yourself driving.', photo: null, big: 'Est.' },
+  { year: 'Car one', title: 'A gas Golf gets the sun', text: 'Our first car was a red VW Golf, car 99, converted from gas to solar. Its body panels, solar array and battery box were built in-house.', photo: 'golfParked' },
+  { year: '2022', title: 'Fastest lap in Formula Sun history', text: 'At the 2022 Formula Sun Grand Prix the Golf drove the fastest lap in the history of the entire competition.', photo: 'golfTrack' },
+  { year: '2025', title: 'Fenrir, bare chassis', text: 'Our next car reuses as much of the Golf as it can. A welded frame, a hand-built 13.6 kWh pack and a CAN bus went to Formula Sun Grand Prix for a first test.', photo: 'scrutineering' },
+  { year: '2026', title: 'Fenrir gets its skin', text: 'Panels, butterfly doors, the red flame and the number 99. Practical enough for passengers, built to qualify for the American Solar Challenge.', photo: 'sunsetSide' },
+  { year: 'Next', title: 'A new car', text: 'Modelled from scratch by Aero, with direct drive, regen and the first steps toward automation. The World Solar Challenge is the long-term target.', photo: 'nightHeadlights' },
 ]
 
 // Hall of Fame: every system on the car. status: 'built' | 'shop'

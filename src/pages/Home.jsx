@@ -6,7 +6,7 @@ import { supabaseService } from '../utils/supabase'
 import DepthHero from '../components/DepthHero'
 import useFitText from '../hooks/useFitText'
 import {
-  PHOTOS, LINKS, STATS, SUBTEAMS, ROAD_AHEAD, NEEDS, MANIFESTO, SUPERLATIVE_TICKER, RAIL,
+  PHOTOS, LINKS, STATS, MISSION, SUBTEAMS, ROAD_AHEAD, NEEDS, MANIFESTO, SUPERLATIVE_TICKER, RAIL,
   TIMELINE, SYSTEMS, NUMBERS, NEXT_RACE,
 } from '../content/site'
 import './Home.css'
@@ -94,10 +94,6 @@ const Hero = ({ build }) => {
       />
       <div className="hx-top" data-after-lines>
         <span className="tag">NC State solar vehicle team · Raleigh, NC</span>
-        <span className="hx-hint mono">
-          <span className="only-hover">Move over the car · see under the skin</span>
-          <span className="only-touch">The lens shows the car's bones</span>
-        </span>
         <span className="tag live">
           {cd ? `${NEXT_RACE.name} in ${cd.d}d ${pad(cd.h)}:${pad(cd.m)}:${pad(cd.s)}` : build ? `Shop board · ${build.pct}% built` : 'Shop board · live'}
         </span>
@@ -110,7 +106,7 @@ const Hero = ({ build }) => {
         <div><dt>Students</dt><dd>{STATS.items[0].figure}</dd></div>
         <div><dt>Pack</dt><dd>13.6<small>kWh</small></dd></div>
         <div><dt>Seats</dt><dd>2</dd></div>
-        <div><dt>Started as</dt><dd>Gas<small>car</small></dd></div>
+        <div><dt>Founded</dt><dd>2016</dd></div>
       </dl>
     </section>
   )
@@ -136,7 +132,7 @@ const Manifesto = () => {
         {words.map((w, i) => <span key={i} className={`mf-word ${/gas|sun|drift/i.test(w) ? 'red' : ''}`}>{w} </span>)}
       </p>
       <div className="mf-row">
-        <p className="lead">Eighty students design, weld, wire and drive it. Fenrir is car 99, and it carries a passenger.</p>
+        <p className="lead">{MISSION.text}</p>
         <Link className="btn ghost" to="/team">Meet the crew <span className="arrow" aria-hidden="true">↗</span></Link>
       </div>
     </section>
@@ -207,12 +203,12 @@ const Timeline = () => {
         <div className="tl-intro">
           <span className="tag">Heritage</span>
           <h2 id="tl-title" className="tl-title">From gas<br />to sun</h2>
-          <p className="lead muted">Four chapters of one car, and the next one already in CAD.</p>
+          <p className="lead muted">Ten years, two cars, one lap record, and the next car already in CAD.</p>
         </div>
         {TIMELINE.map((t, i) => (
           <article key={t.year} className={`tl-card ${t.photo ? '' : 'no-photo'}`}>
             <span className="tl-year display">{t.year}</span>
-            {t.photo ? <Img p={PHOTOS[t.photo]} sizes="(max-width: 900px) 92vw, 46vw" /> : <div className="tl-gas display" aria-hidden="true">Gas</div>}
+            {t.photo ? <Img p={PHOTOS[t.photo]} sizes="(max-width: 900px) 92vw, 46vw" /> : <div className="tl-gas display" aria-hidden="true">{t.big}</div>}
             <div className="tl-copy">
               <span className="mono red">Chapter {i + 1}</span>
               <h3>{t.title}</h3>
@@ -226,19 +222,6 @@ const Timeline = () => {
 }
 
 const HallOfFame = () => {
-  const [hover, setHover] = useState(null)
-  const prev = useRef(null)
-  const listRef = useRef(null)
-  useEffect(() => {
-    const el = prev.current, list = listRef.current
-    if (!el || !list) return
-    let x = 0, y = 0, cx = 0, cy = 0, raf
-    const move = (e) => { const r = list.getBoundingClientRect(); x = e.clientX - r.left; y = e.clientY - r.top }
-    const loop = () => { cx += (x - cx) * 0.14; cy += (y - cy) * 0.14; el.style.transform = `translate3d(${cx}px, ${cy}px, 0) translate(-50%, -50%)`; raf = requestAnimationFrame(loop) }
-    list.addEventListener('pointermove', move)
-    loop()
-    return () => { cancelAnimationFrame(raf); list.removeEventListener('pointermove', move) }
-  }, [])
   const built = SYSTEMS.filter((s) => s.status === 'built').length
   return (
     <section className="hof" aria-labelledby="hof-title">
@@ -249,21 +232,16 @@ const HallOfFame = () => {
         </div>
         <p className="lead muted">{built} built and racing. {SYSTEMS.length - built} in the shop right now. All designed by students.</p>
       </div>
-      <div ref={listRef} className="hof-list" onPointerLeave={() => setHover(null)}>
+      <div className="hof-list">
         <div className="hof-row hof-labels mono" aria-hidden="true"><span>System</span><span>Subteam</span><span>Spec</span><span>Status</span></div>
         {SYSTEMS.map((s, i) => (
-          <div key={s.name} className="hof-row" onPointerEnter={() => setHover(i)} data-reveal style={{ '--d': i % 4 }}>
+          <div key={s.name} className="hof-row" data-reveal style={{ '--d': i % 4 }}>
             <span className="hof-name">{s.name}</span>
             <span className="mono muted">{s.team}</span>
             <span className="mono">{s.spec}</span>
             <span className={`hof-status mono ${s.status}`}>{s.status === 'built' ? 'Built' : 'In the shop'}</span>
           </div>
         ))}
-        <div ref={prev} className={`hof-preview ${hover != null ? 'on' : ''}`} aria-hidden="true">
-          {SYSTEMS.map((s, i) => (
-            <img key={s.name} src={PHOTOS[s.photo].src} alt="" className={hover === i ? 'on' : ''} loading="lazy" />
-          ))}
-        </div>
       </div>
     </section>
   )
@@ -361,6 +339,46 @@ const RoadAhead = () => (
   </section>
 )
 
+// Past leadership, same Supabase `alumni` table the Alumni page and the current site use
+const Alumni = () => {
+  const [sems, setSems] = useState([])
+  useEffect(() => {
+    let alive = true
+    supabaseService.getAlumni().then((d) => alive && setSems(d.alumniData || [])).catch(() => {})
+    return () => { alive = false }
+  }, [])
+  if (!sems.length) return null
+  const people = new Set(sems.flatMap((s) => (s.leadership || []).map((m) => m.name)))
+  return (
+    <section className="alum" aria-labelledby="alum-title">
+      <div className="alum-head wrap">
+        <div>
+          <span className="tag">Alumni</span>
+          <h2 id="alum-title" className="sec-head">Built by generations</h2>
+        </div>
+        <div className="alum-stats">
+          <p><span className="display">{sems.length}</span><span className="mono muted">Semesters of leadership</span></p>
+          <p><span className="display">{people.size}</span><span className="mono muted">Leads who came before</span></p>
+          <p className="alum-careers lead muted">{MISSION.careers}</p>
+        </div>
+      </div>
+      <div className="alum-track">
+        {sems.map((s) => (
+          <article key={s.id ?? s.semester} className="alum-col" data-reveal>
+            <h3>{s.semester}</h3>
+            <ul>
+              {(s.leadership || []).map((m, i) => (
+                <li key={`${m.role}-${i}`}><span className="mono muted">{m.role}</span><span>{m.name}</span></li>
+              ))}
+            </ul>
+          </article>
+        ))}
+      </div>
+      <div className="wrap alum-foot"><Link className="btn ghost" to="/alumni">All alumni <span className="arrow" aria-hidden="true">↗</span></Link></div>
+    </section>
+  )
+}
+
 const Partners = () => {
   const logos = useSponsors()
   const row = logos.length ? logos : null
@@ -412,6 +430,7 @@ const Home = () => {
       <Numbers />
       <ShopBoard build={build} />
       <RoadAhead />
+      <Alumni />
       <Partners />
     </>
   )
