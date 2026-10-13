@@ -53,7 +53,7 @@ const Blogs = () => {
     <>
       <PageHero
         lines={['From the', 'paddock']}
-        sentence="Build updates, race reports and the occasional drift, written by the people holding the wrenches."
+        sentence="Build updates and race reports, written by the people holding the wrenches."
         photo={PHOTOS.nightLineup}
       />
 

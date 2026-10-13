@@ -86,7 +86,7 @@ const Team = () => {
       <section className="sec f-red crew-photos" aria-labelledby="crew-title">
         <div className="crew-head">
           <h2 id="crew-title" className="sec-head">Race week</h2>
-          <p className="lead">Hi-vis vests, harnesses, a tent in the paddock and a car that will not stop drifting.</p>
+          <p className="lead">Hi-vis vests, harnesses, a tent in the paddock and long nights getting the car through inspection.</p>
         </div>
         <div className="strip">
           <img src={PHOTOS.cockpit.src} srcSet={PHOTOS.cockpit.srcSet} sizes="42vw" width={PHOTOS.cockpit.w} height={PHOTOS.cockpit.h} alt={PHOTOS.cockpit.alt} loading="lazy" />

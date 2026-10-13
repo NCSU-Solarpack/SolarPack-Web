@@ -56,15 +56,6 @@ export const STATS = {
   ],
 }
 
-// Yearbook superlatives. Swagger, not stats.
-export const SUPERLATIVES = [
-  { word: 'Fast', caption: 'Fastest lap in Formula Sun Grand Prix history, 2022' },
-  { word: 'Heavy', caption: 'Voted heaviest' },
-  { word: 'Drift', caption: 'Only solar car to ever drift, and make it cool' },
-  { word: 'Gas→Sun', caption: 'First team to do a gas-to-solar conversion' },
-  { word: 'Crash', caption: 'Most likely to win in a crash' },
-]
-
 // What is already on the car (the old projects in the notes).
 export const BUILT = {
   heading: 'Already on the car',
@@ -122,7 +113,7 @@ export const SUBTEAMS = [
     projects: [
       'An invincible, non-flammable battery box',
       'Removable rear enclosure for the motor',
-      'Critical weight reduction (we know)',
+      'Critical weight reduction',
       'Foldable trunk',
       'A new way to attach the aeroshell',
       'Racing-grade padding for the occupant cell',
@@ -176,15 +167,7 @@ export const FOOTER = {
 // Set a date (ISO string) to show a live countdown in the hero. TODO: next race name and date.
 export const NEXT_RACE = { name: 'Formula Sun Grand Prix', date: null }
 
-export const MANIFESTO = 'NC State’s first solar team took a gas car, gave it the sun, and taught it to drift.'
-
-export const SUPERLATIVE_TICKER = [
-  'Fastest lap in Formula Sun history',
-  'Heaviest in the paddock',
-  'Only solar car that drifts',
-  'First gas-to-solar conversion',
-  'Most likely to win in a crash',
-]
+export const MANIFESTO = 'NC State’s first solar team took a gas car, gave it the sun, and set the fastest lap in Formula Sun history.'
 
 export const RAIL = [
   { p: 'sunsetSide', tag: 'Race week · Sunset' },
@@ -218,7 +201,7 @@ export const SYSTEMS = [
   { name: 'Composite body panels', team: 'Aerodynamics', status: 'shop', spec: 'Glass · Soric · epoxy', photo: 'sunsetSide' },
   { name: 'Military-grade chassis', team: 'Structures', status: 'built', spec: 'Welded steel tube', photo: 'push' },
   { name: 'Butterfly doors', team: 'Structures', status: 'built', spec: 'Pull to open', photo: 'sunsetOpen' },
-  { name: 'Non-flammable battery box', team: 'Structures', status: 'shop', spec: 'Invincible, allegedly', photo: 'wrench' },
+  { name: 'Non-flammable battery box', team: 'Structures', status: 'shop', spec: 'Fire-safe enclosure', photo: 'wrench' },
 ]
 
 export const NUMBERS = [

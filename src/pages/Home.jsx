@@ -6,7 +6,7 @@ import { supabaseService } from '../utils/supabase'
 import DepthHero from '../components/DepthHero'
 import useFitText from '../hooks/useFitText'
 import {
-  PHOTOS, LINKS, STATS, MISSION, SUBTEAMS, ROAD_AHEAD, NEEDS, MANIFESTO, SUPERLATIVE_TICKER, RAIL,
+  PHOTOS, LINKS, STATS, MISSION, SUBTEAMS, ROAD_AHEAD, NEEDS, MANIFESTO, RAIL,
   TIMELINE, SYSTEMS, NUMBERS, NEXT_RACE,
 } from '../content/site'
 import './Home.css'
@@ -129,7 +129,7 @@ const Manifesto = () => {
     <section ref={ref} className="mf" aria-label="Who we are">
       <span className="tag">Who we are</span>
       <p className="mf-text display">
-        {words.map((w, i) => <span key={i} className={`mf-word ${/gas|sun|drift/i.test(w) ? 'red' : ''}`}>{w} </span>)}
+        {words.map((w, i) => <span key={i} className={`mf-word ${/gas|sun|fastest/i.test(w) ? 'red' : ''}`}>{w} </span>)}
       </p>
       <div className="mf-row">
         <p className="lead">{MISSION.text}</p>
@@ -139,20 +139,23 @@ const Manifesto = () => {
   )
 }
 
-const Ticker = () => (
-  <div className="tk" aria-label="Superlatives">
-    <div className="tk-track">
-      {[0, 1].map((k) => (
-        <span key={k} className="tk-set" aria-hidden={k === 1}>
-          {SUPERLATIVE_TICKER.map((t) => <span key={t} className="display">{t}<i /></span>)}
-        </span>
-      ))}
-    </div>
-  </div>
-)
-
 const Rail = () => {
   const ref = useRef(null)
+  const [edge, setEdge] = useState({ start: true, end: false })
+  const step = (dir) => {
+    const el = ref.current
+    const item = el.querySelector('.rail-item')
+    const w = item ? item.getBoundingClientRect().width + 14 : el.clientWidth * 0.8
+    el.scrollBy({ left: dir * w, behavior: 'smooth' })
+  }
+  useEffect(() => {
+    const el = ref.current
+    const onScroll = () => setEdge({ start: el.scrollLeft < 48, end: el.scrollLeft + el.clientWidth > el.scrollWidth - 48 })
+    onScroll()
+    el.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    return () => { el.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll) }
+  }, [])
   useEffect(() => {
     const el = ref.current
     let down = false, sx = 0, sl = 0
@@ -167,8 +170,11 @@ const Rail = () => {
   return (
     <section className="rail" aria-label="Race week photos">
       <div className="rail-head wrap">
-        <span className="tag">Race week, 2026</span>
-        <span className="mono muted">Drag →</span>
+        <span className="tag">Race week 2025</span>
+        <div className="rail-btns">
+          <button className="rail-btn" onClick={() => step(-1)} disabled={edge.start} aria-label="Previous photos">←</button>
+          <button className="rail-btn" onClick={() => step(1)} disabled={edge.end} aria-label="Next photos">→</button>
+        </div>
       </div>
       <div ref={ref} className="rail-track" data-cursor>
         {RAIL.map((r, i) => (
@@ -423,7 +429,6 @@ const Home = () => {
     <>
       <Hero build={build} />
       <Manifesto />
-      <Ticker />
       <Rail />
       <Timeline />
       <HallOfFame />

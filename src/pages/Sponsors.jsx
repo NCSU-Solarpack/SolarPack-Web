@@ -31,7 +31,7 @@ const Sponsors = () => {
     <>
       <PageHero
         lines={['Sponsor', 'Fenrir']}
-        sentence="Your name rides on the door of the only solar car that drifts. Here is who is already on it, and where your money goes."
+        sentence="Your name rides on the door of a car that holds the fastest lap in Formula Sun Grand Prix history. Here is who is already on it, and where your money goes."
         photo={PHOTOS.sunsetSponsors}
       >
         <a className="btn" href={sponsorMail}>Ask for the packet <span className="arrow" aria-hidden="true">↗</span></a>

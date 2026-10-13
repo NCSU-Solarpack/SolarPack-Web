@@ -36,20 +36,16 @@
 .site .mf-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 24px; }
 .site .mf-row .lead { max-width: 36ch; color: var(--fg-2); }
 
-/* ---------- Ticker ---------- */
-.site .tk { overflow: hidden; background: var(--red); color: var(--paper); padding: 22px 0; transform: rotate(-1.5deg) scale(1.03); margin: 24px 0; }
-.site .tk-track { display: flex; width: max-content; animation: tk 38s linear infinite; }
-.site .tk:hover .tk-track { animation-play-state: paused; }
-.site .tk-set { display: flex; }
-.site .tk-set > span { display: inline-flex; align-items: center; gap: 0.5em; font-size: clamp(2rem, 1rem + 3vw, 4.5rem); line-height: 1; letter-spacing: -0.03em; padding-right: 0.5em; white-space: nowrap; }
-.site .tk-set i { width: 0.32em; height: 0.32em; border-radius: 50%; background: var(--ink); display: inline-block; }
-@keyframes tk { to { transform: translateX(-50%); } }
-@media (prefers-reduced-motion: reduce) { .site .tk-track { animation: none; } }
 
 /* ---------- Photo rail ---------- */
 .site .rail { padding: 72px 0 120px; }
-.site .rail-head { display: flex; justify-content: space-between; margin-bottom: 24px; }
-.site .rail-track { display: flex; gap: 14px; overflow-x: auto; padding: 0 var(--m); scroll-snap-type: x proximity; scrollbar-width: none; cursor: grab; user-select: none; }
+.site .rail-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+.site .rail-btns { display: flex; gap: 8px; }
+.site .rail-btn { width: 52px; height: 52px; display: grid; place-items: center; border: 0; background: var(--red); color: var(--paper); font: 500 20px/1 var(--font-mono); cursor: pointer; transition: background-color 200ms, color 200ms, transform 160ms var(--ease-out); }
+.site .rail-btn:hover { background: var(--paper); color: var(--ink); }
+.site .rail-btn:active { transform: scale(0.94); }
+.site .rail-btn:disabled { background: var(--bg-3); color: var(--fg-2); cursor: default; }
+.site .rail-track { display: flex; gap: 14px; overflow-x: auto; padding: 0 var(--m); scroll-snap-type: x proximity; scroll-padding-inline: var(--m); scrollbar-width: none; cursor: grab; user-select: none; }
 .site .rail-track::-webkit-scrollbar { display: none; }
 .site .rail-track.drag { cursor: grabbing; scroll-snap-type: none; }
 .site .rail-item { flex: 0 0 auto; scroll-snap-align: start; display: grid; gap: 12px; }

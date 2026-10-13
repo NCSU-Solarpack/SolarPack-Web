@@ -12,7 +12,7 @@ const NotFound = () => {
     <>
     <PageHero
       lines={['Wrong', 'turn']}
-      sentence="This page does not exist, or it drifted somewhere else. Error 404."
+      sentence="This page does not exist or has moved. Error 404."
       photo={PHOTOS.sunsetSide}
     >
       <div className="app-actions">
