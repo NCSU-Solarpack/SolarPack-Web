@@ -1,0 +1,48 @@
+/* The door: logos on a white plate, the way they ride on Fenrir */
+.site .door { padding: var(--gap-section) var(--m); }
+.site .door-cue { color: var(--red); font-weight: 500; font-size: var(--step-lead); justify-self: end; margin-bottom: -24px; }
+.site .plate { background: var(--paper); color: var(--ink); padding: clamp(20px, 3vw, 48px); display: grid; gap: 48px; }
+.site .plate-tier { display: grid; grid-template-columns: 3fr 9fr; gap: 24px; align-items: start; }
+.site .plate-tier h3 { font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2.25rem); }
+.site .logos { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+.site .logos.big { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.site .logos li { background: var(--paper-2); display: grid; place-items: center; padding: 24px; min-height: 180px; }
+.site .logos.big li { min-height: 240px; }
+.site .logos img { width: 100%; height: 100%; max-height: 140px; object-fit: contain; align-self: center; transition: transform 300ms var(--ease-out); }
+.site .logos li:hover img { transform: scale(1.04); }
+.site .logos .empty { place-items: center; font-weight: 500; }
+.site .plate .state { padding: 0; }
+
+.site .builds-copy { grid-column: 1 / span 5; display: grid; gap: 28px; align-content: start; }
+.site .builds-copy .sec-head { margin-bottom: 0; }
+.site .builds-photo { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; margin-top: 12px; }
+.site .builds-list { grid-column: 7 / span 6; list-style: none; padding: 0; display: grid; gap: 36px; }
+.site .builds-list h3 { font-size: clamp(1.375rem, 1rem + 1.2vw, 2rem); margin-bottom: 8px; }
+
+.site .bench { display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; padding: var(--gap-section) 0 0 var(--m); overflow: hidden; }
+.site .bench-copy { grid-column: 1 / span 6; display: grid; gap: 28px; align-content: start; padding-bottom: var(--gap-section); }
+.site .bench-copy .sec-head { margin-bottom: 0; }
+.site .bench-copy ul { list-style: none; padding: 0; display: grid; gap: 20px; }
+.site .bench-copy li { display: grid; gap: 4px; }
+.site .bench-copy b { font-size: var(--step-lead); }
+.site .bench-photo { grid-column: 8 / span 5; margin: 0; align-self: end; }
+.site .bench-photo img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; }
+
+.site .ask-row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; align-items: end; }
+.site .ask-mail { grid-column: 1 / span 8; font-size: clamp(1.05rem, 3.05vw, 3rem); text-decoration: none; white-space: nowrap; }
+.site .ask-mail:hover { color: var(--red); }
+.site .ask-row p { grid-column: 9 / span 4; }
+
+@media (max-width: 900px) {
+  .site .door { padding: 96px 16px; }
+  .site .builds .split { grid-template-columns: 1fr; }
+  .site .door-cue { justify-self: start; margin-bottom: 0; }
+  .site .plate-tier { grid-template-columns: 1fr; }
+  .site .logos, .site .logos.big { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .site .logos li, .site .logos.big li { min-height: 140px; padding: 16px; }
+  .site .builds-copy, .site .builds-list, .site .bench-copy, .site .bench-photo, .site .ask-mail, .site .ask-row p { grid-column: auto; }
+  .site .bench { grid-template-columns: 1fr; padding: 96px 16px 0; }
+  .site .bench-copy { padding-bottom: 48px; }
+  .site .bench-photo { margin: 0 -16px; }
+  .site .ask-row { grid-template-columns: 1fr; }
+}

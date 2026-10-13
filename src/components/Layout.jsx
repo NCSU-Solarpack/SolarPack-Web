@@ -19,7 +19,12 @@ const useReveal = () => {
       })
     }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 })
 
-    const scan = () => document.querySelectorAll('.site [data-reveal]:not(.is-in)').forEach((el) => io.observe(el))
+    // Strips, section heads and big lists reveal too, without each page opting in.
+    const AUTO = '.site .strip img, .site .sec-head, .site .semester li, .site .where-list li, .site .logos li, .site .privacy section, .site-footer .invite > *, .site-footer .contact a'
+    const scan = () => {
+      document.querySelectorAll(AUTO).forEach((el) => { if (!el.hasAttribute('data-reveal')) el.setAttribute('data-reveal', '') })
+      document.querySelectorAll('.site [data-reveal]:not(.is-in)').forEach((el) => io.observe(el))
+    }
     scan()
     // Supabase content arrives after first paint; pick it up too.
     const mo = new MutationObserver(scan)

@@ -1,0 +1,56 @@
+/* Team: an index of names; the hovered lead's portrait stands beside it */
+.site .roster { padding: var(--gap-section) var(--m); }
+.site .roster-grid { display: grid; grid-template-columns: 7fr 5fr; gap: 48px; align-items: start; }
+.site .roster-list { list-style: none; padding: 0; margin: 0; }
+.site .roster-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 16px;
+  padding: 14px 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+.site .roster-thumb { display: none; }
+.site .roster-name {
+  font: 700 clamp(1.5rem, 0.9rem + 2.2vw, 3.25rem) / 1 var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  transition: color 160ms ease, transform 300ms var(--ease-out);
+}
+.site .roster-role { font-size: var(--step-body); }
+.site .roster-row:hover .roster-name, .site .roster-row:focus-visible .roster-name { color: var(--red); transform: translateX(10px); }
+.site .roster-preview { position: sticky; top: 24px; margin: 0; display: grid; gap: 12px; }
+.site .roster-preview img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; background: var(--paper-2); }
+@media (prefers-reduced-motion: no-preference) {
+  .site .roster-preview img { animation: fade-up 400ms var(--ease-out) both; }
+}
+
+.site .crew-head { display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; margin-bottom: 48px; align-items: end; }
+.site .crew-head .sec-head { grid-column: 1 / span 6; margin: 0; }
+.site .crew-head p { grid-column: 8 / span 5; }
+.site .crew-cta { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; margin-top: 56px; }
+
+.site-dialog .member { display: grid; grid-template-columns: 2fr 3fr; }
+.site-dialog .member > img { width: 100%; height: 100%; min-height: 360px; object-fit: cover; }
+.site-dialog .member-text { padding: 56px 32px 32px; display: grid; gap: 16px; align-content: start; }
+.site-dialog .member-text h2 { font: 700 clamp(1.75rem, 1.2rem + 2vw, 2.75rem) / 1 var(--font-display); text-transform: uppercase; letter-spacing: -0.02em; }
+
+@media (max-width: 900px) {
+  .site .roster { padding: 96px 16px; }
+  .site .roster-grid { grid-template-columns: 1fr; }
+  .site .roster-preview { display: none; }
+  .site .roster-row { grid-template-columns: 64px 1fr; grid-template-rows: auto auto; row-gap: 4px; column-gap: 16px; align-items: center; }
+  .site .roster-thumb { display: block; grid-row: 1 / span 2; width: 64px; height: 80px; object-fit: cover; }
+  .site .roster-name { align-self: end; }
+  .site .roster-role { grid-column: 2; align-self: start; }
+  .site .crew-head { grid-template-columns: 1fr; }
+  .site .crew-head .sec-head, .site .crew-head p { grid-column: auto; }
+  .site-dialog .member { grid-template-columns: 1fr; }
+  .site-dialog .member > img { min-height: 0; aspect-ratio: 4 / 3; }
+}

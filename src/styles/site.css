@@ -130,7 +130,7 @@ body:has(.site) {
   padding: 140px var(--m) 40px;
 }
 .site .page-hero h1 {
-  font-size: clamp(3rem, 1rem + 8.4vw, 9.5rem);
+  font-size: min(clamp(3rem, 1rem + 8.4vw, 9.5rem), calc((100vw - 2 * var(--m)) / (var(--maxch, 6) * 0.98)));
   line-height: 0.92;
   letter-spacing: -0.03em;
   max-width: 100%;
@@ -332,3 +332,83 @@ body:has(.site) {
   .site-footer .contact { display: flex; flex-wrap: wrap; gap: 10px 20px; font-size: 15px; }
   .site-footer .name { font-size: 12.4vw; }
 }
+
+/* ---------- Inner pages ---------- */
+.site .page-hero { position: relative; overflow: hidden; }
+.site .page-hero.has-photo { min-height: 86svh; align-content: space-between; }
+.site .page-hero.has-photo h1 { font-size: min(clamp(3rem, 0.6rem + 7.2vw, 8.5rem), calc(54vw / (var(--maxch, 6) * 0.98))); max-width: 100%; position: relative; z-index: 2; }
+.site .page-hero .row { position: relative; z-index: 2; max-width: 50vw; justify-content: start; }
+.site .page-hero.has-photo .row { flex-direction: column; align-items: start; }
+.site .ph-photo { position: absolute; z-index: 1; margin: 0; right: -3vw; top: 38%; width: 42vw; transform: rotate(3deg); }
+.site .ph-photo img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+@media (prefers-reduced-motion: no-preference) {
+  .js .site .ph-photo { animation: ph-slide 1000ms var(--ease-out) 300ms both; }
+}
+@keyframes ph-slide { from { opacity: 0; transform: translateX(12vw) rotate(7deg); } to { opacity: 1; transform: rotate(3deg); } }
+@media (max-width: 760px) {
+  .site .page-hero { min-height: auto; padding-top: 112px; }
+  .site .page-hero.has-photo h1, .site .page-hero h1 { max-width: none; font-size: min(15vw, calc((100vw - 32px) / (var(--maxch, 6) * 0.98))); }
+  .site .page-hero .row { max-width: none; }
+  .site .ph-photo { position: relative; right: auto; top: auto; width: 108%; margin: 8px 0 0 -4%; transform: rotate(2deg); }
+}
+
+.site .sec { padding: var(--gap-section) var(--m); }
+.site .sec-head { font-size: var(--step-head); margin-bottom: 40px; max-width: 18ch; }
+.site .give-form p.small { max-width: 60ch; }
+.site .split { display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; }
+.site .prose { max-width: 62ch; display: grid; gap: 1em; }
+.site .prose h2 { font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2.25rem); margin-top: 1.2em; }
+.site .prose a { text-decoration: underline; text-underline-offset: 3px; }
+.site .prose a:hover { color: var(--red); }
+.site .prose ul { padding-left: 1.2em; display: grid; gap: 0.5em; }
+
+.site .strip { display: grid; grid-template-columns: 5fr 3fr 4fr; gap: 8px; align-items: start; }
+.site .strip img { width: 100%; object-fit: cover; }
+.site .strip img:nth-child(2) { --d: 1; }
+.site .strip img:nth-child(3) { --d: 2; }
+.site .strip img:nth-child(1) { aspect-ratio: 4 / 3; }
+.site .strip img:nth-child(2) { aspect-ratio: 3 / 4; margin-top: 15%; }
+.site .strip img:nth-child(3) { aspect-ratio: 1; margin-top: 6%; }
+@media (max-width: 900px) {
+  .site .split { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .site .sec { padding: 96px 16px; }
+  .site .strip { grid-template-columns: 1fr 1fr; }
+  .site .strip img:nth-child(1) { grid-column: 1 / -1; }
+}
+
+/* Overlay dialog (team bios, blog posts): a real overlay, so it may float */
+.site-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(10, 10, 10, 0.86);
+  display: grid;
+  place-items: start center;
+  overflow-y: auto;
+  padding: 6vh 16px;
+}
+.site-dialog .panel {
+  position: relative;
+  background: var(--paper);
+  color: var(--ink);
+  width: min(880px, 100%);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4); /* taste-skill-ignore: dialog */
+}
+.site-dialog .close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font: 500 16px/1 var(--font-text);
+  cursor: pointer;
+  z-index: 2;
+}
+.site-dialog .close:hover { background: var(--red); }
+.site .privacy section { display: grid; gap: 0.8em; }
+.site .privacy section + section { margin-top: 1.5em; }
