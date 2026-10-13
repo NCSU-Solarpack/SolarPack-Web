@@ -166,3 +166,58 @@ export const FOOTER = {
   invite: ['Come build', 'the next one'],
   action: { label: 'Join the team', href: `mailto:solarpacknc@ncsu.edu?subject=${encodeURIComponent('I want to join SolarPack')}` },
 }
+
+// ---------- v2 home ----------
+
+// Set a date (ISO string) to show a live countdown in the hero. TODO: next race name and date.
+export const NEXT_RACE = { name: 'Formula Sun Grand Prix', date: null }
+
+export const MANIFESTO = 'NC State’s first solar team took a gas car, gave it the sun, and taught it to drift.'
+
+export const SUPERLATIVE_TICKER = [
+  'Voted fastest',
+  'Heaviest in the paddock',
+  'Only solar car that drifts',
+  'First gas-to-solar conversion',
+  'Most likely to win in a crash',
+]
+
+export const RAIL = [
+  { p: 'sunsetSide', tag: 'Race week · Sunset' },
+  { p: 'cockpit', tag: 'Driver + passenger' },
+  { p: 'nightLineup', tag: 'Night shift' },
+  { p: 'pitTent', tag: 'Pit tent' },
+  { p: 'sunsetSponsors', tag: 'Sponsor door' },
+  { p: 'nightHeadlights', tag: 'Lights on' },
+]
+
+export const TIMELINE = [
+  { year: 'Before', title: 'A gas car', text: 'Fenrir started life burning gasoline. The team stripped it to the frame and kept the bones.', photo: null },
+  { year: '2025', title: 'Bare chassis', text: 'A welded steel frame, a hand-built 13.6 kWh pack and a decentralized CAN bus rolled into scrutineering with no body at all.', photo: 'scrutineering' },
+  { year: '2026', title: 'Fenrir gets its skin', text: 'Panels, butterfly doors, the red flame and the number 99. Then it went racing, and sideways.', photo: 'sunsetSide' },
+  { year: '2027/28', title: 'A new car', text: 'Modelled from scratch by Aero, with direct drive, regen and the first steps toward automation.', photo: 'nightHeadlights' },
+]
+
+// Hall of Fame: every system on the car. status: 'built' | 'shop'
+export const SYSTEMS = [
+  { name: '13.6 kWh battery pack', team: 'High Voltage', status: 'built', spec: '13.6 kWh', photo: 'rear' },
+  { name: 'MPPT boost converter', team: 'High Voltage', status: 'shop', spec: '1.1 kW · dual-phase', photo: 'rear' },
+  { name: 'Synchronous buck converter', team: 'High Voltage', status: 'shop', spec: '85% efficient', photo: 'rear' },
+  { name: 'Regenerative braking', team: 'High Voltage', status: 'shop', spec: 'Energy back to pack', photo: 'suspension' },
+  { name: 'Decentralized CAN bus', team: 'Low Voltage', status: 'built', spec: 'One car-wide line', photo: 'scrutineering' },
+  { name: 'LoRa telemetry board', team: 'Low Voltage', status: 'shop', spec: 'Live to the pit', photo: 'cockpit' },
+  { name: 'Body control modules', team: 'Low Voltage', status: 'shop', spec: 'Front + rear', photo: 'nightHeadlights' },
+  { name: 'Software steering', team: 'Low Voltage', status: 'shop', spec: 'Remote + failsafe', photo: 'cockpit' },
+  { name: 'Electronic brake proportioning', team: 'Vehicle Dynamics', status: 'shop', spec: 'Dual-bias', photo: 'suspension' },
+  { name: 'Composite body panels', team: 'Aerodynamics', status: 'shop', spec: 'Glass · Soric · epoxy', photo: 'sunsetSide' },
+  { name: 'Military-grade chassis', team: 'Structures', status: 'built', spec: 'Welded steel tube', photo: 'push' },
+  { name: 'Butterfly doors', team: 'Structures', status: 'built', spec: 'Pull to open', photo: 'sunsetOpen' },
+  { name: 'Non-flammable battery box', team: 'Structures', status: 'shop', spec: 'Invincible, allegedly', photo: 'wrench' },
+]
+
+export const NUMBERS = [
+  { value: 13.6, decimals: 1, unit: 'kWh', label: 'Battery pack, built by hand in-house' },
+  { value: 1.1, decimals: 1, unit: 'kW', label: 'Dual-phase MPPT boost converter on the bench' },
+  { value: 85, decimals: 0, unit: '%', label: 'Efficiency of our synchronous buck converter' },
+  { value: 100, decimals: 0, unit: 'cells', label: 'Watched live by our own iPad app' },
+]
