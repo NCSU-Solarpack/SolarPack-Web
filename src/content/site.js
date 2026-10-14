@@ -28,7 +28,9 @@ export const PHOTOS = {
   suspension: { src: '/race2025/race2025_5.jpg', w: 1600, h: 1067, alt: 'A team member working on a coilover and wheel of the chassis' },
   rear: { src: '/race2025/race2025_7.jpg', w: 1600, h: 1067, alt: 'The rear of the chassis with the battery box, cooling and coilovers exposed' },
   wrench: { src: '/race2025/race2025_8.jpg', w: 1600, h: 1067, alt: 'Two team members fitting a wheel in the garage' },
-  golfParked: { src: '/images/history/golf-parked.webp', w: 672, h: 403, alt: 'SolarPack’s first car, a red VW Golf numbered 99 with a solar array on the hood' },
+  firstCarPaddock: { src: '/images/history/first-car-paddock.webp', w: 1294, h: 832, alt: 'SolarPack’s first car, a white number 99 with a clear canopy, parked outside the garages with the team around it' },
+  firstCarGarage: { src: '/images/history/first-car-garage.webp', w: 413, h: 329, alt: 'The first SolarPack car, number 99, in a pit garage' },
+  golfParked: { src: '/images/history/golf-parked.webp', w: 672, h: 403, alt: 'SolarPack’s second car, a red VW Golf numbered 99 with a solar array on the hood' },
   golfTrack: { src: '/images/history/golf-track.webp', w: 483, h: 305, alt: 'The red solar VW Golf on track at the 2022 Formula Sun Grand Prix' },
   golfOutreach: { src: '/images/history/golf-outreach.webp', w: 691, h: 439, alt: 'Team members showing the solar Golf to visitors at an outreach event' },
   paddock: { src: '/race2025/race2025_1.jpg', w: 1600, h: 1067, alt: 'Aerial view of every team and solar car lined up on the tarmac' },
@@ -187,9 +189,10 @@ export const RAIL = [
 
 export const TIMELINE = [
   { year: '2016', title: 'SolarPack is founded', text: 'NC State students start a solar car team with a different goal: not a flat one-seater, but a solar car you could see yourself driving.', photo: null, big: 'Est.' },
-  { year: 'Car one', title: 'A gas Golf gets the sun', text: 'Our first car was a red VW Golf, car 99, converted from gas to solar. Its body panels, solar array and battery box were built in-house.', photo: 'golfParked' },
+  { year: 'Car one', title: 'The first 99', text: 'Our first solar car: a white body with a clear canopy, hand-built panels and the number 99 the team still races under.', photo: 'firstCarPaddock' },
+  { year: 'Car two', title: 'A gas Golf gets the sun', text: 'Our second car was a red VW Golf, also car 99, converted from gas to solar. Its body panels, solar array and battery box were built in-house.', photo: 'golfParked' },
   { year: '2022', title: 'Fastest lap in Formula Sun history', text: 'At the 2022 Formula Sun Grand Prix the Golf drove the fastest lap in the history of the entire competition.', photo: 'golfTrack' },
-  { year: '2025', title: 'Fenrir, bare chassis', text: 'Our second car reuses as much of the Golf as it can. A welded frame, a hand-built 13.6 kWh pack and a CAN bus went to Formula Sun Grand Prix for a first test.', photo: 'scrutineering' },
+  { year: '2025', title: 'Fenrir, bare chassis', text: 'Our third car reuses as much of the Golf as it can. A welded frame, a hand-built 13.6 kWh pack and a CAN bus went to Formula Sun Grand Prix for a first test.', photo: 'scrutineering' },
   { year: '2026', title: 'Fenrir gets its skin', text: 'Panels, butterfly doors, the red flame and the number 99. Practical enough for passengers, built to qualify for the American Solar Challenge.', photo: 'sunsetSide' },
 ]
 
