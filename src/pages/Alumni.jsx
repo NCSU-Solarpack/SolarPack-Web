@@ -36,8 +36,8 @@ const Alumni = () => {
 
       <section className="stage f-paper" aria-label="Leadership by semester">
         <div className="stage-fixed">
-          <img src={PHOTOS.paddock.src} width={PHOTOS.paddock.w} height={PHOTOS.paddock.h} alt={PHOTOS.paddock.alt} />
-          <img src={PHOTOS.push.src} width={PHOTOS.push.w} height={PHOTOS.push.h} alt={PHOTOS.push.alt} loading="lazy" />
+          <img src={PHOTOS.firstCarPaddock.src} width={PHOTOS.firstCarPaddock.w} height={PHOTOS.firstCarPaddock.h} alt={PHOTOS.firstCarPaddock.alt} />
+          <img src={PHOTOS.firstCarGarage.src} width={PHOTOS.firstCarGarage.w} height={PHOTOS.firstCarGarage.h} alt={PHOTOS.firstCarGarage.alt} loading="lazy" />
         </div>
         <div className="stage-scroll">
           {loading && <p className="state">Loading alumni…</p>}

@@ -188,7 +188,7 @@ const Timeline = () => {
         <div className="tl-intro">
           <span className="tag">Heritage</span>
           <h2 id="tl-title" className="tl-title">From gas<br />to sun</h2>
-          <p className="lead muted">Ten years, two cars, one lap record.</p>
+          <p className="lead muted">Ten years, three cars, one lap record.</p>
         </div>
         {TIMELINE.map((t, i) => (
           <article key={t.year} className={`tl-card ${t.photo ? '' : 'no-photo'}`}>
