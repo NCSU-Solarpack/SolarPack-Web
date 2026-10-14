@@ -170,7 +170,7 @@ const Rail = () => {
   return (
     <section className="rail" aria-label="Race week photos">
       <div className="rail-head wrap">
-        <span className="tag">Race week 2025</span>
+        <span className="tag">Formula Sun Grand Prix 2026</span>
         <div className="rail-btns">
           <button className="rail-btn" onClick={() => step(-1)} disabled={edge.start} aria-label="Previous photos">←</button>
           <button className="rail-btn" onClick={() => step(1)} disabled={edge.end} aria-label="Next photos">→</button>
