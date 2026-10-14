@@ -139,9 +139,6 @@ export const ROAD_AHEAD = {
     'The most efficient panel process we can find, for a smooth aeroshell',
     'Automation: we are the first solar car team looking into it',
   ],
-  quotes: [
-    { text: 'Very cool, very efficient car. We are the first solar car team looking into automation.', who: 'Alexander Levine, Low Voltage' },
-  ],
 }
 
 // Funding needs. "Everything" is the honest answer; these are the specifics.
