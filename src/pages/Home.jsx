@@ -209,7 +209,7 @@ const Timeline = () => {
         <div className="tl-intro">
           <span className="tag">Heritage</span>
           <h2 id="tl-title" className="tl-title">From gas<br />to sun</h2>
-          <p className="lead muted">Ten years, two cars, one lap record, and the next car already in CAD.</p>
+          <p className="lead muted">Ten years, two cars, one lap record.</p>
         </div>
         {TIMELINE.map((t, i) => (
           <article key={t.year} className={`tl-card ${t.photo ? '' : 'no-photo'}`}>
@@ -340,7 +340,6 @@ const RoadAhead = () => (
           <li key={t} data-reveal style={{ '--d': i }}><span className="mono red">{String(i + 1).padStart(2, '0')}</span>{t}</li>
         ))}
       </ol>
-      <p className="ahead-q2">“{ROAD_AHEAD.quotes[1].text}” <span className="mono muted">{ROAD_AHEAD.quotes[1].who}</span></p>
     </div>
   </section>
 )

@@ -33,7 +33,7 @@ const Contact = () => {
               <li><a href={LINKS.instagram} target="_blank" rel="noopener">Instagram</a><span>Race week, every day</span></li>
               <li><a href={LINKS.linkedin} target="_blank" rel="noopener">LinkedIn</a><span>For sponsors and recruiters</span></li>
               <li><a href={LINKS.facebook} target="_blank" rel="noopener">Facebook</a><span>For parents and alumni</span></li>
-              <li><Link to="/sponsors">Sponsor packet</Link><span>Tiers and what they fund</span></li>
+              <li><Link to="/sponsors">Sponsor packet</Link><span>What your support funds</span></li>
             </ul>
           </div>
           <div className="where-photos">

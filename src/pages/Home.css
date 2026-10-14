@@ -125,7 +125,7 @@
 .site .board-bar i { display: block; height: 100%; background: var(--red-hi); transition: width 1400ms var(--ease-out); }
 .site .board-cell ul { list-style: none; padding: 0; display: grid; gap: 8px; color: var(--fg-2); font-size: 15px; }
 .site .board-cell ul li::before { content: '— '; color: var(--red-hi); }
-.site .board-tlm { background: var(--red); color: var(--paper); transition: background-color 300ms; }
+.site .board-tlm { grid-column: 1 / -1; min-height: 0; background: var(--red); color: var(--paper); transition: background-color 300ms; }
 .site .board-tlm:hover { background: #a80000; }
 .site .board-tlm .muted { color: rgba(255,255,255,0.8); }
 @media (max-width: 900px) { .site .board-grid { grid-template-columns: 1fr; } .site .board { padding: 112px 16px; } .site .board-pct { justify-items: start; } }

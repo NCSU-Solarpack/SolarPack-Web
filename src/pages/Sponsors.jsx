@@ -8,7 +8,7 @@ import './Sponsors.css'
 const sponsorMail = `mailto:${LINKS.email}?subject=${encodeURIComponent('Sponsoring SolarPack')}&body=${encodeURIComponent('Hi SolarPack,\n\nWe are interested in sponsoring Fenrir. Please send the sponsorship packet.\n\n')}`
 
 const Sponsors = () => {
-  const [sponsorTiers, setSponsorTiers] = useState([])
+  const [sponsors, setSponsors] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -16,10 +16,11 @@ const Sponsors = () => {
     const load = async () => {
       try {
         const data = await supabaseService.getSponsors()
-        setSponsorTiers(data.sponsorTiers || [])
+        // Tiers are internal only; the public page shows one flat list.
+        setSponsors((data.sponsorTiers || []).flatMap((t) => t.sponsors || []))
       } catch (e) {
         console.error('Error loading sponsors from Supabase', e)
-        setSponsorTiers([])
+        setSponsors([])
       } finally {
         setLoading(false)
       }
@@ -42,27 +43,21 @@ const Sponsors = () => {
         <div className="plate">
           <p className="door-cue">Pull to open ↓</p>
           {loading && <p className="state">Loading sponsors…</p>}
-          {!loading && sponsorTiers.length === 0 && (
+          {!loading && sponsors.length === 0 && (
             <p className="state">Sponsor logos are on their way. Yours could be first.</p>
           )}
-          {sponsorTiers.map((tier) => (
-            <div key={tier.tier} className="plate-tier">
-              <h3>{tier.tier.replace(/ sponsors?$/i, '')}</h3>
-              <ul className={`logos ${/platinum/i.test(tier.tier) ? 'big' : ''}`}>
-                {(tier.sponsors || []).map((s) => {
-                  const logo = <img src={s.logo || s.image} alt={s.name} loading="lazy" />
-                  return (
-                    <li key={s.name} data-reveal>
-                      {s.website ? <a href={s.website} target="_blank" rel="noopener noreferrer" title={s.name}>{logo}</a> : logo}
-                    </li>
-                  )
-                })}
-                {(!tier.sponsors || tier.sponsors.length === 0) && (
-                  <li className="empty">{tier.placeholder || 'Open spot'}</li>
-                )}
-              </ul>
-            </div>
-          ))}
+          {sponsors.length > 0 && (
+            <ul className="logos">
+              {sponsors.map((s) => {
+                const logo = <img src={s.logo || s.image} alt={s.name} loading="lazy" />
+                return (
+                  <li key={s.name} data-reveal>
+                    {s.website ? <a href={s.website} target="_blank" rel="noopener noreferrer" title={s.name}>{logo}</a> : logo}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
         </div>
       </section>
 
@@ -106,7 +101,7 @@ const Sponsors = () => {
         <h2 id="ask-title" className="sec-head">Talk to us</h2>
         <div className="ask-row">
           <a className="ask-mail display" href={sponsorMail}>{LINKS.email}</a>
-          <p>Tell us what you make and we will send the packet with tiers, where logos go on the car, and what each level funds. Prefer to give directly? <Link className="textlink" to="/donate">Donate here</Link>.</p>
+          <p>Tell us what you make and we will send the packet with where logos go on the car and what your support funds. Prefer to give directly? <Link className="textlink" to="/donate">Donate here</Link>.</p>
         </div>
         <div className="strip" style={{ marginTop: 64 }}>
           <img src={PHOTOS.nightLineup.src} srcSet={PHOTOS.nightLineup.srcSet} sizes="40vw" width={PHOTOS.nightLineup.w} height={PHOTOS.nightLineup.h} alt={PHOTOS.nightLineup.alt} loading="lazy" />

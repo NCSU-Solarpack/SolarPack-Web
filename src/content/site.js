@@ -103,7 +103,6 @@ export const SUBTEAMS = [
     projects: [
       'Body panels laid up in fiberglass, Lantor Soric and epoxy resin',
       'Front bumper and rear redesigned in 3D',
-      'The 2027/28 car, modelled from scratch',
       'A better windshield',
     ],
     photo: 'sunsetSide',
@@ -120,6 +119,16 @@ export const SUBTEAMS = [
     ],
     photo: 'wrench',
   },
+  {
+    id: 'business', name: 'Business', short: 'Biz',
+    projects: [
+      'Alumni connections',
+      'Social media',
+      'Finance',
+      'Competition planning',
+    ],
+    photo: 'pitTent',
+  },
 ]
 
 export const ROAD_AHEAD = {
@@ -129,10 +138,8 @@ export const ROAD_AHEAD = {
     'Power steering, regenerative braking, cruise control and air conditioning',
     'The most efficient panel process we can find, for a smooth aeroshell',
     'Automation: we are the first solar car team looking into it',
-    'A brand new car for 2027/28',
   ],
   quotes: [
-    { text: 'We’re making a new car and it’s gonna be awesome and win everything.', who: 'Estyn Gerber, Project Director' },
     { text: 'Very cool, very efficient car. We are the first solar car team looking into automation.', who: 'Alexander Levine, Low Voltage' },
   ],
 }
@@ -153,12 +160,12 @@ export const NEEDS = {
 
 export const CTA = {
   word: 'Sponsor',
-  sentence: 'Put your name on the door. Sponsor tiers and the packet are on the next page.',
+  sentence: 'Put your name on the door. The sponsor packet is on the next page.',
   to: '/sponsors',
 }
 
 export const FOOTER = {
-  invite: ['Come build', 'the next one'],
+  invite: ['Come build', 'with us'],
   action: { label: 'Join the team', href: `mailto:solarpacknc@ncsu.edu?subject=${encodeURIComponent('I want to join SolarPack')}` },
 }
 
@@ -167,7 +174,7 @@ export const FOOTER = {
 // Set a date (ISO string) to show a live countdown in the hero. TODO: next race name and date.
 export const NEXT_RACE = { name: 'Formula Sun Grand Prix', date: null }
 
-export const MANIFESTO = 'NC State’s first solar team took a gas car, gave it the sun, and set the fastest lap in Formula Sun history.'
+export const MANIFESTO = 'NC State’s first solar team and set the fastest lap in Formula Sun history.'
 
 export const RAIL = [
   { p: 'sunsetSide', tag: 'Race week · Sunset' },
@@ -182,9 +189,8 @@ export const TIMELINE = [
   { year: '2016', title: 'SolarPack is founded', text: 'NC State students start a solar car team with a different goal: not a flat one-seater, but a solar car you could see yourself driving.', photo: null, big: 'Est.' },
   { year: 'Car one', title: 'A gas Golf gets the sun', text: 'Our first car was a red VW Golf, car 99, converted from gas to solar. Its body panels, solar array and battery box were built in-house.', photo: 'golfParked' },
   { year: '2022', title: 'Fastest lap in Formula Sun history', text: 'At the 2022 Formula Sun Grand Prix the Golf drove the fastest lap in the history of the entire competition.', photo: 'golfTrack' },
-  { year: '2025', title: 'Fenrir, bare chassis', text: 'Our next car reuses as much of the Golf as it can. A welded frame, a hand-built 13.6 kWh pack and a CAN bus went to Formula Sun Grand Prix for a first test.', photo: 'scrutineering' },
+  { year: '2025', title: 'Fenrir, bare chassis', text: 'Our second car reuses as much of the Golf as it can. A welded frame, a hand-built 13.6 kWh pack and a CAN bus went to Formula Sun Grand Prix for a first test.', photo: 'scrutineering' },
   { year: '2026', title: 'Fenrir gets its skin', text: 'Panels, butterfly doors, the red flame and the number 99. Practical enough for passengers, built to qualify for the American Solar Challenge.', photo: 'sunsetSide' },
-  { year: 'Next', title: 'A new car', text: 'Modelled from scratch by Aero, with direct drive, regen and the first steps toward automation. The World Solar Challenge is the long-term target.', photo: 'nightHeadlights' },
 ]
 
 // Hall of Fame: every system on the car. status: 'built' | 'shop'
