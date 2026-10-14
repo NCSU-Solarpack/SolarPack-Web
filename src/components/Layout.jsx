@@ -100,7 +100,7 @@ const Footer = () => {
   return (
     <footer ref={ref} className="site-footer">
       <div className="lights-out" aria-hidden="true"><i /><i /><i /><i /><i /></div>
-      <p className="big display" data-reveal><span>Lights out.</span><span className="red">Away we go.</span></p>
+      <p className="big display" data-reveal><span>Go</span><span className="red">SolarPack.</span></p>
       <div className="row">
         <div className="cta">
           <p className="lead">{FOOTER.invite.join(' ')}. Engineers, designers, drivers and business minds: the garage is open.</p>
