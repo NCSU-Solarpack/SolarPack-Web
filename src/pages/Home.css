@@ -121,8 +121,6 @@
 .site .board-cell { background: var(--bg); padding: 28px; display: grid; gap: 20px; align-content: start; min-height: 260px; text-decoration: none; }
 .site .board-cell header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .site .board-cell h3 { font-size: clamp(1.25rem, 1rem + 0.8vw, 1.75rem); }
-.site .board-bar { height: 8px; background: var(--bg-3); }
-.site .board-bar i { display: block; height: 100%; background: var(--red-hi); transition: width 1400ms var(--ease-out); }
 .site .board-cell ul { list-style: none; padding: 0; display: grid; gap: 8px; color: var(--fg-2); font-size: 15px; }
 .site .board-cell ul li::before { content: '— '; color: var(--red-hi); }
 .site .board-tlm { grid-column: 1 / -1; min-height: 0; background: var(--red); color: var(--paper); transition: background-color 300ms; }

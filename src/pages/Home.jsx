@@ -7,7 +7,7 @@ import DepthHero from '../components/DepthHero'
 import useFitText from '../hooks/useFitText'
 import {
   PHOTOS, LINKS, STATS, MISSION, SUBTEAMS, ROAD_AHEAD, NEEDS, MANIFESTO, RAIL,
-  TIMELINE, SYSTEMS, NUMBERS, NEXT_RACE,
+  TIMELINE, SYSTEMS, NUMBERS, NEXT_RACE, BUILT_PCT,
 } from '../content/site'
 import './Home.css'
 
@@ -21,27 +21,6 @@ const Img = ({ p, sizes = '50vw', className = '', eager }) => (
 )
 
 // ---------- data hooks ----------
-const useBuild = () => {
-  const [build, setBuild] = useState(null)
-  useEffect(() => {
-    let alive = true
-    supabaseService.getScheduleData().then((data) => {
-      if (!alive) return
-      const projects = (data.projects || []).filter((p) => p.status !== 'cancelled')
-      const done = projects.filter((p) => p.status === 'completed').length
-      const byTeam = {}
-      projects.forEach((p) => {
-        const t = (byTeam[p.team] ||= { total: 0, done: 0 })
-        t.total += 1
-        if (p.status === 'completed') t.done += 1
-      })
-      setBuild({ total: projects.length, done, pct: projects.length ? Math.round((done / projects.length) * 100) : 0, byTeam, at: new Date() })
-    }).catch(() => alive && setBuild(null))
-    return () => { alive = false }
-  }, [])
-  return build
-}
-
 const useSession = () => {
   const [s, setS] = useState(undefined)
   useEffect(() => {
@@ -80,7 +59,7 @@ const useCountdown = (iso) => {
 }
 
 // ---------- sections ----------
-const Hero = ({ build }) => {
+const Hero = () => {
   const fit = useFitText()
   const cd = useCountdown(NEXT_RACE.date)
   const pad = (n) => String(n).padStart(2, '0')
@@ -95,7 +74,7 @@ const Hero = ({ build }) => {
       <div className="hx-top" data-after-lines>
         <span className="tag">NC State solar vehicle team · Raleigh, NC</span>
         <span className="tag live">
-          {cd ? `${NEXT_RACE.name} in ${cd.d}d ${pad(cd.h)}:${pad(cd.m)}:${pad(cd.s)}` : build ? `Shop board · ${build.pct}% built` : 'Shop board · live'}
+          {cd ? `${NEXT_RACE.name} in ${cd.d}d ${pad(cd.h)}:${pad(cd.m)}:${pad(cd.s)}` : `Fenrir · ${BUILT_PCT}% built`}
         </span>
       </div>
       <h1 id="hx-title" className="hx-title display lines">
@@ -283,36 +262,28 @@ const Numbers = () => {
   )
 }
 
-const ShopBoard = ({ build }) => {
+const ShopBoard = () => {
   const session = useSession()
   const live = session && session.status !== 'ended'
   return (
     <section className="board" aria-labelledby="board-title">
       <div className="board-head">
         <div>
-          <span className={`tag ${build ? 'live' : ''}`}>Shop board · live from Supabase</span>
+          <span className="tag">Shop board</span>
           <h2 id="board-title" className="sec-head">In the shop</h2>
         </div>
         <div className="board-pct">
-          <span className="display">{build ? build.pct : '—'}<small>%</small></span>
-          <span className="mono muted">{build ? `${build.done} of ${build.total} projects done` : 'Connecting to the shop board'}</span>
+          <span className="display">{BUILT_PCT}<small>%</small></span>
+          <span className="mono muted">Of Fenrir built</span>
         </div>
       </div>
       <div className="board-grid">
-        {SUBTEAMS.map((t) => {
-          const b = build?.byTeam?.[t.id]
-          const pct = b && b.total ? Math.round((b.done / b.total) * 100) : 0
-          return (
-            <article key={t.id} className="board-cell" data-reveal>
-              <header>
-                <h3>{t.name}</h3>
-                <span className="mono">{b ? `${b.done}/${b.total}` : '—'}</span>
-              </header>
-              <div className="board-bar" aria-hidden="true"><i style={{ width: `${pct}%` }} /></div>
-              <ul>{t.projects.slice(0, 3).map((p) => <li key={p}>{p.split(':')[0]}</li>)}</ul>
-            </article>
-          )
-        })}
+        {SUBTEAMS.map((t) => (
+          <article key={t.id} className="board-cell" data-reveal>
+            <header><h3>{t.name}</h3></header>
+            <ul>{t.projects.slice(0, 3).map((p) => <li key={p}>{p.split(':')[0]}</li>)}</ul>
+          </article>
+        ))}
         <Link to="/telemetry" className="board-cell board-tlm">
           <header>
             <h3>Telemetry</h3>
@@ -414,7 +385,6 @@ const Partners = () => {
 }
 
 const Home = () => {
-  const build = useBuild()
   useEffect(() => {
     document.title = 'SolarPack · Fenrir, car 99 · NC State solar car team'
     const t = setTimeout(() => ScrollTrigger.refresh(), 800)
@@ -422,13 +392,13 @@ const Home = () => {
   }, [])
   return (
     <>
-      <Hero build={build} />
+      <Hero />
       <Manifesto />
       <Rail />
       <Timeline />
       <HallOfFame />
       <Numbers />
-      <ShopBoard build={build} />
+      <ShopBoard />
       <RoadAhead />
       <Alumni />
       <Partners />

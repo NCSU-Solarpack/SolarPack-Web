@@ -171,6 +171,9 @@ export const FOOTER = {
 // Set a date (ISO string) to show a live countdown in the hero. TODO: next race name and date.
 export const NEXT_RACE = { name: 'Formula Sun Grand Prix', date: null }
 
+// How much of Fenrir is built, set by hand. The project tracker can read 100% when the car is not.
+export const BUILT_PCT = 90
+
 export const MANIFESTO = 'NC State’s first solar team and set the fastest lap in Formula Sun history.'
 
 export const RAIL = [

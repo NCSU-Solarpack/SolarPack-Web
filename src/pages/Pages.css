@@ -9,7 +9,8 @@
 .site .stage-scroll { display: grid; gap: 64px; }
 .site .semester h2 { font-size: clamp(1.75rem, 1.1rem + 2.4vw, 3.25rem); margin-bottom: 20px; }
 .site .semester ul { list-style: none; padding: 0; display: grid; gap: 6px; }
-.site .semester li { display: grid; grid-template-columns: minmax(10ch, 2fr) 3fr; gap: 16px; background: var(--paper-2); padding: 14px 18px; }
+.site .semester li { display: grid; grid-template-columns: minmax(10ch, 2fr) 3fr; gap: 16px; background: var(--paper-2); color: var(--ink); padding: 14px 18px; }
+.site .semester li span { color: #555; }
 .site .semester li b { font-weight: 500; }
 .site .stage-end { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
 
