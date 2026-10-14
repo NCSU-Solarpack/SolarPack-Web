@@ -293,7 +293,8 @@ body:has(.site) {
 .site-footer.on .lights-out i:nth-child(3) { transition-delay: 600ms; }
 .site-footer.on .lights-out i:nth-child(4) { transition-delay: 900ms; }
 .site-footer.on .lights-out i:nth-child(5) { transition-delay: 1200ms; }
-.site-footer .big { font-size: var(--step-mega); line-height: 0.82; letter-spacing: -0.045em; }
+/* Sized to the footer width so "SolarPack." (about 8em wide) never clips. */
+.site-footer .big { font-size: min(var(--step-mega), calc((100vw - 2 * var(--m)) / 8.5)); line-height: 0.82; letter-spacing: -0.045em; }
 .site-footer .big span { display: block; }
 .site-footer .row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; margin-top: 64px; align-items: end; }
 .site-footer .cta { grid-column: 1 / span 5; display: grid; gap: 20px; justify-items: start; }
