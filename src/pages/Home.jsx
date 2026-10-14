@@ -330,11 +330,7 @@ const RoadAhead = () => (
   <section className="ahead" aria-labelledby="ahead-title">
     <figure className="ahead-photo" data-reveal><Img p={PHOTOS.nightHeadlights} sizes="(max-width: 900px) 100vw, 45vw" /></figure>
     <div className="ahead-copy">
-      <span className="tag">The road ahead</span>
-      <blockquote className="ahead-quote">
-        <p className="display">“{ROAD_AHEAD.quotes[0].text}”</p>
-        <footer className="mono muted">{ROAD_AHEAD.quotes[0].who}</footer>
-      </blockquote>
+      <h2 id="ahead-title" className="sec-head">{ROAD_AHEAD.heading}</h2>
       <ol className="ahead-list">
         {ROAD_AHEAD.items.map((t, i) => (
           <li key={t} data-reveal style={{ '--d': i }}><span className="mono red">{String(i + 1).padStart(2, '0')}</span>{t}</li>
