@@ -43,14 +43,14 @@ export const HERO = {
 // TODO: the notes say the old "Our Mission" was inaccurate; confirm this wording with the team.
 // From the 2025-26 sponsorship packet
 export const MISSION = {
-  text: 'University solar cars are usually small, flat and seat one. We build solar cars with room for a family and the power for the highway: cars you could see yourself in.',
+  text: 'University solar cars are usually small, flat and seat one. Fenrir seats two and has the power for the highway: a solar car you could see yourself in.',
   careers: 'Members who built our cars in-house have gone on to full-time roles at Apple, Tesla, GM and Denso.',
 }
 
 export const STATS = {
   heading: 'By the numbers',
   items: [
-    { figure: '80+', caption: 'students build, wire and race the car' },
+    { figure: '86', caption: 'students build, wire and race the car' },
     { figure: '13.6 kWh', caption: 'battery pack we built by hand' }, // TODO: confirm figure and what "420" means in the notes
     { figure: '2 seats', caption: 'Fenrir carries a passenger' },
   ],
