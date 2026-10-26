@@ -143,6 +143,19 @@ export const ROAD_AHEAD = {
   ],
 }
 
+// Sponsors on the door, in display order. Logos live in public/sponsors/.
+// Sponsors added later through the admin dashboard still show up after these.
+export const SPONSORS = [
+  { name: 'Parker Lord', logo: '/sponsors/parker-lord.png', website: 'https://www.lord.com/' },
+  { name: 'Cadence', logo: '/sponsors/cadence.png', website: 'https://www.cadence.com/' },
+  { name: '8MSolar', logo: '/sponsors/8msolar.jpg', website: 'https://8msolar.com/' },
+  { name: 'ThermaTech Innovations', logo: '/sponsors/thermatech-innovations.png', website: 'https://thermatechnology.com/' },
+  { name: 'Altium', logo: '/sponsors/altium.png', website: 'https://www.altium.com/' },
+  { name: "Engineers' Council", logo: '/sponsors/engineers-council.png', website: 'https://orgs.ncsu.edu/engineers-council/' },
+  { name: 'NC State Student Government', logo: '/sponsors/nc-state-student-government.png', website: 'https://orgs.ncsu.edu/student-govt/' },
+  { name: 'NC State MAE', logo: '/sponsors/nc-state-mae.png', website: 'https://mae.ncsu.edu/' },
+]
+
 // Funding needs. "Everything" is the honest answer; these are the specifics.
 export const NEEDS = {
   word: 'Needs',

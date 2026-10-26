@@ -2,14 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabaseService } from '../utils/supabase'
 import PageHero from '../components/PageHero'
-import { PHOTOS, NEEDS, SUBTEAMS, LINKS } from '../content/site'
+import { PHOTOS, NEEDS, SUBTEAMS, LINKS, SPONSORS } from '../content/site'
 import './Sponsors.css'
 
 const sponsorMail = `mailto:${LINKS.email}?subject=${encodeURIComponent('Sponsoring SolarPack')}&body=${encodeURIComponent('Hi SolarPack,\n\nWe are interested in sponsoring Fenrir. Please send the sponsorship packet.\n\n')}`
 
 const Sponsors = () => {
-  const [sponsors, setSponsors] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [sponsors, setSponsors] = useState(SPONSORS)
 
   useEffect(() => {
     document.title = 'SolarPack · Sponsors'
@@ -17,12 +16,12 @@ const Sponsors = () => {
       try {
         const data = await supabaseService.getSponsors()
         // Tiers are internal only; the public page shows one flat list.
-        setSponsors((data.sponsorTiers || []).flatMap((t) => t.sponsors || []))
+        // The list in site.js comes first; Supabase only adds sponsors it doesn't already have.
+        const known = new Set(SPONSORS.map((s) => s.name.toLowerCase()))
+        const extra = (data.sponsorTiers || []).flatMap((t) => t.sponsors || []).filter((s) => !known.has(s.name.toLowerCase()))
+        if (extra.length) setSponsors([...SPONSORS, ...extra])
       } catch (e) {
         console.error('Error loading sponsors from Supabase', e)
-        setSponsors([])
-      } finally {
-        setLoading(false)
       }
     }
     load()
@@ -42,10 +41,6 @@ const Sponsors = () => {
         <h2 id="door-title" className="sec-head">On the door</h2>
         <div className="plate">
           <p className="door-cue">Pull to open ↓</p>
-          {loading && <p className="state">Loading sponsors…</p>}
-          {!loading && sponsors.length === 0 && (
-            <p className="state">Sponsor logos are on their way. Yours could be first.</p>
-          )}
           {sponsors.length > 0 && (
             <ul className="logos">
               {sponsors.map((s) => {
